@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GarimpoPC ⛏️
 
-## Getting Started
+Comparador de preços de **hardware gamer no Brasil**, com histórico de preços, lojas
+confiáveis (anti-golpe) e alertas de queda de preço.
 
-First, run the development server:
+> Projeto em desenvolvimento. Documento de premissas em `../projeto-comparador-hardware.md`.
+
+## O que o site faz
+
+- 🔎 **Busca** por peça, marca ou categoria (placa de vídeo, processador, RAM, SSD, etc.)
+- 📈 **Histórico de preços** em gráfico — mostra se a promoção é real
+- ⚖️ **Comparação entre lojas** (preço PIX vs. parcelado)
+- 🛡️ **Selo de confiança** das lojas (reputação, oficial)
+- 🔔 **Alertas de preço** por e-mail (login opcional)
+- 🔥 **Mais procuradas** (popularidade real + destaques)
+- 🤖 **Coleta automática** de preços (robô que lê as lojas)
+
+## Tecnologias
+
+- **Next.js 16** (React 19) + **TypeScript** + **Tailwind CSS** — site
+- **Supabase** (PostgreSQL + Auth) — banco de dados e login
+- **Recharts** — gráficos · **Resend** — e-mails · **Playwright** — coleta
+
+## Organização do código (estilo MVC)
+
+- `src/models/` — dados: tipos, conexão com o banco (Supabase), categorias
+- `src/services/` — lógica: produtos/busca, popularidade, e-mail
+- `src/app/` + `src/components/` — telas e componentes (a "View")
+- `src/app/auth/`, `src/app/account/` — ações de login e de conta
+- `src/lib/` — utilidades (formatação)
+- `scripts/` — coleta de preços (`npm run collect`)
+- `supabase/` — scripts SQL do banco
+
+## Rodar localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # e preencha com suas chaves do Supabase
+npm run dev                  # abre em http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Banco de dados
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Rode os scripts da pasta `supabase/` no SQL Editor do Supabase, nesta ordem:
+`schema.sql` → `seed.sql` → `schema-auth.sql` → `schema-popularity.sql` → `seed-extras.sql`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Coleta de preços
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run collect:dry   # testa sem gravar
+npm run collect       # coleta de verdade (requer SUPABASE_SERVICE_ROLE_KEY)
+```

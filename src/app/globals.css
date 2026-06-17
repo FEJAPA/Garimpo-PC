@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Identidade visual do GarimpoPC — tema "gamer escuro + neon".
+  - Fundo escuro (cara de painel de PC gamer)
+  - Roxo/ciano como cor da marca
+  - Verde = preço bom / oferta (você "garimpou" ouro)
+  - Âmbar = atenção / parcelado
+  As cores ficam como variáveis para o Tailwind usar (ex.: bg-brand, text-good).
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Fundos (do mais escuro ao mais claro) */
+  --color-base: #0b0d17; /* fundo da página */
+  --color-surface: #151829; /* cartões / superfícies */
+  --color-surface-2: #1d2236; /* superfícies elevadas / hover */
+  --color-line: #2a3050; /* bordas */
+
+  /* Texto */
+  --color-ink: #eef1ff; /* texto principal */
+  --color-ink-muted: #9aa3c7; /* texto secundário */
+  --color-ink-faint: #6b73a0; /* texto fraco / legendas */
+
+  /* Marca (roxo → ciano) */
+  --color-brand: #7c5cff; /* roxo neon principal */
+  --color-brand-strong: #9d7bff;
+  --color-accent: #22d3ee; /* ciano neon (destaques) */
+
+  /* Semânticas */
+  --color-good: #34d399; /* preço bom / em estoque / confiável */
+  --color-good-soft: #0f2e22;
+  --color-warn: #fbbf24; /* atenção / parcelado */
+  --color-warn-soft: #2e2410;
+  --color-bad: #f87171; /* indisponível / pouco confiável */
+  --color-bad-soft: #2e1414;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  /* Brilho sutil de fundo, dando profundidade "neon". */
+  background-image:
+    radial-gradient(60rem 60rem at 15% -10%, rgba(124, 92, 255, 0.12), transparent 60%),
+    radial-gradient(50rem 50rem at 110% 0%, rgba(34, 211, 238, 0.1), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Pequena classe utilitária para texto com gradiente da marca. */
+.text-gradient {
+  background-image: linear-gradient(90deg, var(--color-brand-strong), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Efeito de brilho ao passar o mouse em cartões. */
+.glow-hover {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.glow-hover:hover {
+  border-color: color-mix(in oklab, var(--color-brand) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 35%, transparent),
+    0 8px 30px -10px color-mix(in oklab, var(--color-brand) 50%, transparent);
 }
