@@ -17,7 +17,7 @@
 // que considere trocas entre categorias também no rebaixamento e nas subidas
 // (hoje a subida de CPU mantém a placa-mãe), e a resolução-alvo.
 
-import type { Category, OfferWithStore, ProductWithOffers } from "@/models/types";
+import type { Category, OfferWithStore, ProductWithOffers, Store } from "@/models/types";
 import type {
   BuildContext,
   BuildFailure,
@@ -31,8 +31,8 @@ import type {
 import { categoryLabel } from "@/models/categories";
 import { formatBRL } from "@/lib/format";
 import { normalizeBudget } from "./budget";
-import { validOffers } from "./trust";
-import { flagSuspiciousOffers } from "./suspicious";
+import { isTrustedStore, validOffers } from "./trust";
+import { suspiciousPrice } from "./suspicious";
 import { categoryShares, partUtility } from "./scoring";
 import { hasRequiredSpec, isCompatible } from "./compatibility";
 import { estimatePerformance } from "./performance";
@@ -70,22 +70,71 @@ function maisBarata(ofertas: OfferWithStore[]): OfferWithStore {
   return ofertas.reduce((melhor, o) => (o.price_pix < melhor.price_pix ? o : melhor));
 }
 
+/** Marca de oferta suspeita: id da oferta → motivo (mesmo formato de `flagSuspiciousOffers`). */
+export type SuspicionCheck = (product: ProductWithOffers) => Map<string, { reason: string }>;
+
+/**
+ * Confiança da loja com cache por id. Por quê: `isTrustedStore` monta os textos
+ * dos motivos (com `toLocaleString`) a cada chamada e custa dezenas de µs; com
+ * 150 peças por categoria e várias ofertas por peça, isso sozinho passava de
+ * 200 ms. A loja é a mesma em todas as ofertas dela, então basta perguntar uma vez.
+ */
+function makeTrustCache(): (store: Store) => boolean {
+  const cache = new Map<string, boolean>();
+  return (store) => {
+    let v = cache.get(store.id);
+    if (v === undefined) {
+      v = isTrustedStore(store);
+      cache.set(store.id, v);
+    }
+    return v;
+  };
+}
+
+/**
+ * Ofertas válidas e suspeitas de uma peça, com a confiança em cache.
+ *
+ * Equivale a `validOffers(product, trustedOnly)` + `flagSuspiciousOffers(product)`
+ * (C3): parte de `validOffers(product, false)` (estoque, preço, bloqueio), aplica o
+ * filtro de confiança e marca, entre as lojas NÃO confiáveis, as que ficam 25% ou
+ * mais abaixo da mediana das confiáveis (`suspiciousPrice`). O teste
+ * "equivale às regras de trust.ts/suspicious.ts" confere isso no catálogo inteiro.
+ * TODO(V2-B): quando `isTrustedStore` ficar barato (cache em trust.ts), voltar a
+ * chamar `flagSuspiciousOffers` direto.
+ */
+function ofertasDaPeca(
+  product: ProductWithOffers,
+  trustedOnly: boolean,
+  confiavel: (store: Store) => boolean
+): { validas: OfferWithStore[]; suspeitas: Map<string, { reason: string }> } {
+  const todas = validOffers(product, false);
+  const validas = trustedOnly ? todas.filter((o) => confiavel(o.store)) : todas;
+  const suspeitas = new Map<string, { reason: string }>();
+  const precosConfiaveis = todas.filter((o) => confiavel(o.store)).map((o) => o.price_pix);
+  if (precosConfiaveis.length > 0) {
+    for (const o of todas) {
+      if (confiavel(o.store)) continue;
+      const flag = suspiciousPrice(o.price_pix, precosConfiaveis);
+      if (flag) suspeitas.set(o.id, flag);
+    }
+  }
+  return { validas, suspeitas };
+}
+
 /**
  * A oferta que o Montador usa para uma peça (R-01): a válida mais barata que
  * NÃO é suspeita. Se todas as válidas forem suspeitas, usa a mais barata e
  * devolve o motivo, para a montagem avisar a pessoa.
  */
 function escolherOferta(
-  product: ProductWithOffers,
-  trustedOnly: boolean
+  validas: OfferWithStore[],
+  suspeitas: Map<string, { reason: string }>
 ): { offer: OfferWithStore; suspicious?: { reason: string } } | null {
-  const validas = validOffers(product, trustedOnly);
   if (validas.length === 0) return null;
-  const marcadas = flagSuspiciousOffers(product);
-  const limpas = validas.filter((o) => !marcadas.has(o.id));
+  const limpas = validas.filter((o) => !suspeitas.has(o.id));
   if (limpas.length > 0) return { offer: maisBarata(limpas) };
   const offer = maisBarata(validas);
-  const flag = marcadas.get(offer.id);
+  const flag = suspeitas.get(offer.id);
   return flag ? { offer, suspicious: { reason: flag.reason } } : { offer };
 }
 
@@ -94,21 +143,27 @@ function escolherOferta(
  * completa (`hasRequiredSpec`) da MESMA categoria do produto e ao menos uma
  * oferta válida. Peça sem spec (ou com spec ruim) é contada em `ignored`,
  * mesmo que esteja sem estoque, porque o problema é do cadastro, não da loja.
+ * `check` (opcional) troca o detector de oferta suspeita; existe para testar o
+ * caso "só há ofertas suspeitas", que a regra atual de C3 nunca produz (a loja
+ * confiável nunca é marcada), mas que o Montador precisa tratar se a regra mudar.
  */
 export function collectCandidates(
   products: ProductWithOffers[],
   specs: Record<string, PartSpec>,
-  trustedOnly: boolean
+  trustedOnly: boolean,
+  check?: SuspicionCheck
 ): { candidates: CandidatesByCategory; ignored: IgnoredParts } {
   const candidates = emptyCandidates();
   const ignorados = new Set<string>();
+  const confiavel = makeTrustCache();
   for (const product of products) {
     const spec = specs[product.slug];
     if (!spec || spec.category !== product.category || !hasRequiredSpec(spec)) {
       ignorados.add(product.slug);
       continue;
     }
-    const escolha = escolherOferta(product, trustedOnly);
+    const { validas, suspeitas } = ofertasDaPeca(product, trustedOnly, confiavel);
+    const escolha = escolherOferta(validas, check ? check(product) : suspeitas);
     if (!escolha) continue;
     const cand: Candidate = { product, offer: escolha.offer, spec, price: escolha.offer.price_pix };
     if (escolha.suspicious) cand.suspicious = escolha.suspicious;
@@ -265,7 +320,11 @@ function fixedOf(parts: Candidate[]): Fixed {
 export function cheapestCompatibleBuild(
   cands: CandidatesByCategory
 ): { parts: BuildPart[]; total: number } | null {
-  const plan = makePlanner(cands).completar({});
+  return cheapestFrom(makePlanner(cands));
+}
+
+function cheapestFrom(planner: Planner): { parts: BuildPart[]; total: number } | null {
+  const plan = planner.completar({});
   if (!plan || !allCompatible(plan.parts)) return null;
   return { parts: toBuildParts(plan.parts), total: plan.total };
 }
@@ -462,6 +521,16 @@ function notaDaTroca(u: Upgrade): string {
   return `Subimos ${ARTIGO[u.category]} ${lower(u.category)}: ${u.from.product.name} → ${u.to.product.name}, por mais ${formatBRL(u.priceDelta)}${fonte}${ganho}.`;
 }
 
+/** R-01: cada peça que veio de oferta "boa demais" gera um aviso (nunca passa em silêncio). */
+export function suspicionNotes(parts: BuildPart[]): string[] {
+  return parts
+    .filter((p) => p.suspicious)
+    .map(
+      (p) =>
+        `Atenção: ${ARTIGO[p.category]} ${lower(p.category)} veio de uma oferta com preço bom demais na loja ${p.offer.store.name} — confira antes de pagar.`
+    );
+}
+
 function fail(reason: string): BuildFailure {
   return { ok: false, reason };
 }
@@ -490,7 +559,7 @@ export function autoBuild(
 
   // 2) Existe alguma montagem compatível que caiba no teto?
   const planner = makePlanner(cands);
-  const cheapest = cheapestCompatibleBuild(cands);
+  const cheapest = cheapestFrom(planner);
   if (!cheapest) {
     return fail("Não encontramos uma combinação compatível de peças no catálogo atual.");
   }
@@ -542,13 +611,7 @@ export function autoBuild(
 
   const buildParts = toBuildParts(parts);
 
-  // R-01: peça que veio de oferta "boa demais" nunca passa em silêncio.
-  const avisos = buildParts
-    .filter((p) => p.suspicious)
-    .map(
-      (p) =>
-        `Atenção: ${ARTIGO[p.category]} ${lower(p.category)} veio de uma oferta com preço bom demais na loja ${p.offer.store.name} — confira antes de pagar.`
-    );
+  const avisos = suspicionNotes(buildParts);
 
   // LOG-04: a pessoa precisa saber que parte do catálogo ficou de fora.
   if (ignored.count > 0) {

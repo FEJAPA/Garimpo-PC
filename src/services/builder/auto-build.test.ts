@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { autoBuild, cheapestCompatibleBuild, buildCandidates, collectCandidates } from "./auto-build";
+import { describe, it, expect } from "vitest";
+import { autoBuild, cheapestCompatibleBuild, buildCandidates, collectCandidates, suspicionNotes } from "./auto-build";
 import { MOCK_PRODUCTS } from "@/models/mock-data";
 import { PART_SPECS } from "@/models/part-specs";
 import { INSTALLMENT_TABLES } from "@/models/installment-tables";
 import { REFERENCE_BUILDS } from "@/models/reference-builds";
 import { isCompatible } from "./compatibility";
-import { isTrustedStore } from "./trust";
+import { isTrustedStore, validOffers } from "./trust";
+import { flagSuspiciousOffers } from "./suspicious";
 import {
   makeProduct,
+  makePart,
   LOJA_KABUM,
   LOJA_PICHAU,
   LOJA_DUVIDOSA,
@@ -16,25 +18,6 @@ import {
 } from "./test-fixtures";
 import type { BuildPreferences, BuildSuccess, PartSpec, UsageProfile } from "@/models/builder-types";
 import type { Category, ProductWithOffers } from "@/models/types";
-
-// Permite que um teste force o resultado de `flagSuspiciousOffers` (o caso
-// "só existe oferta suspeita" não acontece com a regra atual de C3, porque a
-// oferta de loja confiável nunca é marcada; o Montador precisa se defender
-// mesmo assim). Sem `override`, vale a função de verdade.
-const suspeitas = vi.hoisted(() => ({
-  override: null as null | ((p: ProductWithOffers) => Map<string, { reason: string }>),
-}));
-vi.mock("./suspicious", async (importOriginal) => {
-  const real = await importOriginal<typeof import("./suspicious")>();
-  return {
-    ...real,
-    flagSuspiciousOffers: (p: ProductWithOffers) =>
-      suspeitas.override ? suspeitas.override(p) : real.flagSuspiciousOffers(p),
-  };
-});
-afterEach(() => {
-  suspeitas.override = null;
-});
 
 const CATEGORIAS: Category[] = ["gpu", "cpu", "motherboard", "ram", "ssd", "psu", "case"];
 
@@ -264,30 +247,31 @@ describe("oferta suspeita no Montador (R-01)", () => {
     ...RESTO,
   ];
   const { produtos, specs } = catalogo(lista, { gpu: 1000, cpu: 500, ...PRECOS_RESTO });
-  // A GPU só tem ofertas de marketplace, e o teste força as duas como suspeitas.
+  // A GPU só tem ofertas de marketplace, e o detector de teste marca as duas.
+  // (Com a regra atual de C3 isso não acontece: a loja confiável nunca é marcada.)
   const gpuSo = makeProduct("gpu", "gpu", [
     { store: LOJA_DUVIDOSA, price: 700 },
     { store: { ...LOJA_DUVIDOSA, id: "outra", name: "Outra Loja" }, price: 650 },
   ]);
   const catalogoSuspeito = produtos.map((p) => (p.slug === "gpu" ? gpuSo : p));
+  const tudoSuspeito = (p: ProductWithOffers) =>
+    new Map(p.slug === "gpu" ? p.offers.map((o) => [o.id, { reason: "teste: bem abaixo da mediana" }]) : []);
 
   it("se todas as ofertas válidas são suspeitas, usa a mais barata e marca o motivo", () => {
-    suspeitas.override = (p) =>
-      new Map(p.slug === "gpu" ? p.offers.map((o) => [o.id, { reason: "teste: bem abaixo da mediana" }]) : []);
-    const cands = buildCandidates(catalogoSuspeito, specs, false);
-    expect(cands.gpu).toHaveLength(1);
-    expect(cands.gpu[0].offer.store.id).toBe("outra");
-    expect(cands.gpu[0].suspicious).toEqual({ reason: "teste: bem abaixo da mediana" });
+    const { candidates } = collectCandidates(catalogoSuspeito, specs, false, tudoSuspeito);
+    expect(candidates.gpu).toHaveLength(1);
+    expect(candidates.gpu[0].offer.store.id).toBe("outra");
+    expect(candidates.gpu[0].price).toBe(650);
+    expect(candidates.gpu[0].suspicious).toEqual({ reason: "teste: bem abaixo da mediana" });
+  });
 
-    const r = autoBuild(catalogoSuspeito, specs, prefs(3000, 3000, 0, false));
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    const gpu = r.parts.find((p) => p.category === "gpu")!;
-    expect(gpu.suspicious?.reason).toBe("teste: bem abaixo da mediana");
-    const nota = r.notes.find((n) => n.startsWith("Atenção"));
-    expect(nota).toBe(
-      "Atenção: a placa de vídeo veio de uma oferta com preço bom demais na loja Outra Loja — confira antes de pagar."
-    );
+  it("peça escolhida de oferta suspeita gera aviso com a loja", () => {
+    const spec: PartSpec = { slug: "gpu", category: "gpu", perf: 100, aesthetics: 50, tdp: 100 };
+    const suspeita = { ...makePart(spec, { store: { ...LOJA_DUVIDOSA, name: "Outra Loja" }, price: 650 }), suspicious: { reason: "x" } };
+    const limpa = makePart({ ...RESTO[1] }, { store: LOJA_KABUM, price: 200 });
+    expect(suspicionNotes([suspeita, limpa])).toEqual([
+      "Atenção: a placa de vídeo veio de uma oferta com preço bom demais na loja Outra Loja — confira antes de pagar.",
+    ]);
   });
 
   it("prefere a oferta não suspeita mesmo que seja mais cara", () => {
@@ -295,10 +279,35 @@ describe("oferta suspeita no Montador (R-01)", () => {
       { store: LOJA_DUVIDOSA, price: 600 },
       { store: LOJA_PICHAU, price: 1000 },
     ]);
-    suspeitas.override = (p) => new Map(p.slug === "gpu" ? [[p.offers[0].id, { reason: "suspeita" }]] : []);
-    const cands = buildCandidates(produtos.map((p) => (p.slug === "gpu" ? misto : p)), specs, false);
-    expect(cands.gpu[0].offer.store.id).toBe("pichau");
-    expect(cands.gpu[0].suspicious).toBeUndefined();
+    const marcaPrimeira = (p: ProductWithOffers) =>
+      new Map(p.slug === "gpu" ? [[p.offers[0].id, { reason: "suspeita" }]] : []);
+    const { candidates } = collectCandidates(produtos.map((p) => (p.slug === "gpu" ? misto : p)), specs, false, marcaPrimeira);
+    expect(candidates.gpu[0].offer.store.id).toBe("pichau");
+    expect(candidates.gpu[0].suspicious).toBeUndefined();
+  });
+
+  it("equivale às regras de trust.ts/suspicious.ts (validOffers + flagSuspiciousOffers)", () => {
+    const sintetico = syntheticCatalog(40, 99);
+    for (const [products, specs] of [[MOCK_PRODUCTS, PART_SPECS], [sintetico.products, sintetico.specs]] as const) {
+      for (const trusted of [true, false]) {
+        const cands = Object.values(buildCandidates(products, specs, trusted)).flat();
+        const porSlug = new Map(cands.map((c) => [c.product.slug, c]));
+        for (const p of products) {
+          const validas = validOffers(p, trusted);
+          const flags = flagSuspiciousOffers(p);
+          const c = porSlug.get(p.slug);
+          if (validas.length === 0) {
+            expect(c).toBeUndefined();
+            continue;
+          }
+          const limpas = validas.filter((o) => !flags.has(o.id));
+          const base = limpas.length > 0 ? limpas : validas;
+          const esperada = base.reduce((m, o) => (o.price_pix < m.price_pix ? o : m));
+          expect(c?.offer.id).toBe(esperada.id);
+          expect(c?.suspicious?.reason).toBe(limpas.length > 0 ? undefined : flags.get(esperada.id)?.reason);
+        }
+      }
+    }
   });
 });
 
