@@ -404,9 +404,10 @@ placa-mãe é a média das duas, pesada pelas fatias de cada uma:
 
 `isCompatible` só verifica pares em que as duas peças já foram escolhidas. Por isso o Montador só
 aceita peças com a ficha completa (`hasRequiredSpec`): placa de vídeo e processador precisam de
-`tdp` e `perf` maiores que zero, o processador de `socket`, a placa-mãe de `socket`, `ramType` e
-`formFactor`, a memória de `ramType`, o gabinete de `caseSupports`, a fonte de `wattage` e o SSD de
-`perf`; todas precisam de categoria conhecida e `aesthetics` entre 0 e 100.
+`tdp` maior que zero, o processador de `socket`, a placa-mãe de `socket`, `ramType` e `formFactor`,
+a memória de `ramType`, o gabinete de `caseSupports` e a fonte de `wattage`; todas precisam de
+categoria conhecida, `perf` maior que zero e `aesthetics` entre 0 e 100. A mesma regra vale na
+leitura do banco (`specs.ts`) e no coletor (`collect-specs.mjs`).
 
 ### 8.4 Ganho mínimo de 10% (`MIN_UPGRADE_GAIN = 1.1`)
 

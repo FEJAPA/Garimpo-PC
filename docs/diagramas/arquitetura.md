@@ -164,7 +164,7 @@ O que muda sem Supabase, e o que acontece com banco quando falta dado:
 
 | Área | Sem as chaves do Supabase | Com Supabase, mas erro ou tabela vazia |
 |---|---|---|
-| Catálogo (`getProducts`) | `MOCK_PRODUCTS` e `MOCK_HISTORY` | Lista vazia; `/montar` mostra "Catálogo vazio" |
+| Catálogo (`getProducts`) | `MOCK_PRODUCTS` e `MOCK_HISTORY` | Lista vazia; `/montar` mostra "Catálogo indisponível" |
 | Specs (`getPartSpecs`) | `PART_SPECS` | `{}`; `/montar` mostra "Sem especificações cadastradas" e as peças são ignoradas |
 | PCs de referência (`getReferenceBuilds`) | Os 12 de `REFERENCE_BUILDS` | `[]`; o painel de desempenho diz que não há referências e não mostra FPS |
 | Juros (`getInstallmentTables`) | `INSTALLMENT_TABLES` | `{}`; vale o preço parcelado de cada oferta |
