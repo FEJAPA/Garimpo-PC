@@ -2,6 +2,8 @@
 
 // Gráfico de barras horizontais: a montagem da pessoa (ouro) entre os PCs de
 // referência (cinza). Forma "ênfase" (dataviz): uma cor para a série que importa.
+// V2 (pacote D): os "PCs parecidos com o seu" ficam num cinza um passo mais claro
+// (a ênfase continua única) e a legenda abaixo diz o que cada tom significa.
 
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ReferenceBuild } from "@/models/builder-types";
@@ -10,6 +12,8 @@ import { formatBRL } from "@/lib/format";
 const COR = {
   enfase: "#f0b43a",
   contexto: "#626877",
+  /** Um passo mais claro que o contexto: PCs parecidos (não compete com o ouro). */
+  parecido: "#8b8e99",
   grade: "#2b2f3a",
   eixo: "#8b8e99",
   texto: "#f2efe6",
@@ -17,12 +21,43 @@ const COR = {
   superficie2: "#1c1f26",
 };
 
-type Linha = { id: string; name: string; score: number; parts: string; approxPrice: number | null; sua: boolean };
+type Linha = {
+  id: string;
+  name: string;
+  score: number;
+  parts: string;
+  approxPrice: number | null;
+  sua: boolean;
+  parecido: boolean;
+};
 
-export function PerformanceChart({ score, references }: { score: number; references: ReferenceBuild[] }) {
+function corDaLinha(l: Linha): string {
+  if (l.sua) return COR.enfase;
+  return l.parecido ? COR.parecido : COR.contexto;
+}
+
+export function PerformanceChart({
+  score,
+  references,
+  similarIds = [],
+}: {
+  score: number;
+  references: ReferenceBuild[];
+  /** Ids dos PCs parecidos (closestReferences), destacados de leve. */
+  similarIds?: string[];
+}) {
+  const parecidos = new Set(similarIds);
   const linhas: Linha[] = [
-    ...references.map((r) => ({ id: r.id, name: r.name, score: r.score, parts: r.parts, approxPrice: r.approxPrice, sua: false })),
-    { id: "sua", name: "Sua montagem", score, parts: "", approxPrice: null, sua: true },
+    ...references.map((r) => ({
+      id: r.id,
+      name: r.name,
+      score: r.score,
+      parts: r.parts,
+      approxPrice: r.approxPrice,
+      sua: false,
+      parecido: parecidos.has(r.id),
+    })),
+    { id: "sua", name: "Sua montagem", score, parts: "", approxPrice: null, sua: true, parecido: false },
   ].sort((a, b) => b.score - a.score);
 
   const max = Math.max(...linhas.map((l) => l.score));
@@ -58,7 +93,10 @@ export function PerformanceChart({ score, references }: { score: number; referen
                   <p className="tnum font-semibold text-ink">
                     {l.score} <span className="font-normal text-ink-muted">· índice</span>
                   </p>
-                  <p className="text-ink-muted">{l.name}</p>
+                  <p className="text-ink-muted">
+                    {l.name}
+                    {l.parecido && <span className="text-ink-faint"> · parecido com o seu</span>}
+                  </p>
                   {l.parts && <p className="text-xs text-ink-faint">{l.parts}</p>}
                   {l.approxPrice !== null && <p className="tnum text-xs text-ink-faint">≈ {formatBRL(l.approxPrice)}</p>}
                 </div>
@@ -67,7 +105,7 @@ export function PerformanceChart({ score, references }: { score: number; referen
           />
           <Bar dataKey="score" barSize={18} radius={[0, 4, 4, 0]} isAnimationActive={false}>
             {linhas.map((l) => (
-              <Cell key={l.id} fill={l.sua ? COR.enfase : COR.contexto} />
+              <Cell key={l.id} fill={corDaLinha(l)} />
             ))}
             <LabelList
               dataKey="score"
@@ -85,6 +123,21 @@ export function PerformanceChart({ score, references }: { score: number; referen
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted" aria-label="Legenda do gráfico">
+        <LegendaItem cor={COR.enfase} texto="Sua montagem" />
+        {parecidos.size > 0 && <LegendaItem cor={COR.parecido} texto="PCs parecidos com o seu" />}
+        <LegendaItem cor={COR.contexto} texto="Outros PCs de referência" />
+      </ul>
     </div>
+  );
+}
+
+/** Item de legenda: amostra da cor + texto (o texto nunca usa a cor da série). */
+function LegendaItem({ cor, texto }: { cor: string; texto: string }) {
+  return (
+    <li className="flex items-center gap-1.5">
+      <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: cor }} aria-hidden />
+      {texto}
+    </li>
   );
 }

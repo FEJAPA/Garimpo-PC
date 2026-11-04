@@ -1,8 +1,10 @@
 // Estimativa de desempenho da montagem, comparada com computadores de
 // referência. Spec §6.
 //
-// TODO(V2-D): usar benchmarks reais por jogo; considerar RAM (16 vs 32 GB),
-// resolução-alvo escolhida pela pessoa e tecnologias de upscaling (DLSS/FSR).
+// V2 (pacote D): "PCs parecidos" (closestReferences), penalidade de memória
+// (≤ 16 GB tira 8% nos AAA pesados) e nota de upscaling (DLSS/FSR).
+// TODO(V2-D): usar benchmarks reais por jogo e destacar a resolução-alvo
+// escolhida pela pessoa (BuildPreferences.resolution) na tela.
 
 import type {
   BuildPart,
@@ -62,6 +64,26 @@ export function closestReference(score: number, refs: ReferenceBuild[]): Referen
   );
 }
 
+/**
+ * As `n` referências de score mais próximo, da mais perto para a mais longe
+ * ("PCs parecidos com o seu"). Empate de distância: a de score menor primeiro.
+ * Não altera a lista recebida.
+ */
+export function closestReferences(score: number, refs: ReferenceBuild[], n = 3): ReferenceBuild[] {
+  if (n <= 0) return [];
+  return [...refs]
+    .sort((a, b) => Math.abs(a.score - score) - Math.abs(b.score - score) || a.score - b.score)
+    .slice(0, n);
+}
+
+/** Memória até este tamanho perde FPS em jogos pesados. */
+const RAM_APERTADA_GB = 16;
+/** Fator aplicado aos FPS de "aaa-pesado" com memória apertada (−8%). */
+const FATOR_RAM_APERTADA = 0.92;
+
+export const NOTA_RAM_16GB = "16 GB de memória: jogos pesados podem engasgar; 32 GB dá folga";
+export const NOTA_UPSCALING = "Com DLSS/FSR os FPS podem subir bastante em 1440p";
+
 /** Estimativa completa para as peças escolhidas. */
 export function estimatePerformance(
   parts: BuildPart[],
@@ -83,10 +105,23 @@ export function estimatePerformance(
   }
 
   const score = garimpoScore(gpuPerf, cpuPerf);
+  const fps = interpolateFps(score, refs);
+
+  // Memória: capacidade ausente = desconhecida (sem penalidade e sem nota).
+  const ram = parts.find((p) => p.category === "ram");
+  const ramGb = ram?.spec.capacityGb;
+  if (ramGb !== undefined && ramGb <= RAM_APERTADA_GB) {
+    for (const r of RESOLUTIONS) fps["aaa-pesado"][r] = Math.round(fps["aaa-pesado"][r] * FATOR_RAM_APERTADA);
+    notes.push(NOTA_RAM_16GB);
+  }
+
+  // Upscaling: só informa; os números continuam sem DLSS/FSR.
+  if (gpu?.spec.upscaling?.length) notes.push(NOTA_UPSCALING);
+
   return {
     score,
     closest: closestReference(score, refs),
-    fps: interpolateFps(score, refs),
+    fps,
     notes,
   };
 }

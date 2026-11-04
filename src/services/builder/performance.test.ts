@@ -141,7 +141,7 @@ describe("memória e upscaling na estimativa", () => {
 
   it("placa com DLSS/FSR ganha nota informativa sem mudar os números", () => {
     const gpuDlss = makePart(
-      { slug: "rtx-4060", category: "gpu", perf: 142, aesthetics: 50, upscaling: ["DLSS"] },
+      { slug: "gpu-dlss", category: "gpu", perf: 142, aesthetics: 50, upscaling: ["DLSS"] },
       { store: LOJA_KABUM, price: 1799.9 }
     );
     const est = estimatePerformance([gpuDlss, cpu], REFERENCE_BUILDS);
