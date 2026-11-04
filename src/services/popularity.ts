@@ -8,10 +8,15 @@
 //   2) Se não houver visitas suficientes, completa/usa os DESTAQUES manuais
 //      (coluna products.featured).
 //   3) Se nada disso existir (ex.: modo de exemplo), usa as primeiras peças.
+//
+// V2 (pacote G, R-12): as peças vindas do banco passam por normalizeProduct, para
+// a nota da loja e o Reclame Aqui chegarem como número (e `blocked` como boolean)
+// também na vitrine da home, como em products.ts.
 
 import { getSupabase } from "@/models/supabase";
 import { getAdminSupabase } from "@/models/supabase-admin";
 import { MOCK_PRODUCTS } from "@/models/mock-data";
+import { normalizeProduct } from "@/services/products";
 import type { ProductWithOffers } from "@/models/types";
 
 const SELECT = "*, offers(*, store:stores(*))";
@@ -37,7 +42,7 @@ export async function getPopularProducts(limit = 6): Promise<ProductWithOffers[]
 
   // 1) Mais visitadas nos últimos 30 dias (via a view popular_products).
   const populares = await maisVisitadas(limit);
-  if (populares.length >= limit) return populares;
+  if (populares.length >= limit) return populares.map(normalizeProduct);
 
   // 2) Completa com destaques manuais (featured), sem repetir.
   const jaTem = new Set(populares.map((p) => p.id));
@@ -68,7 +73,7 @@ export async function getPopularProducts(limit = 6): Promise<ProductWithOffers[]
     }
   }
 
-  return resultado;
+  return resultado.map(normalizeProduct);
 }
 
 /** Busca as peças mais visitadas (30 dias) que tenham ao menos 1 visita. */

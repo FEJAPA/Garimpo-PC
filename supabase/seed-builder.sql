@@ -1,6 +1,7 @@
--- Dados ILUSTRATIVOS do Montador (espelham src/models/part-specs.ts e
--- src/models/reference-builds.ts). Rode DEPOIS de seed-extras.sql e
--- schema-builder.sql. Pode rodar de novo (upsert).
+-- Dados ILUSTRATIVOS do Montador (espelham src/models/part-specs.ts). Rode DEPOIS de
+-- seed-extras.sql e schema-builder.sql. Pode rodar de novo (upsert).
+-- Os computadores de referência (reference_builds) NÃO são gravados aqui: a fonte é
+-- supabase/seed-references.sql.
 
 -- capacity_gb (ram, ssd) e upscaling (gpu) entraram na V2 (pacote A). A coluna
 -- source marca TODAS estas linhas como "ilustrativo (V1)": não são medições.
@@ -35,20 +36,3 @@ on conflict (product_id) do update set
   case_supports = excluded.case_supports, wattage = excluded.wattage,
   capacity_gb = excluded.capacity_gb, upscaling = excluded.upscaling, source = excluded.source,
   updated_at = now();
-
-insert into public.reference_builds (id, name, description, parts, approx_price, score, fps) values
-  ('console', 'Equivalente a console', 'Desempenho na faixa de um console atual. Roda tudo em Full HD no médio.', 'RX 6600 + Ryzen 5 5600 + 16 GB', 4200, 80,
-   '{"esports":{"1080p":200,"1440p":140},"aaa-medio":{"1080p":90,"1440p":60},"aaa-pesado":{"1080p":45,"1440p":30}}'),
-  ('entrada', 'PC de entrada 2025', 'O ponto de partida clássico: Full HD no alto com folga.', 'RTX 4060 + Ryzen 5 7600 + 16 GB DDR5', 5800, 100,
-   '{"esports":{"1080p":260,"1440p":180},"aaa-medio":{"1080p":110,"1440p":75},"aaa-pesado":{"1080p":58,"1440p":38}}'),
-  ('intermediario', 'PC intermediário', 'Full HD no ultra e 1440p no alto na maioria dos jogos.', 'RTX 4060 Ti + Core i5-14400F + 16 GB DDR5', 6600, 110,
-   '{"esports":{"1080p":280,"1440p":200},"aaa-medio":{"1080p":125,"1440p":85},"aaa-pesado":{"1080p":65,"1440p":44}}'),
-  ('intermediario-plus', 'PC intermediário forte', 'Feito para 1440p; Full HD vira passeio.', 'RX 7700 XT + Ryzen 5 7600 + 32 GB DDR5', 7200, 129,
-   '{"esports":{"1080p":300,"1440p":230},"aaa-medio":{"1080p":145,"1440p":100},"aaa-pesado":{"1080p":78,"1440p":54}}'),
-  ('avancado', 'PC avançado', '1440p no ultra com taxas altas; começa a encarar 4K.', 'RTX 4070 SUPER + Ryzen 7 7700 + 32 GB DDR5', 9500, 150,
-   '{"esports":{"1080p":320,"1440p":260},"aaa-medio":{"1080p":170,"1440p":120},"aaa-pesado":{"1080p":95,"1440p":66}}'),
-  ('entusiasta', 'PC entusiasta', '4K e 1440p em taxas muito altas; sobra para tudo.', 'RTX 4080 SUPER + Ryzen 7 7800X3D + 32 GB DDR5', 15000, 199,
-   '{"esports":{"1080p":360,"1440p":320},"aaa-medio":{"1080p":220,"1440p":165},"aaa-pesado":{"1080p":130,"1440p":95}}')
-on conflict (id) do update set
-  name = excluded.name, description = excluded.description, parts = excluded.parts,
-  approx_price = excluded.approx_price, score = excluded.score, fps = excluded.fps;

@@ -1,10 +1,16 @@
-// Tela do Montador de PC (/montar). O servidor carrega o catálogo; a montagem
+// Tela do Montador de PC (/montar). O servidor carrega o catálogo, as
+// especificações, os PCs de referência e as tabelas de juros (R-02); a montagem
 // em si roda no navegador (BuilderForm), por isso o resultado aparece na hora.
 //
-// Aceita ?alvo=6000&teto=7000 (vem do formulário da página inicial).
+// Aceita ?alvo=6000&teto=7000 (vem do formulário da página inicial) e
+// ?b=<código> (link de compartilhamento: restaura as escolhas e monta sozinho).
 
 import type { Metadata } from "next";
 import { getProducts, usingRealData } from "@/services/products";
+import { getPartSpecs } from "@/services/specs";
+import { getReferenceBuilds } from "@/services/references";
+import { getInstallmentTables } from "@/services/installments";
+import { parseMoney, MAX_MONEY } from "@/lib/money";
 import { BuilderForm } from "@/components/builder/BuilderForm";
 import { Callout } from "@/components/ui/Callout";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -14,14 +20,25 @@ export const metadata: Metadata = {
   description: "Monte um PC gamer completo dentro do seu orçamento, com peças compatíveis de lojas confiáveis.",
 };
 
+/** Lê um valor em reais da URL ("6000", "6.000", "6000,50"); fora do permitido → undefined. */
 function numero(v: string | string[] | undefined): number | undefined {
-  const n = Number(typeof v === "string" ? v : undefined);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+  if (typeof v !== "string") return undefined;
+  const n = parseMoney(v);
+  return Number.isFinite(n) && n > 0 && n <= MAX_MONEY ? n : undefined;
+}
+
+function texto(v: string | string[] | undefined): string | undefined {
+  return typeof v === "string" && v.length > 0 ? v : undefined;
 }
 
 export default async function MontarPage(props: PageProps<"/montar">) {
   const params = await props.searchParams;
-  const products = await getProducts();
+  const [products, specs, references, installmentTables] = await Promise.all([
+    getProducts(),
+    getPartSpecs(),
+    getReferenceBuilds(),
+    getInstallmentTables(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -33,7 +50,7 @@ export default async function MontarPage(props: PageProps<"/montar">) {
 
       {!usingRealData() && (
         <Callout tone="warn" className="mt-5">
-          <strong>Modo de demonstração.</strong> Peças, preços e índices de desempenho são de exemplo.
+          <strong>Modo de demonstração.</strong> Peças, preços, juros e índices de desempenho são de exemplo.
         </Callout>
       )}
 
@@ -43,7 +60,15 @@ export default async function MontarPage(props: PageProps<"/montar">) {
         </Callout>
       ) : (
         <div className="mt-6">
-          <BuilderForm products={products} initialTarget={numero(params.alvo)} initialCap={numero(params.teto)} />
+          <BuilderForm
+            products={products}
+            specs={specs}
+            references={references}
+            installmentTables={installmentTables}
+            initialTarget={numero(params.alvo)}
+            initialCap={numero(params.teto)}
+            shareCode={texto(params.b)}
+          />
         </div>
       )}
     </div>

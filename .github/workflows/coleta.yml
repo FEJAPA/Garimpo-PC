@@ -4,7 +4,8 @@
 # de cada oferta nas lojas e grava no Supabase. O script sai com código 2 quando
 # mais de 30% das ofertas de uma loja falham (o seletor dela provavelmente
 # quebrou). Nesse caso este workflow abre uma issue "Seletor quebrado: <loja>"
-# ou, se já houver uma aberta, comenta nela (sem duplicar).
+# ou, se já houver uma aberta, comenta nela (sem duplicar). Se o preço foi lido mas
+# o banco recusou a gravação, o script sai com código 1 e o job falha na hora.
 #
 # Segredos necessários (Settings > Secrets and variables > Actions):
 #   NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.
@@ -48,6 +49,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      # `npm ci` completo (com as devDependencies) de propósito (PERF-08). O coletor
+      # (scripts/collect-prices.mjs) importa `playwright` e `@supabase/supabase-js`,
+      # e `playwright` hoje está em `dependencies`, então `npm ci --omit=dev` também
+      # funcionaria e instalaria menos. Mas é frágil: se o `playwright` for movido
+      # para `devDependencies` (como sugere a trufa PERF-08, já que o site não usa),
+      # o `--omit=dev` quebraria a coleta. Com o `npm ci` completo funciona dos dois
+      # jeitos. Se um dia a coleta virar um pacote separado, aí sim vale otimizar.
       - name: Instalar dependências
         run: npm ci
 
@@ -56,7 +64,10 @@ jobs:
 
       # O código de saída do script é guardado em vez de falhar na hora:
       #   0 = tudo certo; 2 = seletor quebrado (tratado nos passos seguintes);
-      #   qualquer outro valor = erro geral e o job falha aqui mesmo.
+      #   qualquer outro valor = erro geral e o job falha aqui mesmo. Isso inclui o
+      #   1 de "preço lido mas NÃO gravado no banco" (chave errada, tabela recusando
+      #   a escrita): não é seletor quebrado, então não abre issue de seletor, mas o
+      #   job fica vermelho e o coleta-resultado.json mostra as ofertas sem gravar.
       - name: Coletar preços
         id: coleta
         env:

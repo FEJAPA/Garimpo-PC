@@ -14,6 +14,10 @@
 // Como rodar (a partir da pasta do projeto):
 //   node scripts/collect-specs.mjs            -> grava no banco
 //   node scripts/collect-specs.mjs --dry-run  -> só mostra o que faria, sem gravar
+//   node scripts/collect-specs.mjs --dry-run --catalogo=/caminho/outro.json
+//                                             -> usa outro JSON (para testar a validação
+//                                                sem mexer no catálogo de verdade)
+// (com npm: `npm run collect:specs -- --dry-run`)
 //
 // Requer no .env.local: NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY
 // (a chave de serviço, porque part_specs só tem política pública de LEITURA).
@@ -21,6 +25,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // --- Carrega variáveis do .env.local (mesmo jeito do collect-prices.mjs) ---
 function loadEnv() {
@@ -37,13 +43,33 @@ function loadEnv() {
 loadEnv();
 
 const DRY_RUN = process.argv.includes("--dry-run");
-const CATALOGO_URL = new URL("./data/specs-catalogo.json", import.meta.url);
+// --catalogo=<arquivo> troca o JSON (útil para testar entradas inválidas sem sujar o de verdade).
+const ARG_CATALOGO = process.argv.find((a) => a.startsWith("--catalogo="));
+const CATALOGO_ARQUIVO = ARG_CATALOGO
+  ? resolve(process.cwd(), ARG_CATALOGO.slice("--catalogo=".length))
+  : fileURLToPath(new URL("./data/specs-catalogo.json", import.meta.url));
 
 // Valores aceitos (espelham os tipos de src/models/builder-types.ts).
 const SOCKETS = ["AM4", "AM5", "LGA1700"];
 const RAM_TYPES = ["DDR4", "DDR5"];
 const FORM_FACTORS = ["ATX", "mATX", "ITX"];
 const UPSCALING = ["DLSS", "FSR", "XeSS"];
+
+// Campos OBRIGATÓRIOS por categoria (R-19 / LOG-02). É a MESMA lista de
+// `hasRequiredSpec` em src/services/builder/compatibility.ts e de
+// `camposFaltando` em src/services/specs.ts: se mudar uma, mude as três.
+// Sem esses campos a checagem de compatibilidade pularia a regra em silêncio e
+// o Montador juntaria peças que não encaixam (CPU sem socket, fonte sem watts...).
+// `perf` (> 0) e `aesthetics` (0 a 100) valem para todas as categorias.
+const OBRIGATORIOS = {
+  gpu: ["tdp"],
+  cpu: ["tdp", "socket"],
+  motherboard: ["socket", "ramType", "formFactor"],
+  ram: ["ramType"],
+  ssd: [],
+  psu: ["wattage"],
+  case: ["caseSupports"],
+};
 
 /**
  * Confere uma entrada do JSON. Devolve a lista de problemas (vazia = ok).
@@ -53,11 +79,22 @@ const UPSCALING = ["DLSS", "FSR", "XeSS"];
 function validar(slug, e, categoriaDoBanco) {
   const erros = [];
   if (!e.category) erros.push("falta category");
+  else if (!Object.hasOwn(OBRIGATORIOS, e.category))
+    erros.push(`category desconhecida: "${e.category}" (use ${Object.keys(OBRIGATORIOS).join(", ")})`);
   else if (categoriaDoBanco && e.category !== categoriaDoBanco)
     erros.push(`category "${e.category}" diferente do banco ("${categoriaDoBanco}")`);
-  if (typeof e.perf !== "number" || !(e.perf > 0)) erros.push("perf precisa ser número > 0");
-  if (typeof e.aesthetics !== "number" || e.aesthetics < 0 || e.aesthetics > 100)
+  if (typeof e.perf !== "number" || !Number.isFinite(e.perf) || !(e.perf > 0))
+    erros.push("perf precisa ser número > 0");
+  if (typeof e.aesthetics !== "number" || !Number.isFinite(e.aesthetics) || e.aesthetics < 0 || e.aesthetics > 100)
     erros.push("aesthetics precisa ser número de 0 a 100");
+  // Campos obrigatórios da categoria (só confere se a categoria é conhecida).
+  if (e.category && Object.hasOwn(OBRIGATORIOS, e.category)) {
+    for (const campo of OBRIGATORIOS[e.category]) {
+      const v = e[campo];
+      const vazio = v == null || (Array.isArray(v) && v.length === 0);
+      if (vazio) erros.push(`falta ${campo} (obrigatório para ${e.category})`);
+    }
+  }
   if (!e.source || typeof e.source !== "string") erros.push('falta source (use "ilustrativo" se for estimativa)');
   if (e.socket != null && !SOCKETS.includes(e.socket)) erros.push(`socket inválido: ${e.socket}`);
   if (e.ramType != null && !RAM_TYPES.includes(e.ramType)) erros.push(`ramType inválido: ${e.ramType}`);
@@ -96,10 +133,10 @@ function paraLinha(productId, e) {
 
 function lerCatalogo() {
   try {
-    const json = JSON.parse(readFileSync(CATALOGO_URL, "utf8"));
+    const json = JSON.parse(readFileSync(CATALOGO_ARQUIVO, "utf8"));
     return json.pecas ?? {};
   } catch (e) {
-    console.error(`❌ Não consegui ler scripts/data/specs-catalogo.json: ${e.message}`);
+    console.error(`❌ Não consegui ler o catálogo (${CATALOGO_ARQUIVO}): ${e.message}`);
     process.exit(1);
   }
 }
@@ -147,7 +184,9 @@ async function main() {
     }
     const erros = validar(p.slug, entrada, p.category);
     if (erros.length) {
-      invalidos.push(erros.join(" "));
+      // erros[0] é o "slug:"; os problemas vêm separados por "; " para ler bem.
+      const [prefixo, ...problemas] = erros;
+      invalidos.push(`${prefixo} ${problemas.join("; ")}`);
       continue;
     }
     linhas.push(paraLinha(p.id, entrada));

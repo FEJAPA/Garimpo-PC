@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-04T17:00:34.348Z",
+        "reason": "Comandante: DESIGN.md fixa Inter como fonte de UI/corpo; o e-mail reutiliza a família com fallback do sistema"
+      }
+    ]
+  }
+}

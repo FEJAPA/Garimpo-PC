@@ -53,3 +53,39 @@ describe("fatias do orçamento", () => {
     expect(categoryShares(50).gpu).toBeCloseTo(0.36);
   });
 });
+
+describe("fatias do orçamento por perfil de uso (V2-B3)", () => {
+  const somar = (s: Record<string, number>) => Object.values(s).reduce((t, v) => t + v, 0);
+
+  it("somam 1 nos três perfis, em qualquer posição do slider", () => {
+    for (const usage of ["jogos", "trabalho", "criacao"] as const) {
+      for (const a of [0, 25, 50, 75, 100]) {
+        const s = categoryShares(a, usage);
+        expect(somar(s)).toBeCloseTo(1, 6);
+        expect(Object.values(s).every((v) => v > 0)).toBe(true);
+      }
+    }
+  });
+
+  it("sem perfil, vale o de jogos (tabela da V1)", () => {
+    for (const a of [0, 50, 100]) expect(categoryShares(a, "jogos")).toEqual(categoryShares(a));
+  });
+
+  it("perfil criação dá mais peso a CPU e RAM", () => {
+    const s = categoryShares(0, "criacao");
+    expect(s.cpu).toBeGreaterThanOrEqual(0.22 - 1e-9);
+    expect(s.ram).toBeGreaterThanOrEqual(0.1);
+    expect(s.gpu).toBeCloseTo(0.36);
+    expect(s.ssd).toBeCloseTo(0.05);
+  });
+
+  it("perfil trabalho tira da GPU e dá para CPU, RAM e SSD", () => {
+    const jogos = categoryShares(0);
+    const s = categoryShares(0, "trabalho");
+    expect(s.gpu).toBeCloseTo(jogos.gpu - 0.12);
+    expect(s.cpu).toBeCloseTo(jogos.cpu + 0.05);
+    expect(s.ram).toBeCloseTo(jogos.ram + 0.03);
+    expect(s.ssd).toBeCloseTo(jogos.ssd + 0.04);
+    expect(s.case).toBeCloseTo(jogos.case);
+  });
+});

@@ -1,34 +1,40 @@
 // Montagem automática de PC. Spec: docs/superpowers/specs/2026-11-04-montador-de-pc-design.md §5.
 //
 // Passos (resumo):
-//   1. candidatos por categoria (ofertas válidas + spec conhecida);
+//   1. candidatos por categoria (ofertas válidas + spec completa); peças sem spec
+//      ou com spec incompleta ficam de fora e viram nota; oferta "boa demais"
+//      só é usada se não houver outra, e aí vira aviso;
 //   2. garante que existe UMA montagem compatível que cabe no teto (senão falha);
 //   3. passo guloso: divide o alvo em fatias por categoria e escolhe, em cada
-//      uma, a peça de maior utilidade que cabe (fatia + sobra acumulada);
+//      uma, a opção de maior utilidade que cabe (fatia + sobra acumulada).
+//      Processador e placa-mãe são escolhidos JUNTOS, como um par (V2-B2);
 //   4. se passou do teto, rebaixa a categoria mais cara até caber;
 //   5. usa sobras e a folga (até o teto) para subir GPU e depois CPU, só quando
 //      o ganho de utilidade é >= 10%;
-//   6. calcula desempenho e pagamento.
+//   6. calcula desempenho e pagamento (com o contexto do banco, se vier).
 //
-// TODO(V2-B): trocar o guloso por uma otimização global (ex.: busca em feixe ou
-// knapsack por categoria) que considere trocas entre categorias (CPU+placa-mãe
-// como um par, etc.), perfis de uso (jogos/trabalho/criação) e resolução-alvo.
+// TODO(V2-B): trocar o guloso por uma otimização global (ex.: busca em feixe)
+// que considere trocas entre categorias também no rebaixamento e nas subidas
+// (hoje a subida de CPU mantém a placa-mãe), e a resolução-alvo.
 
-import type { Category, ProductWithOffers } from "@/models/types";
+import type { Category, OfferWithStore, ProductWithOffers } from "@/models/types";
 import type {
+  BuildContext,
   BuildFailure,
   BuildPart,
   BuildPreferences,
   BuildResult,
+  BuildSuccess,
   Candidate,
   PartSpec,
 } from "@/models/builder-types";
 import { categoryLabel } from "@/models/categories";
 import { formatBRL } from "@/lib/format";
 import { normalizeBudget } from "./budget";
-import { cheapestOffer } from "./trust";
+import { validOffers } from "./trust";
+import { flagSuspiciousOffers } from "./suspicious";
 import { categoryShares, partUtility } from "./scoring";
-import { isCompatible } from "./compatibility";
+import { hasRequiredSpec, isCompatible } from "./compatibility";
 import { estimatePerformance } from "./performance";
 import { buildPaymentSummary } from "./payments";
 
@@ -39,7 +45,17 @@ export const DISPLAY_ORDER: Category[] = ["gpu", "cpu", "motherboard", "ram", "s
 /** Ganho mínimo de utilidade para uma troca "para cima" valer a pena (10%). */
 export const MIN_UPGRADE_GAIN = 1.1;
 
+/**
+ * Passos do guloso. Processador e placa-mãe formam um passo só: escolher a CPU
+ * mais barata sozinha pode obrigar a uma placa-mãe cara (outro socket), e o par
+ * inteiro sair mais caro que outro par (V2-B2).
+ */
+const GREEDY_STEPS: Category[][] = [["gpu"], ["cpu", "motherboard"], ["ram"], ["ssd"], ["case"], ["psu"]];
+
 export type CandidatesByCategory = Record<Category, Candidate[]>;
+
+/** Peças do catálogo deixadas de fora por spec ausente, incompleta ou de outra categoria. */
+export type IgnoredParts = { count: number; slugs: string[] };
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -49,21 +65,66 @@ function emptyCandidates(): CandidatesByCategory {
   return { gpu: [], cpu: [], motherboard: [], ram: [], ssd: [], psu: [], case: [] };
 }
 
-/** Candidatos por categoria: produtos com spec e com uma oferta válida (a mais barata). */
+/** A oferta mais barata (preço Pix) de uma lista não vazia; empate fica com a primeira. */
+function maisBarata(ofertas: OfferWithStore[]): OfferWithStore {
+  return ofertas.reduce((melhor, o) => (o.price_pix < melhor.price_pix ? o : melhor));
+}
+
+/**
+ * A oferta que o Montador usa para uma peça (R-01): a válida mais barata que
+ * NÃO é suspeita. Se todas as válidas forem suspeitas, usa a mais barata e
+ * devolve o motivo, para a montagem avisar a pessoa.
+ */
+function escolherOferta(
+  product: ProductWithOffers,
+  trustedOnly: boolean
+): { offer: OfferWithStore; suspicious?: { reason: string } } | null {
+  const validas = validOffers(product, trustedOnly);
+  if (validas.length === 0) return null;
+  const marcadas = flagSuspiciousOffers(product);
+  const limpas = validas.filter((o) => !marcadas.has(o.id));
+  if (limpas.length > 0) return { offer: maisBarata(limpas) };
+  const offer = maisBarata(validas);
+  const flag = marcadas.get(offer.id);
+  return flag ? { offer, suspicious: { reason: flag.reason } } : { offer };
+}
+
+/**
+ * Candidatos por categoria e peças ignoradas. Uma peça entra quando tem spec
+ * completa (`hasRequiredSpec`) da MESMA categoria do produto e ao menos uma
+ * oferta válida. Peça sem spec (ou com spec ruim) é contada em `ignored`,
+ * mesmo que esteja sem estoque, porque o problema é do cadastro, não da loja.
+ */
+export function collectCandidates(
+  products: ProductWithOffers[],
+  specs: Record<string, PartSpec>,
+  trustedOnly: boolean
+): { candidates: CandidatesByCategory; ignored: IgnoredParts } {
+  const candidates = emptyCandidates();
+  const ignorados = new Set<string>();
+  for (const product of products) {
+    const spec = specs[product.slug];
+    if (!spec || spec.category !== product.category || !hasRequiredSpec(spec)) {
+      ignorados.add(product.slug);
+      continue;
+    }
+    const escolha = escolherOferta(product, trustedOnly);
+    if (!escolha) continue;
+    const cand: Candidate = { product, offer: escolha.offer, spec, price: escolha.offer.price_pix };
+    if (escolha.suspicious) cand.suspicious = escolha.suspicious;
+    candidates[spec.category].push(cand);
+  }
+  const slugs = [...ignorados];
+  return { candidates, ignored: { count: slugs.length, slugs } };
+}
+
+/** Candidatos por categoria (ver `collectCandidates`, que também conta as ignoradas). */
 export function buildCandidates(
   products: ProductWithOffers[],
   specs: Record<string, PartSpec>,
   trustedOnly: boolean
 ): CandidatesByCategory {
-  const out = emptyCandidates();
-  for (const product of products) {
-    const spec = specs[product.slug];
-    if (!spec) continue;
-    const offer = cheapestOffer(product, trustedOnly);
-    if (!offer) continue;
-    out[spec.category].push({ product, offer, spec, price: offer.price_pix });
-  }
-  return out;
+  return collectCandidates(products, specs, trustedOnly).candidates;
 }
 
 const specsOf = (parts: Candidate[]): PartSpec[] => parts.map((p) => p.spec);
@@ -71,42 +132,142 @@ const totalOf = (parts: Candidate[]): number => round2(parts.reduce((s, p) => s 
 const compatible = (parts: Candidate[], c: Candidate): boolean => isCompatible(specsOf(parts), c.spec);
 const byPrice = (a: Candidate, b: Candidate) => a.price - b.price || a.spec.slug.localeCompare(b.spec.slug);
 
-/** Diz se ainda dá para completar a montagem com as categorias restantes. */
-function canComplete(parts: Candidate[], remaining: Category[], cands: CandidatesByCategory): boolean {
-  const acc = [...parts];
-  for (const cat of PICK_ORDER.filter((c) => remaining.includes(c))) {
-    const opt = [...cands[cat]].sort(byPrice).find((c) => compatible(acc, c));
-    if (!opt) return false;
-    acc.push(opt);
+/** Todas as peças compatíveis entre si (cada uma contra as outras). */
+function allCompatible(parts: Candidate[]): boolean {
+  return parts.every((p) => compatible(parts.filter((x) => x !== p), p));
+}
+
+function sortedByPrice(cands: CandidatesByCategory): CandidatesByCategory {
+  const out = emptyCandidates();
+  for (const cat of PICK_ORDER) out[cat] = [...cands[cat]].sort(byPrice);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Planejador: a montagem compatível mais barata que contém certas peças fixas.
+// ---------------------------------------------------------------------------
+//
+// Por que não testar todas as combinações: com 150 peças por categoria são
+// 150^7 montagens. As regras de compatibility.ts formam uma "árvore" em volta
+// do processador, e isso permite achar a mais barata EXATA de forma rápida:
+//
+//   placa de vídeo ─┐
+//                   ├─ fonte (potência depende de gpu + cpu)
+//   processador ────┘
+//        │ socket
+//   placa-mãe ── memória (tipo DDR) e gabinete (formato)
+//   SSD: sem regra
+//
+// Para cada processador: (melhor placa-mãe + memória + gabinete para ele) +
+// (melhor placa de vídeo + fonte para ele) + SSD mais barato. Cada pedaço é
+// guardado em cache. Se uma regra nova ligar outras categorias (TODO(V2-A):
+// comprimento da GPU no gabinete, etc.), este planejador precisa mudar junto;
+// até lá, `cheapestCompatibleBuild` confere o resultado com `allCompatible` e
+// prefere falhar a devolver peças incompatíveis.
+
+type Fixed = Partial<Record<Category, Candidate>>;
+type Plan = { parts: Candidate[]; total: number };
+type Branch = { parts: Candidate[]; cost: number };
+
+const chave = (c: Candidate | undefined) => (c ? c.spec.slug : "*");
+
+function makePlanner(cands: CandidatesByCategory) {
+  const sorted = sortedByPrice(cands);
+  const lista = (cat: Category, fixed: Fixed): Candidate[] => (fixed[cat] ? [fixed[cat]!] : sorted[cat]);
+
+  // Placa-mãe → memória e gabinete mais baratos que servem nela.
+  const cacheResto = new Map<string, Branch | null>();
+  function restoDaPlaca(m: Candidate, fixed: Fixed): Branch | null {
+    const k = `${chave(fixed.ram)}|${chave(fixed.case)}|${m.spec.slug}`;
+    if (cacheResto.has(k)) return cacheResto.get(k)!;
+    const ram = lista("ram", fixed).find((r) => isCompatible([m.spec], r.spec));
+    const gab = lista("case", fixed).find((c) => isCompatible([m.spec], c.spec));
+    const out = ram && gab ? { parts: [m, ram, gab], cost: m.price + ram.price + gab.price } : null;
+    cacheResto.set(k, out);
+    return out;
   }
-  return true;
+
+  // Placas-mãe (com memória e gabinete) ordenadas pelo custo do conjunto.
+  const cachePlacas = new Map<string, Branch[]>();
+  function placasOrdenadas(fixed: Fixed): Branch[] {
+    const k = `${chave(fixed.motherboard)}|${chave(fixed.ram)}|${chave(fixed.case)}`;
+    let out = cachePlacas.get(k);
+    if (!out) {
+      out = lista("motherboard", fixed)
+        .map((m) => restoDaPlaca(m, fixed))
+        .filter((b): b is Branch => b !== null)
+        .sort((a, b) => a.cost - b.cost || a.parts[0].spec.slug.localeCompare(b.parts[0].spec.slug));
+      cachePlacas.set(k, out);
+    }
+    return out;
+  }
+
+  // Processador → placa-mãe + memória + gabinete mais baratos para ele.
+  const cachePlaca = new Map<string, Branch | null>();
+  function melhorPlaca(cpu: Candidate, fixed: Fixed): Branch | null {
+    const k = `${chave(fixed.motherboard)}|${chave(fixed.ram)}|${chave(fixed.case)}|${cpu.spec.slug}`;
+    if (cachePlaca.has(k)) return cachePlaca.get(k)!;
+    // Lista ordenada por custo: a primeira que serve é a mais barata.
+    const out = placasOrdenadas(fixed).find((b) => isCompatible([cpu.spec], b.parts[0].spec)) ?? null;
+    cachePlaca.set(k, out);
+    return out;
+  }
+
+  // Processador → placa de vídeo + fonte mais baratas para ele.
+  const cacheVideo = new Map<string, Branch | null>();
+  function melhorVideoFonte(cpu: Candidate, fixed: Fixed): Branch | null {
+    const k = `${chave(fixed.gpu)}|${chave(fixed.psu)}|${cpu.spec.slug}`;
+    if (cacheVideo.has(k)) return cacheVideo.get(k)!;
+    const fontes = lista("psu", fixed);
+    const fonteMin = fontes.length > 0 ? fontes[0].price : 0;
+    let best: Branch | null = null;
+    for (const g of lista("gpu", fixed)) {
+      // GPUs em ordem de preço: daqui para frente nenhuma ganha da melhor achada.
+      if (best && g.price + fonteMin >= best.cost) break;
+      const psu = fontes.find((p) => isCompatible([g.spec, cpu.spec], p.spec));
+      if (psu && (!best || g.price + psu.price < best.cost)) best = { parts: [g, psu], cost: g.price + psu.price };
+    }
+    cacheVideo.set(k, best);
+    return best;
+  }
+
+  /** A montagem compatível mais barata que contém as peças `fixed` (ou null). */
+  function completar(fixed: Fixed): Plan | null {
+    const ssd = lista("ssd", fixed).find((s) => isCompatible([], s.spec));
+    if (!ssd) return null;
+    let best: { cpu: Candidate; placa: Branch; video: Branch; total: number } | null = null;
+    for (const cpu of lista("cpu", fixed)) {
+      if (best && cpu.price >= best.total) break; // ordem de preço: não tem como ganhar
+      const placa = melhorPlaca(cpu, fixed);
+      if (!placa) continue;
+      const video = melhorVideoFonte(cpu, fixed);
+      if (!video) continue;
+      const total = cpu.price + placa.cost + video.cost + ssd.price;
+      if (!best || total < best.total) best = { cpu, placa, video, total };
+    }
+    if (!best) return null;
+    const parts = [best.video.parts[0], best.cpu, ...best.placa.parts, ssd, best.video.parts[1]];
+    return { parts, total: totalOf(parts) };
+  }
+
+  return { sorted, completar };
+}
+
+type Planner = ReturnType<typeof makePlanner>;
+
+function fixedOf(parts: Candidate[]): Fixed {
+  const out: Fixed = {};
+  for (const p of parts) out[p.spec.category] = p;
+  return out;
 }
 
 /** A montagem compatível mais barata possível (ou null se não existe nenhuma). */
 export function cheapestCompatibleBuild(
   cands: CandidatesByCategory
 ): { parts: BuildPart[]; total: number } | null {
-  let best: { parts: Candidate[]; total: number } | null = null;
-  const resto: Category[] = ["motherboard", "ram", "ssd", "case", "psu"];
-
-  for (const cpu of cands.cpu) {
-    for (const gpu of cands.gpu) {
-      const parts: Candidate[] = [gpu, cpu];
-      let ok = true;
-      for (const cat of resto) {
-        const opt = [...cands[cat]].sort(byPrice).find((c) => compatible(parts, c));
-        if (!opt) {
-          ok = false;
-          break;
-        }
-        parts.push(opt);
-      }
-      if (!ok) continue;
-      const total = totalOf(parts);
-      if (!best || total < best.total) best = { parts, total };
-    }
-  }
-  return best ? { parts: toBuildParts(best.parts), total: best.total } : null;
+  const plan = makePlanner(cands).completar({});
+  if (!plan || !allCompatible(plan.parts)) return null;
+  return { parts: toBuildParts(plan.parts), total: plan.total };
 }
 
 function toBuildParts(parts: Candidate[]): BuildPart[] {
@@ -130,38 +291,83 @@ function sortByUtility(list: Candidate[], utility: Scorer): Candidate[] {
   );
 }
 
-const lower = (cat: Category) => categoryLabel(cat).toLowerCase();
+/** Nome da categoria para o meio da frase: "Memória RAM" → "memória RAM" (R-16). */
+const lower = (cat: Category) => {
+  const label = categoryLabel(cat);
+  return label.charAt(0).toLowerCase() + label.slice(1);
+};
+
+/** Artigo de cada categoria ("a placa de vídeo", "o processador"). */
+const ARTIGO: Record<Category, "a" | "o"> = {
+  gpu: "a", cpu: "o", motherboard: "a", ram: "a", ssd: "o", psu: "a", case: "o",
+};
+
+/** "a", "a e b", "a, b e c". */
+function juntarLista(itens: string[]): string {
+  if (itens.length <= 1) return itens.join("");
+  return `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`;
+}
+
+/** Uma opção de um passo do guloso: uma peça ou o par processador + placa-mãe. */
+type Option = { parts: Candidate[]; price: number; utility: number; key: string };
 
 /** Passo 3: escolha gulosa por fatias do orçamento alvo. */
 function greedyPass(
   cands: CandidatesByCategory,
+  planner: Planner,
   utility: Scorer,
   target: number,
-  aesthetics: number
+  shares: Record<Category, number>
 ): { parts: Candidate[]; notes: string[] } | null {
-  const shares = categoryShares(aesthetics);
   const parts: Candidate[] = [];
-  const notes: string[] = [];
+  const semFatia: Category[] = [];
   let carry = 0;
 
-  for (let i = 0; i < PICK_ORDER.length; i++) {
-    const cat = PICK_ORDER[i];
-    const remaining = PICK_ORDER.slice(i + 1);
-    const allowance = shares[cat] * target + carry;
-    const viable = cands[cat].filter((c) => compatible(parts, c) && canComplete([...parts, c], remaining, cands));
-    if (viable.length === 0) return null;
+  for (const step of GREEDY_STEPS) {
+    const fatia = step.reduce((s, cat) => s + shares[cat], 0);
+    const allowance = fatia * target + carry;
 
-    const sorted = sortByUtility(viable, utility);
-    let chosen = sorted.find((c) => c.price <= allowance);
+    // Opções do passo: cada peça, ou cada par CPU + placa-mãe compatível.
+    let opcoes: Candidate[][];
+    if (step.length === 1) {
+      opcoes = cands[step[0]].map((c) => [c]);
+    } else {
+      opcoes = [];
+      for (const cpu of cands.cpu) {
+        for (const mobo of cands.motherboard) if (isCompatible([cpu.spec], mobo.spec)) opcoes.push([cpu, mobo]);
+      }
+    }
+
+    const viaveis: Option[] = [];
+    for (const op of opcoes) {
+      const juntas = [...parts, ...op];
+      // Compatível com o que já foi escolhido e ainda dá para completar a montagem.
+      if (!op.every((c) => compatible(juntas.filter((x) => x !== c), c))) continue;
+      if (!planner.completar(fixedOf(juntas))) continue;
+      // Utilidade do par = média das utilidades, pesada pelas fatias de cada categoria.
+      const u =
+        fatia > 0
+          ? op.reduce((s, c) => s + shares[c.spec.category] * utility(c), 0) / fatia
+          : op.reduce((s, c) => s + utility(c), 0) / op.length;
+      viaveis.push({ parts: op, price: totalOf(op), utility: u, key: op.map((c) => c.spec.slug).join("+") });
+    }
+    if (viaveis.length === 0) return null;
+
+    viaveis.sort((a, b) => b.utility - a.utility || a.price - b.price || a.key.localeCompare(b.key));
+    let chosen = viaveis.find((o) => o.price <= allowance);
     if (!chosen) {
-      chosen = [...viable].sort(byPrice)[0];
-      notes.push(
-        `Nenhuma opção de ${lower(cat)} coube na fatia prevista (${formatBRL(Math.max(0, allowance))}); usamos a compatível mais barata.`
-      );
+      chosen = viaveis.reduce((m, o) => (o.price < m.price || (o.price === m.price && o.key < m.key) ? o : m));
+      semFatia.push(...step);
     }
     carry = allowance - chosen.price;
-    parts.push(chosen);
+    parts.push(...chosen.parts);
   }
+
+  // R-16: uma nota só, com as categorias em linguagem de gente.
+  const notes =
+    semFatia.length > 0
+      ? [`Para caber no orçamento, usamos as opções compatíveis mais baratas em: ${juntarLista(semFatia.map(lower))}.`]
+      : [];
   return { parts, notes };
 }
 
@@ -187,24 +393,29 @@ function downgradeToCap(parts: Candidate[], cands: CandidatesByCategory, hardCap
   return current;
 }
 
+type Upgrade = { category: Category; from: Candidate; to: Candidate; priceDelta: number; trocouFonte: boolean };
+
 /** Passo 5: sobe GPU e depois CPU usando sobras e folga, só com ganho >= 10%. */
 function upgradePass(
   parts: Candidate[],
-  cands: CandidatesByCategory,
+  planner: Planner,
   utility: Scorer,
   hardCap: number
-): { parts: Candidate[]; upgrades: { category: Category; from: Candidate; to: Candidate }[] } {
+): { parts: Candidate[]; upgrades: Upgrade[] } {
   let current = [...parts];
-  const upgrades: { category: Category; from: Candidate; to: Candidate }[] = [];
+  const upgrades: Upgrade[] = [];
 
   for (const cat of ["gpu", "cpu"] as Category[]) {
     const atual = current.find((p) => p.spec.category === cat);
     if (!atual) continue;
     const semPsu = current.filter((p) => p !== atual && p.spec.category !== "psu");
     const psuAtual = current.find((p) => p.spec.category === "psu");
-    const minimo = utility(atual) * MIN_UPGRADE_GAIN;
+    // LOG-06: com utilidade atual zero, "10% a mais" seria zero e qualquer troca
+    // passaria. Exigimos então utilidade estritamente maior.
+    const uAtual = utility(atual);
+    const minimo = uAtual > 0 ? uAtual * MIN_UPGRADE_GAIN : Number.MIN_VALUE;
 
-    for (const cand of sortByUtility(cands[cat], utility)) {
+    for (const cand of sortByUtility(planner.sorted[cat], utility)) {
       if (utility(cand) < minimo) break; // lista ordenada: daqui para baixo ninguém ganha 10%
       if (cand.spec.slug === atual.spec.slug || !compatible(semPsu, cand)) continue;
 
@@ -212,12 +423,18 @@ function upgradePass(
       const psu =
         psuAtual && compatible(novas, psuAtual)
           ? psuAtual
-          : [...cands.psu].sort(byPrice).find((c) => compatible(novas, c));
+          : planner.sorted.psu.find((c) => compatible(novas, c));
       if (!psu) continue;
 
       const tentativa = [...novas, psu];
       if (totalOf(tentativa) <= hardCap) {
-        upgrades.push({ category: cat, from: atual, to: cand });
+        upgrades.push({
+          category: cat,
+          from: atual,
+          to: cand,
+          priceDelta: round2(totalOf(tentativa) - totalOf(current)),
+          trocouFonte: psu !== psuAtual,
+        });
         current = tentativa;
         break;
       }
@@ -226,18 +443,42 @@ function upgradePass(
   return { parts: current, upgrades };
 }
 
+/** Ganho de desempenho em % (perf da spec), ou null se não dá para calcular (LOG-06). */
+function ganhoPct(from: Candidate, to: Candidate): number | null {
+  const de = from.spec.perf;
+  const para = to.spec.perf;
+  if (!Number.isFinite(de) || !Number.isFinite(para) || de <= 0) return null;
+  return Math.round((para / de - 1) * 100);
+}
+
+/** Nota de uma troca, com o preço DELA (R-17) e o ganho real de desempenho. */
+function notaDaTroca(u: Upgrade): string {
+  const pct = ganhoPct(u.from, u.to);
+  const fonte = u.trocouFonte ? ", já contando a troca da fonte" : "";
+  let ganho = "";
+  if (pct !== null && pct > 0) ganho = ` (+${pct}% de desempenho)`;
+  else if (pct === 0) ganho = " (mesmo desempenho, visual melhor)";
+  else if (pct !== null) ganho = ` (visual melhor, ${Math.abs(pct)}% menos desempenho)`;
+  return `Subimos ${ARTIGO[u.category]} ${lower(u.category)}: ${u.from.product.name} → ${u.to.product.name}, por mais ${formatBRL(u.priceDelta)}${fonte}${ganho}.`;
+}
+
 function fail(reason: string): BuildFailure {
   return { ok: false, reason };
 }
 
-/** Monta um PC completo para as preferências dadas. */
+/**
+ * Monta um PC completo para as preferências dadas.
+ * `ctx` (opcional, V2): referências de desempenho e tabelas de juros vindas do
+ * banco. Sem ele, valem os dados de demonstração de performance.ts/payments.ts.
+ */
 export function autoBuild(
   products: ProductWithOffers[],
   specs: Record<string, PartSpec>,
-  prefs: BuildPreferences
+  prefs: BuildPreferences,
+  ctx?: BuildContext
 ): BuildResult {
   const budget = normalizeBudget(prefs.budget);
-  const cands = buildCandidates(products, specs, prefs.trustedOnly);
+  const { candidates: cands, ignored } = collectCandidates(products, specs, prefs.trustedOnly);
 
   // 1) Toda categoria precisa de ao menos um candidato.
   for (const cat of PICK_ORDER) {
@@ -248,6 +489,7 @@ export function autoBuild(
   }
 
   // 2) Existe alguma montagem compatível que caiba no teto?
+  const planner = makePlanner(cands);
   const cheapest = cheapestCompatibleBuild(cands);
   if (!cheapest) {
     return fail("Não encontramos uma combinação compatível de peças no catálogo atual.");
@@ -262,9 +504,10 @@ export function autoBuild(
 
   // 3) Passo guloso dentro do alvo.
   const utility = makeScorer(cands, prefs.aesthetics);
-  const greedy = greedyPass(cands, utility, budget.target, prefs.aesthetics);
+  const shares = categoryShares(prefs.aesthetics, prefs.usage);
+  const greedy = greedyPass(cands, planner, utility, budget.target, shares);
   const notes: string[] = greedy?.notes ?? [];
-  let parts: Candidate[] = greedy?.parts ?? cheapest.parts;
+  let parts: Candidate[] = greedy && allCompatible(greedy.parts) ? greedy.parts : cheapest.parts;
 
   // 4) Garantia do teto.
   if (totalOf(parts) > budget.hardCap) {
@@ -277,29 +520,54 @@ export function autoBuild(
 
   // 5) Sobras e folga: subir GPU/CPU quando vale a pena.
   const totalAntes = totalOf(parts);
-  const up = upgradePass(parts, cands, utility, budget.hardCap);
+  const up = upgradePass(parts, planner, utility, budget.hardCap);
   parts = up.parts;
   const totalPix = totalOf(parts);
 
-  for (const u of up.upgrades) {
-    const ganho = Math.round((u.to.spec.perf / u.from.spec.perf - 1) * 100);
-    const label = lower(u.category);
-    if (totalPix > budget.target) {
-      notes.push(
-        `Usou ${formatBRL(round2(totalPix - budget.target))} da folga para subir ${label}: ${u.from.product.name} → ${u.to.product.name} (+${ganho}% de desempenho).`
-      );
-    } else {
-      notes.push(`Sobrou dinheiro no alvo e subimos ${label}: ${u.from.product.name} → ${u.to.product.name} (+${ganho}%).`);
+  for (const u of up.upgrades) notes.push(notaDaTroca(u));
+  const excessoAntes = Math.max(0, round2(totalAntes - budget.target));
+  const excessoDepois = Math.max(0, round2(totalPix - budget.target));
+  if (up.upgrades.length === 0 && excessoDepois > 0) {
+    notes.push(`A montagem ficou ${formatBRL(excessoDepois)} acima do alvo, mas dentro do teto.`);
+  } else if (up.upgrades.length > 0) {
+    if (excessoAntes > 0) {
+      notes.push(`Antes das trocas, as peças já passavam ${formatBRL(excessoAntes)} do alvo (dentro do teto).`);
     }
-  }
-  if (up.upgrades.length === 0 && totalAntes > budget.target) {
-    notes.push(
-      `A montagem ficou ${formatBRL(round2(totalPix - budget.target))} acima do alvo, mas dentro do teto.`
-    );
+    if (excessoDepois > excessoAntes) {
+      notes.push(
+        `No total, as trocas usaram ${formatBRL(round2(excessoDepois - excessoAntes))} da folga (acima do alvo, dentro do teto).`
+      );
+    }
   }
 
   const buildParts = toBuildParts(parts);
-  const payment = buildPaymentSummary(buildParts);
+
+  // R-01: peça que veio de oferta "boa demais" nunca passa em silêncio.
+  const avisos = buildParts
+    .filter((p) => p.suspicious)
+    .map(
+      (p) =>
+        `Atenção: ${ARTIGO[p.category]} ${lower(p.category)} veio de uma oferta com preço bom demais na loja ${p.offer.store.name} — confira antes de pagar.`
+    );
+
+  // LOG-04: a pessoa precisa saber que parte do catálogo ficou de fora.
+  if (ignored.count > 0) {
+    notes.push(
+      ignored.count === 1
+        ? "1 peça do catálogo foi ignorada por falta de especificação técnica."
+        : `${ignored.count} peças do catálogo foram ignoradas por falta de especificação técnica.`
+    );
+  }
+
+  const payment = buildPaymentSummary(buildParts, ctx?.installmentTables);
+  const upgrades: NonNullable<BuildSuccess["upgrades"]> = up.upgrades.map((u) => ({
+    category: u.category,
+    from: u.from.product.name,
+    to: u.to.product.name,
+    priceDelta: u.priceDelta,
+    // Sem perf de origem válido não há percentual honesto; 0 = "não informado".
+    perfGainPct: ganhoPct(u.from, u.to) ?? 0,
+  }));
 
   return {
     ok: true,
@@ -307,10 +575,13 @@ export function autoBuild(
     totalPix,
     totalInstallment: payment.installmentTotal,
     budget,
-    usedWiggleRoom: totalPix > budget.target,
+    // LOG-05: só "usou a folga" se uma troca foi feita E o total passou do alvo.
+    usedWiggleRoom: up.upgrades.length > 0 && totalPix > budget.target,
     leftover: round2(budget.hardCap - totalPix),
-    notes,
-    performance: estimatePerformance(buildParts),
+    notes: [...avisos, ...notes],
+    upgrades,
+    ignored,
+    performance: estimatePerformance(buildParts, ctx?.references),
     payment,
   };
 }

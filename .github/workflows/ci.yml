@@ -1,6 +1,11 @@
-# Integração contínua (CI): a cada push e pull request confere se o projeto
-# continua saudável. É o mesmo roteiro do AGENTS.md ("Antes de dar a tarefa por
-# concluída"): tipos, lint, testes unitários, build e testes e2e no navegador.
+# Integração contínua (CI): confere se o projeto continua saudável a cada pull
+# request e a cada push na main. É o mesmo roteiro do AGENTS.md ("Antes de dar a
+# tarefa por concluída"): tipos, lint, testes unitários, build e testes e2e no
+# navegador.
+#
+# Só a main dispara em `push`: numa branch com pull request aberto, rodar nos dois
+# eventos duplicava a execução inteira (R-13). Branch sem pull request não roda
+# o CI; abra o PR (pode ser rascunho) para ele rodar.
 #
 # O CI roda em modo de demonstração (sem Supabase): peças e preços de exemplo.
 
@@ -8,6 +13,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 # Se chegar um commit novo na mesma branch, cancela a execução anterior.
@@ -55,7 +61,10 @@ jobs:
       - name: Instalar o Chromium do Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Testes e2e (Playwright)
+      # Roda DEPOIS do build de propósito: com CI=true (o GitHub define sozinho) o
+      # playwright.config.ts sobe `next start`, ou seja, o site construído no passo
+      # "Build de produção", e não o `next dev`. Assim o e2e testa o artefato real.
+      - name: Testes e2e (Playwright, contra o build)
         run: npm run test:e2e
 
       # Só sobe o relatório quando algo falha, para investigar sem rodar de novo.

@@ -2,9 +2,15 @@
 // Rode com `npm run test:e2e`. Os testes abrem o site de verdade num navegador,
 // clicam e conferem o que aparece na tela, como uma pessoa faria.
 //
-// O servidor de desenvolvimento sobe sozinho na porta 3100 (a 3000 fica livre
-// para quem estiver desenvolvendo). Se já houver um servidor nessa porta, ele
-// é reaproveitado (reuseExistingServer).
+// O servidor sobe sozinho na porta 3100 (a 3000 fica livre para quem estiver
+// desenvolvendo):
+//   - localmente: `next dev` (não exige build). Se já houver um servidor nessa
+//     porta, ele é reaproveitado (reuseExistingServer);
+//   - no CI (variável CI definida): `next start`, ou seja, o site CONSTRUÍDO no
+//     passo anterior (`npm run build`), que é o que vai para produção. Assim o
+//     e2e testa o artefato de verdade e não depende da compilação sob demanda do
+//     dev. Aqui o servidor nunca é reaproveitado: sempre sobe um limpo.
+//     Para repetir isso localmente: `npm run build && CI=1 npm run test:e2e`.
 //
 // Os dados vêm do modo de demonstração (sem Supabase): peças e preços de
 // exemplo, estáveis para os testes.
@@ -26,10 +32,11 @@ const executablePath =
 
 export default defineConfig({
   testDir: "tests/e2e",
-  // O `next dev` compila cada página na primeira visita, então o 1º acesso é lento.
+  // O `next dev` compila cada página na primeira visita, então o 1º acesso é lento
+  // (o `next start` do CI não tem esse custo, mas o limite folgado não atrapalha).
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  // No CI repetimos uma vez para absorver oscilação de compilação; local, não.
+  // No CI repetimos uma vez para absorver oscilação do ambiente; local, não.
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   // O relatório HTML fica em playwright-report/ (ignorado pelo git; o CI o publica se falhar).
@@ -52,9 +59,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npx next dev -p ${PORTA}`,
+    // No CI: `next start` serve o build já feito. Local: `next dev`.
+    command: process.env.CI ? `npx next start -p ${PORTA}` : `npx next dev -p ${PORTA}`,
     url: URL_BASE,
-    reuseExistingServer: true,
+    // No CI nunca reaproveitamos um servidor já aberto (podia ser de outro build).
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 });

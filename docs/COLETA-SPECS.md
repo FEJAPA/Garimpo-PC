@@ -8,10 +8,17 @@ montagem. Este guia explica de onde as specs vêm e como completar o catálogo.
 
 `src/services/specs.ts` → `getPartSpecs()`:
 
-1. Supabase configurado **e** tabela `part_specs` com linhas → lê do banco
-   (join com `products` para pegar `slug` e `category`).
-2. Sem Supabase, erro na consulta ou tabela vazia → usa `PART_SPECS`
+1. **Sem Supabase** (modo de demonstração) → usa `PART_SPECS`
    (`src/models/part-specs.ts`), os dados de demonstração da V1.
+2. **Com Supabase** → lê da tabela `part_specs` (join com `products` para pegar
+   `slug` e `category`). Erro na consulta ou tabela vazia devolve **`{}`** (e um
+   aviso no log do servidor), nunca o mock: dado ilustrativo não pode virar fato
+   sobre produtos reais (regra do `AGENTS.md`).
+3. Linha do banco **inválida ou incompleta é ignorada** e contada no log
+   (`N spec(s) de part_specs ignorada(s)…`, com o slug e o motivo das primeiras).
+   Valem as mesmas regras do coletor (veja a tabela abaixo): categoria
+   desconhecida, `perf` que não é número > 0, `aesthetics` fora de 0 a 100 ou
+   campo obrigatório da categoria ausente.
 
 ## Preparar o banco
 
@@ -29,18 +36,21 @@ Requer no `.env.local`: `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`
 (chave de serviço, porque `part_specs` só tem política pública de leitura).
 
 ```bash
-node scripts/collect-specs.mjs --dry-run   # mostra o que faria, sem gravar
-node scripts/collect-specs.mjs             # grava no banco
+npm run collect:specs -- --dry-run   # mostra o que faria, sem gravar
+npm run collect:specs                # grava no banco
 ```
 
-<!-- TODO(V2-A): quando o script entrar no package.json, trocar por `npm run collect:specs`. -->
+(`npm run collect:specs` é o atalho de `node scripts/collect-specs.mjs`.)
+Para testar outro JSON sem mexer no catálogo de verdade, use
+`npm run collect:specs -- --dry-run --catalogo=/caminho/outro.json`.
 
 O que ele faz:
 
 1. Lista os produtos de `products` que **não** têm linha em `part_specs`.
 2. Procura cada `slug` em `scripts/data/specs-catalogo.json`.
-3. Valida a entrada (categoria igual à do banco, `perf > 0`, `aesthetics` de 0 a
-   100, `socket`/`ramType`/`formFactor`/`upscaling` com valores conhecidos,
+3. Valida a entrada (categoria conhecida e igual à do banco, `perf > 0`,
+   `aesthetics` de 0 a 100, **os campos obrigatórios da categoria**,
+   `socket`/`ramType`/`formFactor`/`upscaling` com valores conhecidos,
    `source` preenchido) e faz upsert das válidas.
 4. Imprime as entradas inválidas e a lista de peças **sem spec no catálogo** —
    é essa lista que um humano precisa pesquisar e preencher.
@@ -78,14 +88,23 @@ campos usam os nomes de `PartSpec` (`src/models/builder-types.ts`):
 | `perf` | sim | todas | índice relativo **na categoria** (GPU: RTX 4060 = 100; CPU: Ryzen 5 7600 = 100; placa-mãe: B650M = 100; RAM: 16 GB 5600 = 100; SSD: 1 TB Gen3 = 100; fonte: 650 W Bronze = 100) |
 | `aesthetics` | sim | todas | 0 a 100 (vidro, ARGB, branco…) |
 | `source` | sim | todas | de onde veio o número; `"ilustrativo"` quando for estimativa |
-| `tdp` | não | gpu, cpu | watts, inteiro |
-| `socket` | não | cpu, motherboard | `AM4`, `AM5`, `LGA1700` |
-| `ramType` | não | motherboard, ram | `DDR4`, `DDR5` |
-| `formFactor` | não | motherboard | `ATX`, `mATX`, `ITX` |
-| `caseSupports` | não | case | lista de form factors aceitos |
-| `wattage` | não | psu | potência nominal em watts |
+| `tdp` | **sim** em gpu e cpu | gpu, cpu | watts, inteiro > 0 |
+| `socket` | **sim** em cpu e motherboard | cpu, motherboard | `AM4`, `AM5`, `LGA1700` |
+| `ramType` | **sim** em motherboard e ram | motherboard, ram | `DDR4`, `DDR5` |
+| `formFactor` | **sim** em motherboard | motherboard | `ATX`, `mATX`, `ITX` |
+| `caseSupports` | **sim** em case | case | lista (não vazia) de form factors aceitos |
+| `wattage` | **sim** em psu | psu | potência nominal em watts, inteiro > 0 |
 | `capacityGb` | não | ram, ssd | GB, inteiro (SSD de 1 TB = `1000`) |
 | `upscaling` | não | gpu | lista com `DLSS`, `FSR`, `XeSS` |
+
+Resumo dos campos obrigatórios por categoria (além de `category`, `perf`,
+`aesthetics` e `source`): gpu → `tdp`; cpu → `tdp` e `socket`; motherboard →
+`socket`, `ramType` e `formFactor`; ram → `ramType`; case → `caseSupports`;
+psu → `wattage`; ssd → nenhum. Sem eles a checagem de compatibilidade pularia a
+regra em silêncio e o Montador poderia juntar peças que não encaixam. A mesma
+lista vive em três lugares (mude os três juntos): `validar` em
+`scripts/collect-specs.mjs`, `camposFaltando` em `src/services/specs.ts` e
+`hasRequiredSpec` em `src/services/builder/compatibility.ts`.
 
 ## Adicionar uma peça
 
@@ -96,6 +115,6 @@ campos usam os nomes de `PartSpec` (`src/models/builder-types.ts`):
 4. Adicione a entrada em `pecas`, com `source` **honesto**, por exemplo
    `"fabricante (AMD.com, nov/2026) + perf ilustrativo"`. Nunca marque como
    medido um número que foi estimado.
-5. Rode `node scripts/collect-specs.mjs --dry-run`, confira, e rode sem `--dry-run`.
+5. Rode `npm run collect:specs -- --dry-run`, confira, e rode sem `--dry-run`.
 6. Se a peça também deve existir no modo de demonstração, copie-a para
    `src/models/part-specs.ts`.

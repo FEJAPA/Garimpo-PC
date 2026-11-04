@@ -1,19 +1,34 @@
 // Computadores de referência usados para estimar o desempenho de uma montagem
 // e desenhar o gráfico de comparáveis (spec §4.3 e §6). V2 (pacote D).
 //
-// De onde vêm os números (seja honesto ao atualizar):
+// HONESTIDADE DAS FONTES (leia antes de mexer):
+// - Nada aqui foi MEDIDO pela GarimpoPC. É uma estimativa nossa, montada a partir de
+//   índices de referência e de agregados públicos. O texto completo do método está em
+//   docs/METODOLOGIA-DESEMPENHO.md (a tela linka para ele).
+// - O checkfps.io, a fonte mais citada, é ele mesmo um estimador ("modelo próprio", com
+//   margem de erro de ±10–15% informada pelo próprio site), não um laboratório.
+// - Parte dos índices vem de src/models/part-specs.ts, que se declara "ilustrativo (V1)"
+//   (marcados com * abaixo). Por isso o `source` diz "parte ilustrativa".
+//
+// De onde vêm os números:
 // - `score` segue a MESMA fórmula da montagem: round(0,7 × GPU + 0,3 × CPU), com
 //   os índices de src/models/part-specs.ts (RTX 4060 = 100 entre placas de vídeo;
 //   Ryzen 5 7600 = 100 entre processadores). Para peças que não estão no catálogo
 //   de exemplo, o índice relativo foi derivado de agregados públicos (ver tabela).
-// - `fps` são ESTIMATIVAS GarimpoPC, não medições nossas: partimos de um PC de
-//   entrada (RTX 4060 + Ryzen 5 7600) e escalamos pelo índice da placa de vídeo,
-//   limitando pelo processador nos jogos leves (onde a CPU manda). Cada perfil é a
-//   média aproximada dos jogos de exemplo em GAME_PROFILE_LABELS, no alto/ultra,
-//   sem DLSS/FSR e sem geração de quadros.
+// - `fps` são ESTIMATIVAS GarimpoPC: partimos de um PC de entrada (RTX 4060 + Ryzen 5 7600)
+//   e escalamos pelo índice da placa de vídeo, limitando pelo processador nos jogos leves
+//   (onde a CPU manda). Cada perfil é a média aproximada dos jogos de exemplo em
+//   GAME_PROFILE_LABELS, no alto/ultra, sem DLSS/FSR e sem geração de quadros.
+//   Os FPS de cada referência JÁ embutem a memória dela (`ramGb`): é por isso que
+//   estimatePerformance só desconta memória quando a montagem tem MENOS que a referência.
 // - `approxPrice` é a ordem de grandeza do preço do PC completo no Brasil (nov/2026),
 //   não uma cotação.
-// - `measuredAt` é o mês dos agregados públicos usados (AAAA-MM).
+// - `measuredAt` NÃO é data de medição: guarda o "mês de referência das fontes" (AAAA-MM),
+//   isto é, o mês dos dados que as fontes diziam ter quando as consultamos. Conferido em
+//   04/11/2026: o checkfps.io informa "banco de dados: última atualização 30 de maio de 2026"
+//   (o rótulo "outubro de 2026" no topo das páginas é data da página, não dos dados, e por
+//   isso não foi usado). Nunca coloque aqui um mês que a fonte não tem.
+//   O mês em que NÓS consultamos as fontes fica em FONTES_CONSULTADAS_EM.
 //
 // Índices usados (GPU: RTX 4060 = 100 · CPU: Ryzen 5 7600 = 100):
 //   GPU  RX 6600 78* · RX 7600 97* · RTX 4060 100* · RTX 4060 Ti 118* · RX 9060 XT 16 GB 132
@@ -21,20 +36,27 @@
 //        RTX 4080 SUPER 222 · RTX 5080 240 · RTX 5090 305
 //   CPU  Ryzen 5 5600 85 · Core i5-14400F 92* · Ryzen 5 7600 100* · Ryzen 7 7700 104
 //        Ryzen 7 7800X3D 128 · Ryzen 7 9800X3D 145
-//   (* = valor de part-specs.ts; o resto vem dos agregados citados em `source`.)
+//   (* = valor de part-specs.ts, "ilustrativo (V1)"; o resto vem dos agregados públicos
+//   citados em `source`.)
 //
 // O mesmo conteúdo está em supabase/seed-references.sql (tabela reference_builds);
-// src/services/references.ts lê o banco e usa esta lista como reserva.
+// src/services/references.ts lê o banco e usa esta lista como reserva. Um teste
+// (references.test.ts) confere que os dois não divergem.
 // TODO(V2-D): trocar as estimativas por médias medidas por jogo quando houver uma
 // fonte aberta e estável (ex.: export de agregador com licença) e atualizar todo mês.
 
 import type { ReferenceBuild } from "./builder-types";
 
-const FONTE_GPU_CPU =
-  "estimativa GarimpoPC a partir de agregados públicos: checkfps.io (hierarquia de GPUs, out/2026), " +
-  "índice MaxMyBuild sobre dados do Tom's Hardware (GPUs, 2026) e PC4Games/Tom's Hardware (CPUs, 2026)";
+/** Fonte mostrada nos dados e no banco. Curta e verdadeira: é estimativa, com parte ilustrativa. */
+const FONTE_REFERENCIAS =
+  "Estimativa GarimpoPC: índices de referência (parte ilustrativa, V1) + agregados públicos " +
+  "(checkfps.io, Tom's Hardware), consultados em nov/2026";
 
-const MEDIDO_EM = "2026-10";
+/** Mês de referência das fontes (AAAA-MM). NÃO é data de medição; ver o cabeçalho. */
+const MES_DAS_FONTES = "2026-05";
+
+/** Mês (AAAA-MM) em que a GarimpoPC consultou as fontes; a tela mostra "fontes consultadas em nov/2026". */
+export const FONTES_CONSULTADAS_EM = "2026-11";
 
 export const REFERENCE_BUILDS: ReferenceBuild[] = [
   {
@@ -50,8 +72,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 80, "1440p": 57 },
       "aaa-pesado": { "1080p": 41, "1440p": 28 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "entrada-economica",
@@ -66,8 +88,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 97, "1440p": 71 },
       "aaa-pesado": { "1080p": 50, "1440p": 35 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "entrada",
@@ -82,8 +104,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 102, "1440p": 74 },
       "aaa-pesado": { "1080p": 52, "1440p": 36 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "intermediario",
@@ -98,8 +120,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 115, "1440p": 87 },
       "aaa-pesado": { "1080p": 61, "1440p": 43 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "intermediario-2026",
@@ -114,8 +136,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 128, "1440p": 98 },
       "aaa-pesado": { "1080p": 68, "1440p": 48 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "intermediario-plus",
@@ -130,8 +152,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 134, "1440p": 105 },
       "aaa-pesado": { "1080p": 72, "1440p": 52 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "avancado",
@@ -146,8 +168,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 151, "1440p": 123 },
       "aaa-pesado": { "1080p": 84, "1440p": 62 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "avancado-plus",
@@ -162,8 +184,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 163, "1440p": 140 },
       "aaa-pesado": { "1080p": 96, "1440p": 74 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "alto",
@@ -178,8 +200,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 167, "1440p": 147 },
       "aaa-pesado": { "1080p": 101, "1440p": 79 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "entusiasta",
@@ -194,8 +216,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 192, "1440p": 162 },
       "aaa-pesado": { "1080p": 110, "1440p": 84 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "entusiasta-plus",
@@ -210,8 +232,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 213, "1440p": 178 },
       "aaa-pesado": { "1080p": 120, "1440p": 91 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
   {
     id: "topo",
@@ -226,8 +248,8 @@ export const REFERENCE_BUILDS: ReferenceBuild[] = [
       "aaa-medio": { "1080p": 234, "1440p": 209 },
       "aaa-pesado": { "1080p": 142, "1440p": 115 },
     },
-    source: FONTE_GPU_CPU,
-    measuredAt: MEDIDO_EM,
+    source: FONTE_REFERENCIAS,
+    measuredAt: MES_DAS_FONTES,
   },
 ];
 

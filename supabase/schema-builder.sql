@@ -44,15 +44,41 @@ create table if not exists public.reference_builds (
 alter table public.reference_builds add column if not exists ram_gb integer;
 
 -- 3) Montagens salvas pela pessoa (V2, pacote G).
+-- Gravadas pela action saveBuild (src/app/account/actions.ts); o formato do jsonb
+-- é o de src/services/saved-builds.ts (toSavedBuildRow / fromSavedBuildRow).
 create table if not exists public.saved_builds (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references auth.users(id) on delete cascade,
   name        text not null default 'Minha montagem',
   prefs       jsonb not null,                    -- BuildPreferences
-  parts       jsonb not null,                    -- lista de {product_id, offer_id, price}
-  total_pix   numeric(10,2) not null,
+  parts       jsonb not null,                    -- lista de {productId, offerId, price, slug, storeId}
+  total_pix   numeric(10,2) not null,            -- total no Pix quando foi salva
   created_at  timestamptz not null default now()
 );
+
+-- Regras que o app também confere (nome até 60 caracteres, total não negativo,
+-- peças em lista de 1 a 20). O "if not exists" de constraint não existe no
+-- Postgres, então cada uma é criada só se ainda não houver (script re-executável).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'saved_builds_name_len') then
+    alter table public.saved_builds
+      add constraint saved_builds_name_len check (char_length(name) between 1 and 60);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'saved_builds_total_pix_pos') then
+    alter table public.saved_builds
+      add constraint saved_builds_total_pix_pos check (total_pix >= 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'saved_builds_parts_array') then
+    alter table public.saved_builds
+      add constraint saved_builds_parts_array
+      -- CASE: o Postgres não garante a ordem do "and", e jsonb_array_length falha em não-lista.
+      check (case when jsonb_typeof(parts) = 'array' then jsonb_array_length(parts) between 1 and 20 else false end);
+  end if;
+end $$;
+
+-- A página /conta lista as montagens da pessoa, da mais nova para a mais antiga.
+create index if not exists idx_saved_builds_user on public.saved_builds(user_id, created_at desc);
 
 alter table public.part_specs       enable row level security;
 alter table public.reference_builds enable row level security;

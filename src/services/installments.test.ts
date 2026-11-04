@@ -60,6 +60,22 @@ describe("getInstallmentTables", () => {
     getSupabaseMock.mockReturnValue(clienteFalso({ data: [], error: null }));
     expect(await getInstallmentTables()).toEqual({});
   });
+
+  // Regra do AGENTS.md: dado ilustrativo nunca vira fato no modo real.
+  it("com Supabase configurado nunca devolve as tabelas de demonstração", async () => {
+    const espiao = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const resultado of [
+      { data: null, error: { message: "falhou" } },
+      { data: [], error: null },
+      { data: null, error: null },
+    ]) {
+      getSupabaseMock.mockReturnValue(clienteFalso(resultado));
+      const tabelas = await getInstallmentTables();
+      expect(tabelas).toEqual({});
+      expect(tabelas).not.toBe(INSTALLMENT_TABLES);
+    }
+    espiao.mockRestore();
+  });
 });
 
 describe("groupInstallmentRows", () => {
@@ -73,6 +89,15 @@ describe("groupInstallmentRows", () => {
       ])
     ).toEqual({ x: [{ count: 10, factor: 1.05 }] });
   });
+
+  it("ignora faixas acima de 24 parcelas (LOG-12)", () => {
+    expect(
+      groupInstallmentRows([
+        { store_id: "x", count: 12, factor: 1.1 },
+        { store_id: "x", count: 99, factor: 1.4 },
+      ])
+    ).toEqual({ x: [{ count: 12, factor: 1.1 }] });
+  });
 });
 
 describe("mock de tabelas de juros", () => {
@@ -82,6 +107,8 @@ describe("mock de tabelas de juros", () => {
       for (let i = 0; i < tabela.length; i++) {
         expect(tabela[i].factor).toBeGreaterThanOrEqual(1);
         if (i > 0) expect(tabela[i].count).toBeGreaterThan(tabela[i - 1].count);
+        if (i > 0) expect(tabela[i].factor).toBeGreaterThanOrEqual(tabela[i - 1].factor);
+        expect(tabela[i].count).toBeLessThanOrEqual(24);
       }
     }
   });

@@ -3,30 +3,47 @@
 // parcelar o resto.
 //
 // Regra (simples de explicar):
-// 1. Paga no Pix as peças mais caras primeiro, enquanto o dinheiro à vista der.
-//    Se uma peça cara não cabe, tenta as mais baratas (aproveita o que sobra).
-//    Peça cara no Pix é o que mais economiza, porque o desconto é proporcional.
-// 2. O resto vai para o cartão no MENOR número de parcelas cuja parcela cabe no
-//    "cabe por mês" (menos meses = menos juros e menos tempo endividado),
-//    respeitando o máximo e a tabela de juros de cada loja.
+// 1. O dinheiro à vista vai primeiro para as peças que MAIS ENCARECEM no cartão
+//    (R-06): custo evitado = max(preço a prazo, Pix × fator da loja no máximo de
+//    parcelas) − Pix. Sem tabela de juros e sem preço a prazo, isso é
+//    Pix × (fator − 1). Empate: a peça mais cara primeiro. Se uma peça não cabe,
+//    tenta as próximas (aproveita o que sobra).
+//    Por que não só "a mais cara": uma peça de loja com +15% no cartão custa
+//    mais para parcelar do que uma peça mais cara de loja sem juros.
+// 2. O resto vai para o cartão no MENOR número de parcelas cuja 1ª parcela (a
+//    maior) cabe no "cabe por mês" (menos meses = menos juros e menos tempo
+//    endividado), respeitando o máximo e a tabela de juros de cada loja.
 // TODO(V2-E): escolher a combinação ótima de peças (hoje é gulosa) e considerar
 // cupons/cashback na conta.
 
 import type { BuildPart, InstallmentRate } from "@/models/builder-types";
 import { formatBRL } from "@/lib/format";
-import { buildPaymentSummary, installmentPlan } from "./payments";
+import {
+  MAX_INSTALLMENTS,
+  buildPaymentSummary,
+  formatSchedule,
+  installmentBands,
+  installmentPlan,
+  rateFor,
+  validInstallmentPrice,
+  type ScheduleBand,
+} from "./payments";
 
 export type MixedPlan = {
-  /** Peças pagas no Pix (mais caras primeiro). */
+  /** Peças pagas no Pix (as que mais encarecem no cartão primeiro). */
   pixItems: BuildPart[];
-  /** Peças parceladas no cartão (mais caras primeiro). */
+  /** Peças parceladas no cartão. */
   installmentItems: BuildPart[];
   /** Soma do Pix das peças pagas à vista. */
   pixTotal: number;
   /** Número de parcelas do que vai para o cartão (0 se nada for parcelado). */
   months: number;
-  /** Valor das primeiras parcelas (0 se nada for parcelado). */
+  /** Valor da 1ª parcela, a maior (0 se nada for parcelado). */
   monthly: number;
+  /** Faixas para a tela, sem o arredondamento (ex.: 10x de 300 + 2x de 120). */
+  schedule: ScheduleBand[];
+  /** Centavos de arredondamento somados à 1ª parcela. */
+  rounding: number;
   /** Total pago no cartão, já com juros. */
   installmentTotal: number;
   /** true quando a parcela cabe no "cabe por mês". */
@@ -44,6 +61,15 @@ function naoNegativo(n: number): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** Quanto a peça encarece se for para o cartão no máximo de parcelas da loja. */
+function custoEvitado(p: BuildPart, tables?: Record<string, InstallmentRate[]>): number {
+  const pix = p.offer.price_pix;
+  const aPrazo = validInstallmentPrice(p.offer) ?? pix;
+  const tabela = tables?.[p.offer.store.id] ?? [];
+  const fator = tabela.length > 0 ? rateFor(tabela, MAX_INSTALLMENTS) : 1;
+  return round2(Math.max(aPrazo, pix * fator) - pix);
+}
+
 export function mixedPlan(
   parts: BuildPart[],
   input: { cash: number; monthly: number },
@@ -53,8 +79,11 @@ export function mixedPlan(
   const cabePorMes = naoNegativo(input.monthly);
   const notes: string[] = [];
 
-  // 1) Pix: mais caras primeiro, enquanto o dinheiro à vista der.
-  const ordenadas = [...parts].sort((a, b) => b.offer.price_pix - a.offer.price_pix);
+  // 1) Pix: as que mais encarecem no cartão primeiro, enquanto o dinheiro der.
+  const ordenadas = parts
+    .map((p) => ({ p, custo: custoEvitado(p, tables) }))
+    .sort((a, b) => b.custo - a.custo || b.p.offer.price_pix - a.p.offer.price_pix)
+    .map((x) => x.p);
   const pixItems: BuildPart[] = [];
   const installmentItems: BuildPart[] = [];
   let pixTotal = 0;
@@ -73,10 +102,21 @@ export function mixedPlan(
       const sobra = round2(cash - pixTotal);
       if (sobra > 0) notes.push(`Ainda sobram ${formatBRL(sobra)} do seu dinheiro à vista.`);
     }
-    return { pixItems, installmentItems, pixTotal, months: 0, monthly: 0, installmentTotal: 0, fits: true, notes };
+    return {
+      pixItems,
+      installmentItems,
+      pixTotal,
+      months: 0,
+      monthly: 0,
+      schedule: [],
+      rounding: 0,
+      installmentTotal: 0,
+      fits: true,
+      notes,
+    };
   }
 
-  // 2) Cartão: menor número de parcelas cuja parcela cabe por mês.
+  // 2) Cartão: menor número de parcelas cuja 1ª parcela cabe por mês.
   const resumo = buildPaymentSummary(installmentItems, tables);
   const maximo = Math.max(1, resumo.maxInstallments);
   let plano = installmentPlan(resumo, maximo);
@@ -89,23 +129,31 @@ export function mixedPlan(
       break;
     }
   }
+  const { faixas, arredondamento } = installmentBands(resumo, plano.count);
+  const textoParcelas = formatSchedule(faixas);
 
-  const pixDoParcelado = resumo.pixTotal;
   if (pixItems.length > 0) {
     notes.push(
-      `Pague ${formatBRL(pixTotal)} no Pix (${pixItems.length} ${pixItems.length === 1 ? "peça" : "peças"}) e parcele o resto em ${plano.count}x de ${formatBRL(plano.monthly)}.`
+      `Pague ${formatBRL(pixTotal)} no Pix (${pixItems.length} ${pixItems.length === 1 ? "peça" : "peças"}) e parcele o resto em ${textoParcelas}.`
     );
   } else {
-    notes.push(`Tudo no cartão: ${plano.count}x de ${formatBRL(plano.monthly)}.`);
+    notes.push(`Tudo no cartão: ${textoParcelas}.`);
   }
-  const acrescimo = round2(plano.total - pixDoParcelado);
-  if (acrescimo > 0) {
-    notes.push(`O parcelado tem acréscimo de ${formatBRL(acrescimo)} em relação a pagar essas peças no Pix.`);
+  if (arredondamento > 0) {
+    notes.push(`A 1ª parcela fica ${formatBRL(arredondamento)} maior por causa do arredondamento dos centavos.`);
+  }
+  const aMaisQuePix = round2(plano.total - resumo.pixTotal);
+  const acimaDoPrazo = round2(plano.total - resumo.installmentTotal);
+  if (aMaisQuePix > 0) {
+    notes.push(`No cartão essas peças custam ${formatBRL(aMaisQuePix)} a mais do que no Pix.`);
   } else {
-    notes.push("O parcelamento sai sem juros: mesmo preço do Pix.");
+    notes.push("O parcelamento sai pelo mesmo preço do Pix.");
   }
-  if (resumo.stores.length > 1 && resumo.stores.some((s) => s.installmentCount < plano.count)) {
-    notes.push("Uma das lojas parcela em menos vezes; as últimas parcelas ficam menores.");
+  if (acimaDoPrazo > 0) {
+    notes.push(`Desse valor, ${formatBRL(acimaDoPrazo)} é acréscimo da loja acima do preço a prazo anunciado.`);
+  }
+  if (faixas.length > 1) {
+    notes.push("Uma das lojas parcela em menos vezes; por isso as últimas parcelas ficam menores.");
   }
   if (!fits) {
     notes.push(`Falta ${formatBRL(round2(plano.monthly - cabePorMes))} por mês para caber no seu orçamento.`);
@@ -117,6 +165,8 @@ export function mixedPlan(
     pixTotal,
     months: plano.count,
     monthly: plano.monthly,
+    schedule: faixas,
+    rounding: arredondamento,
     installmentTotal: plano.total,
     fits,
     notes,

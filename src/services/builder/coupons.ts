@@ -31,6 +31,16 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Data AAAA-MM-DD no fuso de Brasília (o formato en-CA já sai assim). */
+function dataEmBrasilia(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 export function applyCoupon(
   summary: PaymentSummary,
   code: string,
@@ -41,8 +51,9 @@ export function applyCoupon(
   const coupon = coupons.find((c) => c.code.trim().toUpperCase() === alvo);
   if (!alvo || !coupon) return { ok: false, reason: "Cupom não encontrado." };
 
-  // Compara só a data (AAAA-MM-DD), para o cupom valer o dia inteiro.
-  if (coupon.expiresAt && now.toISOString().slice(0, 10) > coupon.expiresAt.slice(0, 10)) {
+  // Compara só a data (AAAA-MM-DD) no horário de Brasília, para o cupom valer
+  // o dia inteiro aqui (em UTC ele venceria às 21h do último dia, LOG-13).
+  if (coupon.expiresAt && dataEmBrasilia(now) > coupon.expiresAt.slice(0, 10)) {
     return { ok: false, reason: "Este cupom venceu." };
   }
 

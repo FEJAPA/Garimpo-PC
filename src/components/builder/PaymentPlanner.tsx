@@ -4,14 +4,27 @@
 // no cartão), com a divisão por loja (cada loja é um pagamento separado). Spec §7.
 // As contas ficam em services/builder/payments.ts e mixed-plan.ts; aqui só tela.
 //
+// Premissa mostrada na tela: "a prazo" é o preço parcelado que a loja anuncia
+// (maior que o Pix). "Sem acréscimo" = paga só esse preço a prazo; "+R$ X" =
+// juros da loja acima dele.
+//
 // TODO(V2-E): campo de cupom (lógica pronta em services/builder/coupons.ts).
 
 import { useId, useState } from "react";
 import { CreditCard, QrCode, Split } from "lucide-react";
 import type { BuildPart, InstallmentRate, PaymentSummary } from "@/models/builder-types";
-import { installmentPlan, interestFreeUpTo, storeInstallment } from "@/services/builder/payments";
+import {
+  defaultInstallmentCount,
+  installmentBands,
+  installmentOptions,
+  installmentPlan,
+  storeInstallment,
+  storeNoExtraUpTo,
+  type ScheduleBand,
+} from "@/services/builder/payments";
 import { mixedPlan } from "@/services/builder/mixed-plan";
 import { formatBRL } from "@/lib/format";
+import { MAX_MONEY, parseMoney } from "@/lib/money";
 import { Card } from "@/components/ui/Card";
 import { Callout } from "@/components/ui/Callout";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -19,17 +32,13 @@ import { Field, INPUT_CLASSES, MoneyInput } from "@/components/ui/Field";
 
 type Metodo = "pix" | "parcelado" | "misturar";
 
-/** "1.500" / "1500,50" / "" -> 1500 / 1500.5 / NaN (mesma regra do BuilderForm). */
-function lerReais(texto: string): number {
-  const limpo = texto.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
-  if (limpo === "") return Number.NaN;
-  return Number(limpo);
-}
-
-function invalido(texto: string): boolean {
-  if (texto.trim() === "") return false;
-  const n = lerReais(texto);
-  return !Number.isFinite(n) || n < 0;
+/** Erro do campo de dinheiro (vazio é permitido e conta como zero). */
+function erroDoValor(texto: string): string | null {
+  if (texto.trim() === "") return null;
+  const n = parseMoney(texto);
+  if (!Number.isFinite(n)) return "Digite um valor em reais, ex.: 1.500 ou 1.500,50";
+  if (n > MAX_MONEY) return `Valor acima do permitido (${formatBRL(MAX_MONEY)}).`;
+  return null;
 }
 
 /** Percentual em pt-BR, ex.: 0.06 -> "6%", 0.055 -> "5,5%". */
@@ -39,20 +48,30 @@ function formatPercent(fracao: number): string {
 
 export function PaymentPlanner({
   payment,
-  // TODO(V2-E): BuildResultView (pacote F) precisa passar `parts`; sem elas o
-  // modo "Misturar" fica escondido.
   parts = [],
 }: {
   payment: PaymentSummary;
+  /** Peças da montagem; sem elas o modo "Misturar" fica escondido. */
   parts?: BuildPart[];
 }) {
   const [metodo, setMetodo] = useState<Metodo>("pix");
-  const [parcelas, setParcelas] = useState(payment.maxInstallments);
+  // Abre no maior número de parcelas SEM acréscimo (ou no máximo, se todas têm).
+  const [parcelas, setParcelas] = useState(() => defaultInstallmentCount(payment));
+  // Montagem nova (outro resumo): volta para o padrão em vez de manter a escolha antiga.
+  const [resumoBase, setResumoBase] = useState(payment);
+  if (resumoBase !== payment) {
+    setResumoBase(payment);
+    setParcelas(defaultInstallmentCount(payment));
+  }
+
   const plano = installmentPlan(payment, parcelas);
-  const opcoes = Array.from({ length: Math.max(1, payment.maxInstallments) }, (_, i) => i + 1);
+  const { faixas, arredondamento } = installmentBands(payment, plano.count);
+  const opcoes = installmentOptions(payment);
   const comTabela = payment.stores.some((s) => s.interestTable && s.interestTable.length > 0);
-  const acrescimo = Math.round((plano.total - payment.pixTotal) * 100) / 100;
+  const aMaisQuePix = Math.round((plano.total - payment.pixTotal) * 100) / 100;
+  const acimaDoPrazo = Math.round((plano.total - payment.installmentTotal) * 100) / 100;
   const podeMisturar = parts.length > 0;
+  const melhor = payment.bestInstallment;
 
   return (
     <section>
@@ -76,7 +95,8 @@ export function PaymentPlanner({
             <p className="font-display text-4xl font-semibold tracking-tight text-ink">{formatBRL(payment.pixTotal)}</p>
             {payment.pixSavings > 0 && (
               <p className="mt-1 text-sm text-good">
-                Você economiza <span className="tnum font-semibold">{formatBRL(payment.pixSavings)}</span> em relação ao parcelado.
+                Você economiza <span className="tnum font-semibold">{formatBRL(payment.pixSavings)}</span>{" "}
+                {melhor ? `em relação a ${melhor.count}x no cartão, o parcelado mais barato.` : "em relação ao parcelado."}
               </p>
             )}
           </div>
@@ -84,16 +104,25 @@ export function PaymentPlanner({
 
         {metodo === "parcelado" && (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm text-ink-muted">{plano.count}x de</p>
-              <p className="font-display text-4xl font-semibold tracking-tight text-ink">{formatBRL(plano.monthly)}</p>
+            <div className="min-w-0">
+              <Faixas faixas={faixas} total={plano.count} />
+              {arredondamento > 0 && (
+                <p className="tnum mt-1 text-xs text-ink-faint">
+                  A 1ª parcela fica {formatBRL(arredondamento)} maior (arredondamento dos centavos).
+                </p>
+              )}
               <p className="tnum mt-1 text-sm text-ink-muted">Total parcelado {formatBRL(plano.total)}</p>
-              {acrescimo > 0 ? (
+              {aMaisQuePix > 0 && (
                 <p className="tnum mt-1 text-sm text-ink-muted">
-                  Acréscimo de {formatBRL(acrescimo)} ({formatPercent(acrescimo / payment.pixTotal)}) em relação ao Pix.
+                  {formatBRL(aMaisQuePix)} ({formatPercent(aMaisQuePix / payment.pixTotal)}) a mais que no Pix.
+                </p>
+              )}
+              {acimaDoPrazo > 0 ? (
+                <p className="tnum mt-1 text-sm text-ink-muted">
+                  Inclui {formatBRL(acimaDoPrazo)} de acréscimo sobre o preço a prazo das lojas.
                 </p>
               ) : (
-                <p className="mt-1 text-sm text-good">Sem juros: mesmo preço do Pix.</p>
+                <p className="mt-1 text-sm text-good">Sem acréscimo: é o preço a prazo anunciado pelas lojas.</p>
               )}
             </div>
             <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
@@ -101,17 +130,17 @@ export function PaymentPlanner({
               <select
                 value={plano.count}
                 onChange={(e) => setParcelas(Number(e.target.value))}
-                className={`${INPUT_CLASSES} tnum w-40 font-normal`}
+                className={`${INPUT_CLASSES} tnum w-full font-normal sm:w-56`}
               >
-                {opcoes.map((n) => (
-                  <option key={n} value={n}>
-                    {n}x
+                {opcoes.map((o) => (
+                  <option key={o.count} value={o.count}>
+                    {o.count}x · {o.extra > 0 ? `+${formatBRL(o.extra)}` : "sem acréscimo"}
                   </option>
                 ))}
               </select>
               <span className="max-w-64 text-xs font-normal text-ink-faint">
                 {comTabela
-                  ? "Cada loja parcela até o máximo dela; se uma termina antes, as últimas parcelas ficam menores."
+                  ? "Acréscimo sobre o preço a prazo. Cada loja parcela até o máximo dela; se uma termina antes, as últimas parcelas ficam menores."
                   : "Limitado pela loja que parcela em menos vezes."}
               </span>
             </label>
@@ -121,12 +150,13 @@ export function PaymentPlanner({
         {metodo === "misturar" && podeMisturar && <Misturar parts={parts} payment={payment} />}
 
         <table className="w-full text-left text-sm">
+          <caption className="sr-only">Pagamento por loja</caption>
           <thead className="text-xs text-ink-faint">
             <tr>
-              <th className="py-2 font-medium">Loja</th>
-              <th className="hidden py-2 text-right font-medium sm:table-cell">Itens</th>
-              <th className="py-2 text-right font-medium">Pix</th>
-              <th className="py-2 text-right font-medium">Parcelado</th>
+              <th scope="col" className="py-2 font-medium">Loja</th>
+              <th scope="col" className="hidden py-2 text-right font-medium sm:table-cell">Itens</th>
+              <th scope="col" className="py-2 text-right font-medium">Pix</th>
+              <th scope="col" className="py-2 text-right font-medium">A prazo</th>
             </tr>
           </thead>
           <tbody className="tnum">
@@ -134,24 +164,25 @@ export function PaymentPlanner({
               // No modo parcelado, mostra a loja nas parcelas escolhidas; nos
               // outros, no máximo que ela oferece.
               const p = storeInstallment(s, metodo === "parcelado" ? plano.count : Number.MAX_SAFE_INTEGER);
-              const semJurosAte = s.interestTable ? interestFreeUpTo(s.interestTable) : 0;
-              const extra = Math.round((p.total - s.pixTotal) * 100) / 100;
+              // Parcela "cheia" (a última faixa); o resto dos centavos vai na 1ª.
+              const parcela = p.schedule?.[p.schedule.length - 1]?.monthly ?? p.monthly;
+              const semAcrescimoAte = s.interestTable ? storeNoExtraUpTo(s) : 0;
+              const extra = Math.round((p.total - s.installmentTotal) * 100) / 100;
               return (
                 <tr key={s.store.id} className="border-t border-line align-top">
-                  <td className="py-2.5 text-ink">{s.store.name}</td>
+                  <th scope="row" className="py-2.5 font-normal text-ink">{s.store.name}</th>
                   <td className="hidden py-2.5 text-right text-ink-muted sm:table-cell">{s.items}</td>
                   <td className="py-2.5 text-right font-semibold text-ink">{formatBRL(s.pixTotal)}</td>
                   <td className="py-2.5 text-right text-ink-muted">
-                    {p.count > 1 ? `${p.count}x de ${formatBRL(p.monthly)}` : "só à vista"}
-                    {s.interestTable && (
+                    <span className="text-ink">{formatBRL(s.installmentTotal)}</span>
+                    <span className="mt-0.5 block text-xs">
+                      {p.count > 1 ? `${p.count}x de ${formatBRL(parcela)}` : "só à vista"}
+                    </span>
+                    {(semAcrescimoAte > 1 || extra > 0) && (
                       <span className="mt-0.5 block text-xs">
-                        {semJurosAte > 0 && <span className="text-good">sem juros até {semJurosAte}x</span>}
-                        {semJurosAte > 0 && extra > 0 && <span className="text-ink-faint"> · </span>}
-                        {extra > 0 && (
-                          <span className="text-ink-faint">
-                            +{formatBRL(extra)} ({formatPercent(extra / s.pixTotal)})
-                          </span>
-                        )}
+                        {semAcrescimoAte > 1 && <span className="text-good">sem acréscimo até {semAcrescimoAte}x</span>}
+                        {semAcrescimoAte > 1 && extra > 0 && <span className="text-ink-faint"> · </span>}
+                        {extra > 0 && <span className="text-ink-faint">+{formatBRL(extra)} em {p.count}x</span>}
                       </span>
                     )}
                   </td>
@@ -160,8 +191,42 @@ export function PaymentPlanner({
             })}
           </tbody>
         </table>
+        <p className="-mt-2 text-xs text-ink-faint">
+          A prazo é o preço parcelado que a loja anuncia (maior que o Pix). Juros acima dele aparecem como acréscimo.
+        </p>
       </Card>
     </section>
+  );
+}
+
+/**
+ * Manchete das parcelas. Uma faixa: "12x de R$ 140". Várias (lojas com prazos
+ * diferentes): "10x de R$ 586,17" e embaixo "+ 2x de R$ 551,49".
+ */
+function Faixas({ faixas, total, tamanho = "lg" }: { faixas: ScheduleBand[]; total: number; tamanho?: "lg" | "md" }) {
+  const grande = tamanho === "lg" ? "text-4xl" : "text-3xl";
+  if (faixas.length <= 1) {
+    const f = faixas[0] ?? { count: total, monthly: 0 };
+    return (
+      <>
+        <p className="text-sm text-ink-muted">{f.count}x de</p>
+        <p className={`font-display ${grande} font-semibold tracking-tight text-ink`}>{formatBRL(f.monthly)}</p>
+      </>
+    );
+  }
+  const [primeira, ...resto] = faixas;
+  return (
+    <>
+      <p className="text-sm text-ink-muted">Em {total} parcelas</p>
+      <p className={`font-display ${tamanho === "lg" ? "text-3xl sm:text-4xl" : "text-2xl"} font-semibold tracking-tight text-ink`}>
+        {primeira.count}x de {formatBRL(primeira.monthly)}
+      </p>
+      {resto.map((f) => (
+        <p key={`${f.count}-${f.monthly}`} className="tnum text-lg font-semibold text-ink-muted">
+          + {f.count}x de {formatBRL(f.monthly)}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -176,14 +241,15 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
   for (const s of payment.stores) if (s.interestTable) tabelas[s.store.id] = s.interestTable;
 
   const preenchido = aVista.trim() !== "" || porMes.trim() !== "";
-  const temErro = invalido(aVista) || invalido(porMes);
-  const cash = lerReais(aVista);
-  const monthly = lerReais(porMes);
+  const erroAVista = erroDoValor(aVista);
+  const erroPorMes = erroDoValor(porMes);
+  const temErro = erroAVista !== null || erroPorMes !== null;
+  const cash = parseMoney(aVista);
+  const monthly = parseMoney(porMes);
   const plano =
     preenchido && !temErro
       ? mixedPlan(parts, { cash: Number.isFinite(cash) ? cash : 0, monthly: Number.isFinite(monthly) ? monthly : 0 }, tabelas)
       : null;
-  const erro = "Digite um valor em reais, ex.: 1.500";
 
   return (
     <div className="flex flex-col gap-4">
@@ -191,18 +257,18 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
         <Field
           label="Tenho à vista (R$)"
           htmlFor={`${id}-avista`}
-          hint="Vai para o Pix, começando pelas peças mais caras."
-          error={invalido(aVista) ? erro : null}
+          hint="Vai para o Pix, começando pelas peças que mais encarecem no cartão."
+          error={erroAVista}
         >
-          <MoneyInput id={`${id}-avista`} value={aVista} onChange={setAVista} invalid={invalido(aVista)} placeholder="0" />
+          <MoneyInput id={`${id}-avista`} value={aVista} onChange={setAVista} invalid={erroAVista !== null} placeholder="0" />
         </Field>
         <Field
           label="Cabe por mês (R$)"
           htmlFor={`${id}-pormes`}
           hint="O resto vai para o cartão, no menor número de parcelas que cabe."
-          error={invalido(porMes) ? erro : null}
+          error={erroPorMes}
         >
-          <MoneyInput id={`${id}-pormes`} value={porMes} onChange={setPorMes} invalid={invalido(porMes)} placeholder="0" />
+          <MoneyInput id={`${id}-pormes`} value={porMes} onChange={setPorMes} invalid={erroPorMes !== null} placeholder="0" />
         </Field>
       </div>
 
@@ -220,11 +286,13 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
             </div>
             <div className="rounded-control bg-surface-2 p-4">
               <p className="text-sm text-ink-muted">No cartão</p>
-              <p className="font-display text-3xl font-semibold tracking-tight text-ink">
-                {plano.months > 0 ? `${plano.months}x de ${formatBRL(plano.monthly)}` : formatBRL(0)}
-              </p>
-              {plano.months > 0 && (
-                <p className="tnum text-sm text-ink-muted">Total no cartão {formatBRL(plano.installmentTotal)}</p>
+              {plano.months > 0 ? (
+                <>
+                  <Faixas faixas={plano.schedule} total={plano.months} tamanho="md" />
+                  <p className="tnum text-sm text-ink-muted">Total no cartão {formatBRL(plano.installmentTotal)}</p>
+                </>
+              ) : (
+                <p className="font-display text-3xl font-semibold tracking-tight text-ink">{formatBRL(0)}</p>
               )}
               <ListaDePecas pecas={plano.installmentItems} vazio="Nada para parcelar." />
             </div>

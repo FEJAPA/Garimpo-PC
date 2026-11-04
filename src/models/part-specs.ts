@@ -6,11 +6,12 @@
 // ordem de grandeza dos reviews públicos, mas não medidos por nós.
 //
 // V2-A: o app lê as specs por src/services/specs.ts (tabela part_specs quando o
-// Supabase existe; esta lista é o fallback do modo de demonstração).
+// Supabase existe; esta lista é usada SÓ no modo de demonstração, sem banco).
 // `capacityGb` (ram, ssd) e `upscaling` (gpu) são fatos de catálogo dos modelos.
-// TODO(V2-A): alimentar part_specs com dados reais (fabricante + benchmarks
-// agregados) via scripts/collect-specs.mjs e cobrir todo o catálogo coletado.
-// Uma peça sem spec simplesmente não entra na montagem.
+// Para alimentar part_specs com dados reais (fabricante + benchmarks agregados),
+// rode `npm run collect:specs` (guia em docs/COLETA-SPECS.md).
+// TODO(V2-A): curadoria contínua para cobrir todo o catálogo coletado em
+// scripts/data/specs-catalogo.json. Uma peça sem spec não entra na montagem.
 
 import type { PartSpec } from "./builder-types";
 

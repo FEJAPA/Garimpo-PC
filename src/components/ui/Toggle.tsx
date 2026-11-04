@@ -1,6 +1,7 @@
 "use client";
 
 // Interruptor (switch) com rótulo e descrição. Acessível via teclado (é um botão).
+// A descrição fica ligada ao botão por `aria-describedby` (A11Y-06).
 
 export function Toggle({
   id,
@@ -23,13 +24,18 @@ export function Toggle({
         <label htmlFor={id} className="block text-sm font-medium text-ink">
           {label}
         </label>
-        {description && <p className="mt-0.5 text-xs text-ink-faint">{description}</p>}
+        {description && (
+          <p id={`${id}-descricao`} className="mt-0.5 text-xs text-ink-faint">
+            {description}
+          </p>
+        )}
       </div>
       <button
         id={id}
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-describedby={description ? `${id}-descricao` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full border transition-colors duration-150 disabled:opacity-50 ${

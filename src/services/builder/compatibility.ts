@@ -4,6 +4,51 @@
 // M.2, quantidade de pentes de RAM, fonte SFX em gabinetes ITX.
 
 import type { PartSpec } from "@/models/builder-types";
+import type { Category } from "@/models/types";
+
+/** As sete categorias que o Montador sabe montar. */
+const CATEGORIAS: readonly Category[] = ["gpu", "cpu", "motherboard", "ram", "ssd", "psu", "case"];
+
+const positivo = (n: number | undefined): boolean => typeof n === "number" && Number.isFinite(n) && n > 0;
+const preenchido = (s: string | undefined): boolean => typeof s === "string" && s.trim().length > 0;
+
+/**
+ * Diz se a spec tem o mínimo para entrar na montagem (LOG-02/03).
+ *
+ * Por quê: `isCompatible` só compara campos que existem dos dois lados. Uma
+ * placa-mãe sem `socket` "combinaria" com qualquer processador, e a promessa
+ * "peças sempre compatíveis" quebraria em silêncio. Então, antes de montar,
+ * exigimos por categoria:
+ *   - gpu e cpu: `tdp` e `perf` finitos e > 0 (fonte e desempenho dependem deles);
+ *   - cpu: `socket`; placa-mãe: `socket`, `ramType` e `formFactor`;
+ *   - ram: `ramType`; gabinete: `caseSupports` não vazio; fonte: `wattage` > 0;
+ *   - ssd: `perf` finito e > 0;
+ *   - todas: categoria conhecida, `perf` finito ≥ 0 e `aesthetics` entre 0 e 100.
+ * Conferir se a categoria da spec bate com a do produto fica com quem tem o
+ * produto (auto-build.ts).
+ */
+export function hasRequiredSpec(spec: PartSpec): boolean {
+  if (!CATEGORIAS.includes(spec.category)) return false;
+  if (!Number.isFinite(spec.perf) || spec.perf < 0) return false;
+  if (!Number.isFinite(spec.aesthetics) || spec.aesthetics < 0 || spec.aesthetics > 100) return false;
+
+  switch (spec.category) {
+    case "gpu":
+      return positivo(spec.tdp) && positivo(spec.perf);
+    case "cpu":
+      return positivo(spec.tdp) && positivo(spec.perf) && preenchido(spec.socket);
+    case "motherboard":
+      return preenchido(spec.socket) && preenchido(spec.ramType) && preenchido(spec.formFactor);
+    case "ram":
+      return preenchido(spec.ramType);
+    case "case":
+      return Array.isArray(spec.caseSupports) && spec.caseSupports.length > 0;
+    case "psu":
+      return positivo(spec.wattage);
+    case "ssd":
+      return positivo(spec.perf);
+  }
+}
 
 /** Consumo base (placa-mãe, RAM, SSD, fans) somado ao da GPU e da CPU. */
 const BASE_WATTS = 75;

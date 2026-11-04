@@ -41,4 +41,12 @@ describe("applyCoupon", () => {
     const soPichau = buildPaymentSummary([ram]);
     expect(applyCoupon(soPichau, "KABUM10", CUPONS, HOJE).ok).toBe(false);
   });
+
+  // LOG-13: a validade é contada no horário de Brasília, não em UTC.
+  it("cupom vale até o fim do dia no horário de Brasília", () => {
+    // 2026-01-02 01:00 UTC = 2026-01-01 22:00 em Brasília: ainda é o último dia.
+    expect(applyCoupon(resumo, "VENCIDO", CUPONS, new Date("2026-01-02T01:00:00Z")).ok).toBe(true);
+    // 2026-01-02 03:30 UTC = 2026-01-02 00:30 em Brasília: venceu.
+    expect(applyCoupon(resumo, "VENCIDO", CUPONS, new Date("2026-01-02T03:30:00Z"))).toEqual({ ok: false, reason: "Este cupom venceu." });
+  });
 });

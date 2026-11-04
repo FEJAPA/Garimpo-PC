@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { REFERENCE_BUILDS } from "@/models/reference-builds";
 
 // O cliente do Supabase é trocado por um falso em cada teste.
@@ -64,6 +66,33 @@ describe("mapReferenceRow", () => {
   it("aceita fps em texto JSON", () => {
     expect(mapReferenceRow({ ...linha, fps: JSON.stringify(linha.fps) }).fps).toEqual(linha.fps);
   });
+
+  it("rejeita score zero, negativo, infinito ou que não é número (LOG-14: evita 0/0 na interpolação)", () => {
+    for (const score of [0, "0", -5, "-1.5", "abc", Number.NaN, Number.POSITIVE_INFINITY, ""]) {
+      expect(() => mapReferenceRow({ ...linha, score }), `score ${String(score)}`).toThrow(/score inválido/);
+    }
+  });
+
+  it("rejeita fps incompleto ou com número inválido (NaN, infinito, zero, negativo, texto)", () => {
+    const fpsBom = linha.fps as Record<string, Record<string, unknown>>;
+    const comEsportsFullHd = (valor: unknown) => ({
+      ...fpsBom,
+      esports: { ...fpsBom.esports, "1080p": valor },
+    });
+    for (const valor of [Number.NaN, Number.POSITIVE_INFINITY, 0, -10, "270", null, undefined]) {
+      expect(() => mapReferenceRow({ ...linha, fps: comEsportsFullHd(valor) }), `fps ${String(valor)}`).toThrow(/fps inválido/);
+    }
+    expect(() => mapReferenceRow({ ...linha, fps: { esports: { "1080p": 1, "1440p": 1 } } })).toThrow(/fps inválido/);
+    expect(() => mapReferenceRow({ ...linha, fps: null })).toThrow(/fps inválido/);
+    expect(() => mapReferenceRow({ ...linha, fps: "{não é json" })).toThrow(/fps inválido/);
+  });
+
+  it("ram_gb e preço que não são números válidos não viram NaN", () => {
+    const r = mapReferenceRow({ ...linha, ram_gb: "abc", approx_price: "abc" });
+    expect(r).not.toHaveProperty("ramGb");
+    expect(r.approxPrice).toBe(0);
+    expect(mapReferenceRow({ ...linha, ram_gb: 0 })).not.toHaveProperty("ramGb");
+  });
 });
 
 describe("getReferenceBuilds", () => {
@@ -105,5 +134,49 @@ describe("getReferenceBuilds", () => {
   it("descarta linhas com fps inválido e cai na lista local se nada sobrar", async () => {
     supabaseFalso.atual = clienteQueResponde({ data: [{ ...linha, fps: { esports: {} } }], error: null });
     expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+  });
+
+  it("descarta linhas com score zero e mantém as boas", async () => {
+    supabaseFalso.atual = clienteQueResponde({
+      data: [
+        { ...linha, id: "ruim", score: 0 },
+        { ...linha, id: "boa", score: 90 },
+      ],
+      error: null,
+    });
+    expect((await getReferenceBuilds()).map((r) => r.id)).toEqual(["boa"]);
+  });
+
+  it("se só sobrar score inválido, cai na lista local", async () => {
+    supabaseFalso.atual = clienteQueResponde({ data: [{ ...linha, score: -1 }], error: null });
+    expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+  });
+});
+
+// Os seeds SQL são texto, mas os testes guardam o que importa neles: a lista do código
+// e o seed-references.sql não podem divergir, e o seed-builder.sql não pode voltar a
+// gravar referências antigas por cima (R-10).
+describe("seeds SQL das referências", () => {
+  const ler = (nome: string) => readFileSync(fileURLToPath(new URL(`../../supabase/${nome}`, import.meta.url)), "utf-8");
+  const sqlTexto = (t: string) => t.replace(/'/g, "''");
+
+  it("seed-builder.sql não grava mais reference_builds (a fonte é seed-references.sql)", () => {
+    expect(ler("seed-builder.sql")).not.toMatch(/insert\s+into\s+public\.reference_builds/i);
+  });
+
+  it("seed-references.sql não tem o TODO velho sobre ram_gb", () => {
+    expect(ler("seed-references.sql")).not.toContain("TODO(V2-D)");
+  });
+
+  it("seed-references.sql traz as mesmas referências, fontes e mês da lista do código", () => {
+    const sql = ler("seed-references.sql");
+    for (const r of REFERENCE_BUILDS) {
+      expect(sql, r.id).toContain(`('${r.id}', '${sqlTexto(r.name)}', '${sqlTexto(r.description)}', '${sqlTexto(r.parts)}', ${r.approxPrice}, ${r.score},`);
+      expect(sql, `source de ${r.id}`).toContain(`'${sqlTexto(r.source!)}'`);
+      expect(sql, `data de ${r.id}`).toContain(`'${r.measuredAt}-01'::date`);
+      expect(sql, `fps/ram de ${r.id}`).toContain(`, ${r.score}, '${JSON.stringify(r.fps)}'::jsonb, ${r.ramGb},`);
+    }
+    // Nenhum mês de coleta que a fonte não tem.
+    expect(sql).not.toContain("out/2026");
   });
 });

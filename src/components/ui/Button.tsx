@@ -1,9 +1,13 @@
 // Botão do design system (ver DESIGN.md). Variantes: primary (ouro), secondary,
 // ghost e danger. `ButtonLink` tem o mesmo visual, mas navega.
+//
+// Links externos (lojas) passam por `safeHref` (SEG-04): só http/https viram
+// link; qualquer outro esquema (javascript:, data:...) não é renderizado como link.
 
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { safeHref } from "@/lib/share";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -24,6 +28,9 @@ const SIZES: Record<ButtonSize, string> = {
   md: "h-10 px-4 text-sm",
   lg: "h-12 px-5 text-base",
 };
+
+/** URL externa segura (só http e https) ou null. Implementada em lib/share (testada lá). */
+export { safeHref };
 
 export function buttonClasses(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = ""): string {
   return `${BASE} ${VARIANTS[variant]} ${SIZES[size]} ${extra}`.trim();
@@ -67,9 +74,19 @@ export function ButtonLink({
 }) {
   const classes = buttonClasses(variant, size, className);
   if (external) {
+    const safe = safeHref(href);
+    if (!safe) {
+      // Esquema não permitido: mostra o botão desabilitado, sem link.
+      return (
+        <span aria-disabled="true" className={`${classes} cursor-not-allowed opacity-50`}>
+          {children}
+        </span>
+      );
+    }
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>
+      <a href={safe} target="_blank" rel="noopener noreferrer" className={classes}>
         {children}
+        <span className="sr-only"> (abre em nova aba)</span>
       </a>
     );
   }

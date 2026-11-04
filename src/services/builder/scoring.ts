@@ -3,7 +3,7 @@
 // Spec §5.2 e §5.3.
 
 import type { Category } from "@/models/types";
-import type { PartSpec } from "@/models/builder-types";
+import type { PartSpec, UsageProfile } from "@/models/builder-types";
 
 /**
  * Quanto a estética pode pesar em cada categoria (0 a 1). Peças invisíveis
@@ -41,12 +41,34 @@ const SHARES_AESTHETICS: Record<Category, number> = {
   gpu: 0.3, cpu: 0.14, motherboard: 0.12, ram: 0.09, ssd: 0.07, psu: 0.08, case: 0.2,
 };
 
-/** Fração do orçamento alvo reservada a cada categoria, interpolada pelo slider. */
-export function categoryShares(aesthetics: number): Record<Category, number> {
+/**
+ * Ajuste das fatias por perfil de uso (V2-B3), somado depois da interpolação do
+ * slider. Cada linha soma ZERO, então as fatias continuam somando 1:
+ *   - jogos: a tabela acima, sem ajuste (a placa de vídeo manda nos FPS);
+ *   - trabalho (planilhas, programação, muitas abas): gpu −0,12, cpu +0,05,
+ *     ram +0,03, ssd +0,04 (−0,12 + 0,12 = 0);
+ *   - criação (edição de vídeo/foto, 3D): gpu −0,06, cpu +0,05, ram +0,04,
+ *     ssd −0,03 (−0,09 + 0,09 = 0). A GPU ainda importa (render/encode), e o
+ *     SSD perde um pouco porque a capacidade extra costuma vir de HD/externo.
+ * A menor fatia ajustada é a do SSD na criação com slider 100 (0,07 − 0,03 = 0,04),
+ * então nenhuma fica negativa.
+ */
+const USAGE_ADJUST: Record<UsageProfile, Partial<Record<Category, number>>> = {
+  jogos: {},
+  trabalho: { gpu: -0.12, cpu: 0.05, ram: 0.03, ssd: 0.04 },
+  criacao: { gpu: -0.06, cpu: 0.05, ram: 0.04, ssd: -0.03 },
+};
+
+/**
+ * Fração do orçamento alvo reservada a cada categoria, interpolada pelo slider
+ * e ajustada pelo perfil de uso (ausente = "jogos").
+ */
+export function categoryShares(aesthetics: number, usage: UsageProfile = "jogos"): Record<Category, number> {
   const a = clamp01(aesthetics / 100);
+  const ajuste = USAGE_ADJUST[usage] ?? {};
   const out = {} as Record<Category, number>;
   for (const cat of Object.keys(SHARES_PERFORMANCE) as Category[]) {
-    out[cat] = SHARES_PERFORMANCE[cat] * (1 - a) + SHARES_AESTHETICS[cat] * a;
+    out[cat] = SHARES_PERFORMANCE[cat] * (1 - a) + SHARES_AESTHETICS[cat] * a + (ajuste[cat] ?? 0);
   }
   return out;
 }

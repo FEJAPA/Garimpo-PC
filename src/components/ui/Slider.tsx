@@ -1,6 +1,7 @@
 "use client";
 
 // Slider com rótulos nas duas pontas (ex.: Desempenho <-> Estética).
+// Os rótulos das pontas ficam ligados ao controle por `aria-describedby` (A11Y-12).
 
 export function Slider({
   id,
@@ -45,11 +46,18 @@ export function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-valuetext={valueLabel}
+        aria-describedby={`${id}-pontas`}
         style={{ ["--fill" as string]: `${fill}%` }}
       />
-      <div className="mt-1 flex justify-between text-xs text-ink-faint">
-        <span>{leftLabel}</span>
-        <span>{rightLabel}</span>
+      <div id={`${id}-pontas`} className="mt-1 flex justify-between text-xs text-ink-faint">
+        <span>
+          {leftLabel}
+          <span className="sr-only"> à esquerda,</span>
+        </span>
+        <span>
+          {rightLabel}
+          <span className="sr-only"> à direita</span>
+        </span>
       </div>
     </div>
   );

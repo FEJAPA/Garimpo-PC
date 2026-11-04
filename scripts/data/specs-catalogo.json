@@ -1,5 +1,5 @@
 {
-  "_leia-me": "Tabela curada de specs para scripts/collect-specs.mjs. Chave = slug do produto. Campos em camelCase, iguais a PartSpec (src/models/builder-types.ts). Todo item precisa de category, perf, aesthetics e source. Use source honesto: \"ilustrativo\" quando o número não foi medido/conferido. Ver docs/COLETA-SPECS.md.",
+  "_leia-me": "Tabela curada de specs para scripts/collect-specs.mjs. Chave = slug do produto. Campos em camelCase, iguais a PartSpec (src/models/builder-types.ts). Todo item precisa de category, perf, aesthetics e source, mais os campos obrigatórios da categoria (gpu: tdp; cpu: tdp e socket; motherboard: socket, ramType e formFactor; ram: ramType; case: caseSupports; psu: wattage; ssd: nenhum). Use source honesto: \"ilustrativo\" quando o número não foi medido/conferido. Ver docs/COLETA-SPECS.md.",
   "pecas": {
     "rx-6600": {
       "category": "gpu",

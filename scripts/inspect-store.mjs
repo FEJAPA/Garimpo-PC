@@ -2,7 +2,19 @@
 // está no HTML. Ajuda a ajustar os "seletores" do coletor.
 // Uso: node scripts/inspect-store.mjs "URL_DO_PRODUTO"
 
+import { existsSync } from "node:fs";
 import { chromium } from "playwright";
+
+// Navegador: normalmente o Playwright usa o Chromium que ele mesmo baixa
+// (`npx playwright install chromium`). Só quando esse não existe (ex.: ambiente com
+// um Chromium pré-instalado em outra versão) caímos num caminho alternativo, o mesmo
+// fallback de playwright.config.ts e de collect-prices.mjs. Dá para apontar outro
+// com PW_CHROMIUM_PATH. undefined = o Playwright usa o padrão.
+function caminhoDoChromium() {
+  if (existsSync(chromium.executablePath())) return undefined;
+  const alternativo = process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium";
+  return existsSync(alternativo) ? alternativo : undefined;
+}
 
 const url = process.argv[2];
 if (!url) {
@@ -10,7 +22,7 @@ if (!url) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: caminhoDoChromium() });
 const ctx = await browser.newContext({
   userAgent:
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
