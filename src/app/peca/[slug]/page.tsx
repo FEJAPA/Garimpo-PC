@@ -3,16 +3,22 @@
 //
 // V2 (pacote C): cada loja mostra "Por que confiável" (motivos de storeTrust) e
 // ofertas "boas demais" (flagSuspiciousOffers) ganham um aviso.
+//
+// O herói "Melhor preço agora" usa getBestOffer: pula preço zero, loja bloqueada e
+// oferta suspeita. Loja bloqueada aparece na lista com o selo "Bloqueada" e SEM o
+// botão "Ver na loja".
 
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, ShieldAlert, ShieldCheck } from "lucide-react";
-import { getProductBySlug, getPriceHistory } from "@/services/products";
+import { getProductBySlug, getPriceHistory, usingRealData } from "@/services/products";
 import { registerView } from "@/services/popularity";
 import { storeTrust } from "@/services/builder/trust";
 import { flagSuspiciousOffers } from "@/services/builder/suspicious";
 import { categoryLabel } from "@/models/categories";
-import { formatBRL, getBestOffer } from "@/lib/format";
+import { formatBRL, getBestOffer, offerWarning } from "@/lib/format";
 import { StoreBadge } from "@/components/StoreBadge";
 import { PriceHistoryChart } from "@/components/PriceHistoryChart";
 import { PriceAlertButton } from "@/components/PriceAlertButton";
@@ -22,15 +28,34 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 
+// A busca da peça roda duas vezes por visita (título e página); `cache` faz o banco
+// ser consultado uma vez só.
+const carregarPeca = cache(getProductBySlug);
+
+export async function generateMetadata(props: PageProps<"/peca/[slug]">): Promise<Metadata> {
+  const { slug } = await props.params;
+  const product = await carregarPeca(slug);
+  if (!product) return { title: "Peça não encontrada" };
+  return {
+    title: product.name,
+    description:
+      product.description ??
+      `Compare o preço de ${product.name} em lojas confiáveis, no Pix e parcelado, e veja o histórico de preços.`,
+  };
+}
+
 export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
   const { slug } = await props.params;
-  const product = await getProductBySlug(slug);
+  const product = await carregarPeca(slug);
   if (!product) notFound();
 
   await registerView(product.id);
 
   const history = await getPriceHistory(product);
+  const dadosReais = usingRealData();
   const melhor = getBestOffer(product);
+  // Se a melhor oferta for suspeita (só sobrou ela), o herói avisa ao lado do preço.
+  const avisoMelhor = melhor ? offerWarning(product, melhor) : null;
   const ofertas = [...product.offers].sort((a, b) => a.price_pix - b.price_pix);
   const suspeitas = flagSuspiciousOffers(product);
 
@@ -50,16 +75,29 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
         {product.description && <p className="mt-4 max-w-[65ch] text-ink-muted">{product.description}</p>}
       </header>
 
+      {!dadosReais && (
+        <Callout tone="warn" className="mt-6">
+          <strong>Modo de demonstração.</strong> Peças, lojas e preços são de exemplo.
+        </Callout>
+      )}
+
       {melhor && (
-        <Card className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-ink-muted">Melhor preço agora (Pix)</p>
-            <p className="font-display text-4xl font-semibold tracking-tight text-ink">{formatBRL(melhor.price_pix)}</p>
-            <p className="mt-1 text-sm text-ink-muted">
-              na <strong className="text-ink">{melhor.store.name}</strong>
-            </p>
+        <Card className="mt-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-ink-muted">Melhor preço agora (Pix)</p>
+              <p className="font-display text-4xl font-semibold tracking-tight text-ink">{formatBRL(melhor.price_pix)}</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                na <strong className="text-ink">{melhor.store.name}</strong>
+              </p>
+            </div>
+            <PriceAlertButton productSlug={product.slug} productName={product.name} currentPrice={melhor.price_pix} />
           </div>
-          <PriceAlertButton productSlug={product.slug} productName={product.name} currentPrice={melhor.price_pix} />
+          {avisoMelhor && (
+            <Callout tone="warn" title="Preço bom demais?">
+              {avisoMelhor}
+            </Callout>
+          )}
         </Card>
       )}
 
@@ -70,6 +108,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
             {ofertas.map((oferta, i) => {
               const confianca = storeTrust(oferta.store);
               const suspeita = suspeitas.get(oferta.id);
+              const bloqueada = Boolean(oferta.store.blocked);
               const IconeConfianca = confianca.trusted ? ShieldCheck : ShieldAlert;
               return (
                 <li key={oferta.id} className={`flex flex-col gap-3 p-4 ${i > 0 ? "border-t border-line" : ""}`}>
@@ -77,7 +116,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                     <div className="flex flex-col items-start gap-1.5">
                       <StoreBadge store={oferta.store} showLabel announceReasons={false} />
                       {!oferta.in_stock && <Badge tone="bad">Indisponível</Badge>}
-                      {i === 0 && oferta.in_stock && !suspeita && <Badge tone="good">Menor preço</Badge>}
+                      {melhor?.id === oferta.id && !suspeita && <Badge tone="good">Melhor preço</Badge>}
                       <div className="mt-1">
                         <p className="text-xs font-medium text-ink-muted">
                           {confianca.trusted ? "Por que confiável" : "Por que não marcamos como confiável"}
@@ -107,7 +146,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                           </p>
                         )}
                       </div>
-                      {oferta.url && oferta.in_stock && (
+                      {oferta.url && oferta.in_stock && !bloqueada && (
                         <ButtonLink href={oferta.url} external size="sm">
                           Ver na loja
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -115,6 +154,11 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                       )}
                     </div>
                   </div>
+                  {bloqueada && (
+                    <Callout tone="warn" title="Loja bloqueada por denúncias">
+                      Não recomendamos comprar aqui: por isso não mostramos o botão da loja e ela não entra no melhor preço.
+                    </Callout>
+                  )}
                   {suspeita && (
                     <Callout tone="warn" title="Preço bom demais?">
                       {suspeita.reason}

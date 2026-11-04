@@ -1,8 +1,9 @@
 // Conexão com o banco de dados Supabase.
 //
 // As chaves ficam no arquivo .env.local (que NÃO vai para o git). Enquanto você
-// ainda não configurou o Supabase, isStorageConfigured() retorna false e o app
-// usa dados de exemplo locais (ver src/lib/data.ts). Assim você já vê o site
+// ainda não configurou o Supabase, isSupabaseConfigured() retorna false e o app
+// usa dados de exemplo locais (ver src/models/mock-data.ts e os serviços em
+// src/services/, que escolhem entre o banco e o exemplo). Assim você já vê o site
 // funcionando antes de criar o banco.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";

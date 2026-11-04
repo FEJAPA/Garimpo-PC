@@ -106,3 +106,15 @@ describe("flagSuspiciousOffers", () => {
     expect(flagSuspiciousOffers(p).size).toBe(0);
   });
 });
+
+describe("flagSuspiciousOffers e lojas bloqueadas (V2, R-11)", () => {
+  it("loja bloqueada fica de fora: não é marcada nem entra na comparação", () => {
+    const golpe: Store = { ...promo, id: "golpe", name: "Golpe", blocked: true };
+    const p = produto([
+      oferta("k", kabum, 1899.9),
+      oferta("pi", pichau, 1949.9),
+      oferta("golpe", { ...golpe, is_official: true, rating: 5, reclame_aqui_score: 9 }, 100),
+    ]);
+    expect(flagSuspiciousOffers(p).size).toBe(0);
+  });
+});

@@ -40,6 +40,12 @@ Cores (tema escuro único):
 
 Gráficos (dataviz): série única/ênfase = `brand`; contexto (de-ênfase) = `#626877` (≥ 3:1 sobre `surface`);
 grade = `line`, hairline sólida; texto de eixos = `ink-faint`. Nunca cor de série em texto.
+Terceiro tom, **"relacionado"** (`#8b8e99`): só para "PCs parecidos com o seu" no gráfico de
+desempenho; é um passo mais claro que o contexto, e a ênfase continua sendo uma só. Os hexadecimais
+vivem num lugar só, `CHART_COLORS` (`src/lib/chart-colors.ts`: `enfase`, `contexto`, `relacionado`,
+`grade`, `eixo`…); gráficos novos importam de lá em vez de repetir cores.
+Todo gráfico tem `role="img"` com um resumo em texto e a mesma informação em tabela
+(visível ou num `<details>` "Ver como tabela").
 
 Tipografia:
 
@@ -65,6 +71,17 @@ active, disabled, loading, erro. Listas têm estado vazio que ensina o próximo 
 
 Superfícies do navegador: seleção de texto, caret, scrollbar e anel de foco usam a paleta.
 
+Acessibilidade de página: o primeiro item da tabulação é o link "Pular para o conteúdo"
+(`href="#conteudo"`, fica fora da tela e aparece como botão `brand` no foco); o conteúdo de cada
+página fica em `<main id="conteudo">`. Cada página tem `<title>` próprio (o layout acrescenta
+" · GarimpoPC"). A navegação marca a página atual com `aria-current="page"`. O cabeçalho
+fixo tem fundo sólido (`base`), sem transparência nem blur.
+
+Confiança de loja (uma régua só, `storeTrust`): o selo e o rótulo da loja são **Confiável** (`good`),
+**Não verificada** (`warn`) e **Bloqueada** (`bad`). A nota (estrelas) aparece como número ao
+lado, mas não decide o tom. Oferta "boa demais" ganha `Callout` de atenção; loja bloqueada não
+tem botão "Ver na loja".
+
 ## Componentes base (`src/components/ui/`)
 
 `Button` (primary/secondary/ghost/danger; sm/md/lg), `Card`, `Badge` (neutral/good/warn/
@@ -74,5 +91,5 @@ bad/brand), `Field` + `NumberInput` (prefixo "R$"), `Toggle` (switch com rótulo
 ## Voz
 
 Botões nomeiam a ação ("Montar meu PC", "Ver na loja"). Erros dizem o problema e a saída
-("Orçamento insuficiente: a montagem mais barata custa R$ 4.693. Suba o teto ou
+("Orçamento insuficiente: a montagem mais barata custa R$ 4.699. Suba o teto ou
 desative o filtro de lojas."). Nada de "Ops!".

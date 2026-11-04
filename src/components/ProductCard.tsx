@@ -1,16 +1,23 @@
-// Card de uma peça na listagem: categoria, nome, menor preço e a loja onde está
-// mais barata. O card inteiro é um link para a página de detalhe.
+// Card de uma peça na listagem: categoria, nome, melhor preço e a loja onde está.
+// O card inteiro é um link para a página de detalhe.
+//
+// O preço vem de getBestOffer: ignora preço zero, loja bloqueada e oferta "boa
+// demais" (suspeita). Se só sobrar oferta suspeita, ela aparece COM aviso.
 
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import type { ProductWithOffers } from "@/models/types";
 import { categoryLabel } from "@/models/categories";
-import { formatBRL, getBestOffer } from "@/lib/format";
+import { formatBRL, getBestOffer, offerWarning } from "@/lib/format";
+import { validOffers } from "@/services/builder/trust";
 import { StoreBadge } from "./StoreBadge";
 import { Badge } from "./ui/Badge";
 
 export function ProductCard({ product }: { product: ProductWithOffers }) {
   const melhor = getBestOffer(product);
-  const numLojas = product.offers.filter((o) => o.in_stock).length;
+  const aviso = melhor ? offerWarning(product, melhor) : null;
+  // Só conta lojas de onde dá para comprar (em estoque, preço válido, não bloqueadas).
+  const numLojas = validOffers(product, false).length;
 
   return (
     <Link
@@ -26,13 +33,19 @@ export function ProductCard({ product }: { product: ProductWithOffers }) {
       <div className="mt-auto pt-6">
         {melhor ? (
           <>
-            <p className="text-xs text-ink-faint">menor preço no Pix</p>
+            <p className="text-xs text-ink-faint">{aviso ? "oferta mais barata no Pix" : "menor preço no Pix"}</p>
             <p className="font-display text-2xl font-semibold tracking-tight text-ink">
               {formatBRL(melhor.price_pix)}
             </p>
             <div className="mt-2">
-              <StoreBadge store={melhor.store} />
+              <StoreBadge store={melhor.store} showLabel />
             </div>
+            {aviso && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-warn">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                <span>Preço bom demais? Confira a loja antes de pagar.</span>
+              </p>
+            )}
           </>
         ) : (
           <p className="text-sm text-ink-faint">Sem ofertas no momento</p>

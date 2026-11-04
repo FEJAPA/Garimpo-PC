@@ -1,7 +1,11 @@
 // Tipos que descrevem os dados do app (peças, lojas, ofertas e histórico).
 // Eles espelham as tabelas do banco de dados (Supabase). Ver supabase/schema.sql.
 
-/** Categoria de peça. Por enquanto focamos em GPU; mais entram depois. */
+/**
+ * Categoria de peça: as sete que o Montador combina (placa de vídeo, processador,
+ * memória, armazenamento, placa-mãe, fonte e gabinete). Nomes em português:
+ * src/models/categories.ts.
+ */
 export type Category = "gpu" | "cpu" | "ram" | "ssd" | "motherboard" | "psu" | "case";
 
 /** Uma loja onde uma peça pode ser vendida. */

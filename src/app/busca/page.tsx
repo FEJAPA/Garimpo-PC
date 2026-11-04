@@ -1,5 +1,6 @@
 // Página de resultados da busca: /busca?q=termo
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { searchProducts, usingRealData } from "@/services/products";
 import { ProductCard } from "@/components/ProductCard";
@@ -8,9 +9,20 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 
+/** O termo digitado, ou "" quando não há busca. */
+function termoDaBusca(params: { [key: string]: string | string[] | undefined }): string {
+  return typeof params.q === "string" ? params.q : "";
+}
+
+// Título por página (A11Y-02): "Busca: rtx". Sem termo, a página lista tudo.
+export async function generateMetadata(props: PageProps<"/busca">): Promise<Metadata> {
+  const q = termoDaBusca(await props.searchParams).trim();
+  return { title: q ? `Busca: ${q.slice(0, 80)}` : "Todas as peças" };
+}
+
 export default async function BuscaPage(props: PageProps<"/busca">) {
   const params = await props.searchParams;
-  const q = typeof params.q === "string" ? params.q : "";
+  const q = termoDaBusca(params);
   const results = await searchProducts(q);
   const dadosReais = usingRealData();
   const contagem = `${results.length} ${results.length === 1 ? "peça encontrada" : "peças encontradas"}`;

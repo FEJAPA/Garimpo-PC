@@ -1,5 +1,6 @@
 // Página inicial: convence a montar um PC ou comparar peças, e mostra as mais procuradas.
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Cpu, LineChart, MessageCircle, ShieldCheck, Wallet } from "lucide-react";
 import { getPopularProducts } from "@/services/popularity";
@@ -11,6 +12,11 @@ import { Card } from "@/components/ui/Card";
 import { Callout } from "@/components/ui/Callout";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { DEFAULT_BUDGET } from "@/services/builder/budget";
+
+// O layout acrescenta " · GarimpoPC" ao título (A11Y-02: cada página tem o seu).
+export const metadata: Metadata = {
+  title: "Monte e compare seu PC gamer",
+};
 
 const PASSOS = [
   {

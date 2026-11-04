@@ -1,33 +1,15 @@
 // Cabeçalho do site: marca, navegação, busca e estado de login.
 // No celular vira duas linhas: marca + conta em cima; navegação + busca embaixo.
+// Fundo sólido (DESIGN.md: sem vidro/blur decorativo). A navegação é um componente
+// de cliente (NavLinks) para marcar a página atual com aria-current.
 
 import Link from "next/link";
 import { Suspense } from "react";
 import { Pickaxe } from "lucide-react";
 import { getCurrentUser } from "@/models/supabase-server";
+import { NavLinks } from "./NavLinks";
 import { SearchBar } from "./SearchBar";
 import { ButtonLink } from "./ui/Button";
-
-const NAV = [
-  { href: "/busca", label: "Peças" },
-  { href: "/montar", label: "Montar PC" },
-];
-
-function NavLinks() {
-  return (
-    <>
-      {NAV.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className="rounded-control px-2.5 py-1.5 text-sm font-medium text-ink-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
-        >
-          {item.label}
-        </Link>
-      ))}
-    </>
-  );
-}
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
@@ -42,7 +24,7 @@ export async function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-base/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b border-line bg-base">
       <div className="mx-auto max-w-6xl px-4 py-3">
         <div className="flex items-center gap-5">
           <Link href="/" className="group flex shrink-0 items-center gap-2.5" aria-label="GarimpoPC — início">

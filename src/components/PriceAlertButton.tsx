@@ -1,7 +1,7 @@
 "use client";
 
 // Botão "Criar alerta de preço" na página da peça.
-// - Sem login: leva para a tela de entrar.
+// - Sem login: leva para a tela de entrar e volta para esta peça depois (?next=).
 // - Com login: abre um campo para o preço-alvo e cria o alerta.
 
 import { useState, useEffect, useTransition } from "react";
@@ -9,7 +9,7 @@ import { Bell } from "lucide-react";
 import { getBrowserSupabase } from "@/models/supabase-browser";
 import { isSupabaseConfigured } from "@/models/supabase";
 import { createAlert } from "@/app/account/actions";
-import { formatBRL } from "@/lib/format";
+import { formatBRL } from "@/lib/currency";
 import { Button, ButtonLink } from "./ui/Button";
 import { INPUT_CLASSES } from "./ui/Field";
 
@@ -38,7 +38,7 @@ export function PriceAlertButton({
 
   if (logado === false) {
     return (
-      <ButtonLink href="/entrar" variant="secondary">
+      <ButtonLink href={`/entrar?next=${encodeURIComponent(`/peca/${productSlug}`)}`} variant="secondary">
         <Bell className="h-4 w-4" aria-hidden />
         Entre para criar um alerta de preço
       </ButtonLink>

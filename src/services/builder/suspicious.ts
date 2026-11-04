@@ -5,7 +5,7 @@
 // ofertas de hoje.
 
 import type { ProductWithOffers } from "@/models/types";
-import { formatBRL } from "@/lib/format";
+import { formatBRL } from "@/lib/currency";
 import { isTrustedStore, validOffers } from "./trust";
 
 /** A partir de quanto abaixo da mediana confiável (fração) a oferta é suspeita. */
@@ -45,7 +45,8 @@ export function suspiciousPrice(price: number, trustedPrices: number[]): Suspici
 
 /**
  * Marca as ofertas suspeitas de uma peça (id da oferta → motivo). Só olha
- * ofertas em estoque com preço válido; lojas confiáveis nunca são marcadas.
+ * ofertas em estoque com preço válido e de loja não bloqueada (`validOffers`);
+ * lojas confiáveis nunca são marcadas.
  */
 export function flagSuspiciousOffers(product: ProductWithOffers): Map<string, SuspiciousFlag> {
   const ofertas = validOffers(product, false);

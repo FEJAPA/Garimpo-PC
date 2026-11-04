@@ -23,9 +23,16 @@ function umaCasa(valor: number): string {
   return valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
-/** Número informado de verdade (nem null, nem undefined, nem NaN). */
-function informado(valor: number | null | undefined): valor is number {
-  return typeof valor === "number" && Number.isFinite(valor);
+/**
+ * Lê um campo numérico da loja que pode chegar como número OU como texto
+ * ("4.8", vindo de `numeric` do banco). Devolve null quando não foi informado
+ * (null, undefined, texto vazio) ou não dá para ler (NaN, "abc").
+ */
+function lerNumero(valor: unknown): number | null {
+  if (valor === null || valor === undefined) return null;
+  if (typeof valor === "string" && valor.trim() === "") return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -34,25 +41,31 @@ function informado(valor: number | null | undefined): valor is number {
  * Regras: bloqueada → nunca; senão precisa ser oficial E ter nota >= 4,5; se o
  * Reclame Aqui for informado e ficar abaixo de 6, deixa de ser confiável. Sem
  * Reclame Aqui informado, vale a regra da V1 (oficial + nota).
+ *
+ * Nota, avaliações, Reclame Aqui e anos podem chegar como texto; todos passam
+ * por `Number()` (ver `lerNumero`) para a regra nunca ser pulada em silêncio.
  */
 export function storeTrust(store: Store): StoreTrust {
   if (store.blocked) {
     return { trusted: false, reasons: ["Loja bloqueada por denúncias"] };
   }
 
+  // Nota ilegível vale 0: nunca é confiável.
+  const nota = lerNumero(store.rating) ?? 0;
+  const avaliacoes = lerNumero(store.rating_count) ?? 0;
   const reasons: string[] = [];
-  let trusted = store.is_official && store.rating >= TRUSTED_MIN_RATING;
+  let trusted = store.is_official && nota >= TRUSTED_MIN_RATING;
 
   reasons.push(store.is_official ? "Loja oficial" : "Não é loja oficial");
 
-  if (store.rating >= TRUSTED_MIN_RATING) {
-    reasons.push(`Nota ${umaCasa(store.rating)} (${store.rating_count.toLocaleString("pt-BR")} avaliações)`);
+  if (nota >= TRUSTED_MIN_RATING) {
+    reasons.push(`Nota ${umaCasa(nota)} (${avaliacoes.toLocaleString("pt-BR")} avaliações)`);
   } else {
-    reasons.push(`Nota ${umaCasa(store.rating)}, abaixo de ${umaCasa(TRUSTED_MIN_RATING)}`);
+    reasons.push(`Nota ${umaCasa(nota)}, abaixo de ${umaCasa(TRUSTED_MIN_RATING)}`);
   }
 
-  const ra = store.reclame_aqui_score;
-  if (informado(ra)) {
+  const ra = lerNumero(store.reclame_aqui_score);
+  if (ra !== null) {
     if (ra < RECLAME_AQUI_MIN) {
       trusted = false;
       reasons.push(`Reclame Aqui baixo (${umaCasa(ra)})`);
@@ -61,8 +74,8 @@ export function storeTrust(store: Store): StoreTrust {
     }
   }
 
-  const anos = store.years_active;
-  if (informado(anos) && anos >= YEARS_ACTIVE_GOOD) {
+  const anos = lerNumero(store.years_active);
+  if (anos !== null && anos >= YEARS_ACTIVE_GOOD) {
     reasons.push(`${anos} anos de mercado`);
   }
 
@@ -74,15 +87,32 @@ export function isTrustedStore(store: Store): boolean {
   return storeTrust(store).trusted;
 }
 
+/** Os três estados de confiança que a tela mostra (selo, rótulo e cor). */
+export type TrustLevel = "trusted" | "unverified" | "blocked";
+
+/**
+ * Estado de confiança para a tela, vindo da MESMA régua do filtro do Montador
+ * (`storeTrust`). Selo, rótulo e cor usam isto, nunca a nota sozinha: uma loja
+ * não oficial com nota 4,7 é "unverified", não "confiável".
+ */
+export function trustLevel(store: Store): TrustLevel {
+  if (store.blocked) return "blocked";
+  return storeTrust(store).trusted ? "trusted" : "unverified";
+}
+
 /** Preço Pix utilizável: número finito e maior que zero (V2, A2). */
 function precoValido(preco: number): boolean {
   return Number.isFinite(preco) && preco > 0;
 }
 
-/** Ofertas em estoque e com preço válido; se trustedOnly, só as de lojas confiáveis. */
+/**
+ * Ofertas em estoque e com preço válido; se trustedOnly, só as de lojas
+ * confiáveis. Loja BLOQUEADA (denúncias de golpe) fica de fora SEMPRE, com o
+ * filtro ligado ou não: nada a recomenda, nem em silêncio.
+ */
 export function validOffers(product: ProductWithOffers, trustedOnly: boolean): OfferWithStore[] {
   return product.offers.filter(
-    (o) => o.in_stock && precoValido(o.price_pix) && (!trustedOnly || isTrustedStore(o.store)),
+    (o) => o.in_stock && precoValido(o.price_pix) && !o.store.blocked && (!trustedOnly || isTrustedStore(o.store)),
   );
 }
 

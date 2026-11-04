@@ -1,7 +1,7 @@
 // Cliente do Supabase para uso no SERVIDOR (componentes de servidor, rotas de
 // API e o Proxy). Ele lê/grava os cookies de sessão do usuário logado.
 //
-// Diferente de src/lib/supabase.ts (que é simples e usado para ler dados
+// Diferente de src/models/supabase.ts (que é simples e usado para ler dados
 // públicos), este aqui sabe da SESSÃO do usuário — necessário para login.
 
 import { createServerClient } from "@supabase/ssr";

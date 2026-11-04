@@ -1,20 +1,25 @@
 // Selo de confiabilidade de uma loja: nome, selo "oficial" e nota com estrelas.
 // É um dos diferenciais do produto (anti-golpe).
 //
-// V2 (pacote C): os motivos da confiança (storeTrust) aparecem no `title`
-// (dica ao passar o mouse) e num texto só para leitores de tela.
+// Uma régua só (V2, LOG-17): cor e rótulo ("Confiável", "Não verificada",
+// "Bloqueada") vêm de storeTrust, a mesma regra do filtro do Montador. A nota
+// continua visível como número, mas não decide mais o tom sozinha.
+//
+// Os motivos da confiança aparecem no `title` (dica ao passar o mouse, que não
+// funciona no toque) e num texto só para leitores de tela; o rótulo é texto
+// visível quando `showLabel` está ligado.
 
 import { BadgeCheck, ShieldAlert, Star } from "lucide-react";
 import type { Store } from "@/models/types";
 import { trustLabel } from "@/lib/format";
-import { storeTrust } from "@/services/builder/trust";
+import { storeTrust, trustLevel, type TrustLevel } from "@/services/builder/trust";
 import { Badge, type BadgeTone } from "./ui/Badge";
 
-function tomDaNota(rating: number): BadgeTone {
-  if (rating >= 4) return "good";
-  if (rating >= 3) return "warn";
-  return "bad";
-}
+const TOM_POR_NIVEL: Record<TrustLevel, BadgeTone> = {
+  trusted: "good",
+  unverified: "warn",
+  blocked: "bad",
+};
 
 export function StoreBadge({
   store,
@@ -22,12 +27,17 @@ export function StoreBadge({
   announceReasons = true,
 }: {
   store: Store;
+  /** Mostra o rótulo de confiança ("Confiável", "Não verificada") ao lado da nota. */
   showLabel?: boolean;
   /** Lê os motivos para leitores de tela. Desligue quando a página já mostra a lista visível. */
   announceReasons?: boolean;
 }) {
   const trust = storeTrust(store);
+  const nivel = trustLevel(store);
   const resumo = `${trust.trusted ? "Loja confiável" : "Loja não marcada como confiável"}: ${trust.reasons.join("; ")}`;
+  // A nota pode chegar como texto do banco; Number() evita quebrar o toFixed.
+  const nota = Number(store.rating);
+  const avaliacoes = Number(store.rating_count);
 
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 text-sm" title={resumo}>
@@ -44,10 +54,13 @@ export function StoreBadge({
           Oficial
         </Badge>
       )}
-      <Badge tone={tomDaNota(store.rating)} title={`${store.rating_count.toLocaleString("pt-BR")} avaliações`}>
+      <Badge
+        tone={TOM_POR_NIVEL[nivel]}
+        title={Number.isFinite(avaliacoes) ? `${avaliacoes.toLocaleString("pt-BR")} avaliações` : undefined}
+      >
         <Star className="h-3 w-3 fill-current" aria-hidden />
-        <span className="tnum">{store.rating.toFixed(1)}</span>
-        {showLabel && !store.blocked && <span className="opacity-80">· {trustLabel(store.rating)}</span>}
+        <span className="tnum">{Number.isFinite(nota) ? nota.toFixed(1) : "–"}</span>
+        {showLabel && !store.blocked && <span className="opacity-80">· {trustLabel(store)}</span>}
       </Badge>
       {announceReasons && <span className="sr-only">{resumo}</span>}
     </span>

@@ -1,5 +1,6 @@
 // Página de login / cadastro. O login é OPCIONAL: só é preciso para alertas de preço.
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { login, signup } from "@/app/auth/actions";
@@ -8,10 +9,26 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { INPUT_CLASSES } from "@/components/ui/Field";
 
+export const metadata: Metadata = {
+  title: "Entrar",
+};
+
+/**
+ * Para onde voltar depois de entrar (?next=/peca/rtx-4060). Só caminhos internos:
+ * qualquer outra coisa vira null, para ninguém usar o login para mandar a pessoa
+ * a outro site. As ações de login/cadastro devem validar de novo no servidor.
+ */
+function destinoSeguro(valor: unknown): string | null {
+  if (typeof valor !== "string" || valor.length > 200) return null;
+  if (!valor.startsWith("/") || valor.startsWith("//") || valor.includes("\\")) return null;
+  return valor;
+}
+
 export default async function EntrarPage(props: PageProps<"/entrar">) {
   const params = await props.searchParams;
   const erro = typeof params.erro === "string" ? params.erro : null;
   const mensagem = typeof params.mensagem === "string" ? params.mensagem : null;
+  const destino = destinoSeguro(params.next);
 
   return (
     <div className="mx-auto flex max-w-md flex-col px-4 py-12">
@@ -42,6 +59,7 @@ export default async function EntrarPage(props: PageProps<"/entrar">) {
       )}
 
       <form className="mt-6 flex flex-col gap-4">
+        {destino && <input type="hidden" name="next" value={destino} />}
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-ink">E-mail</span>
           <input type="email" name="email" required autoComplete="email" placeholder="voce@exemplo.com" className={INPUT_CLASSES} />

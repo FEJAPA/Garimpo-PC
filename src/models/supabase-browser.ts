@@ -1,5 +1,6 @@
 // Cliente do Supabase para uso no NAVEGADOR (componentes "use client").
-// Usado, por exemplo, no formulário de login e no botão de alerta de preço.
+// Hoje é usado pelo botão de alerta de preço (PriceAlertButton) para saber se há
+// alguém logado. O login e o cadastro rodam no servidor (src/app/auth/actions.ts).
 
 import { createBrowserClient } from "@supabase/ssr";
 

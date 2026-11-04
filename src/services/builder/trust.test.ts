@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isTrustedStore, validOffers, cheapestOffer, storeTrust } from "./trust";
+import { isTrustedStore, validOffers, cheapestOffer, storeTrust, trustLevel } from "./trust";
 import type { OfferWithStore, ProductWithOffers, Store } from "@/models/types";
 
 const oficial: Store = { id: "kabum", name: "KaBuM!", rating: 4.8, rating_count: 1000, is_official: true, url: null };
@@ -127,6 +127,108 @@ describe("storeTrust: reputação com motivos (V2, C1)", () => {
   it("isTrustedStore é o mesmo que storeTrust(store).trusted", () => {
     for (const s of [oficial, notaBaixa, oficialNotaBaixa, kabum]) {
       expect(isTrustedStore(s)).toBe(storeTrust(s).trusted);
+    }
+  });
+});
+
+describe("lojas bloqueadas (V2, R-11)", () => {
+  const bloqueada: Store = {
+    id: "golpe", name: "Loja do Golpe", rating: 4.9, rating_count: 99999, is_official: true, url: null,
+    reclame_aqui_score: 9, years_active: 20, blocked: true,
+  };
+  const comBloqueada: ProductWithOffers = {
+    ...produto,
+    offers: [oferta("ok", oficial, 1899.9), oferta("golpe", bloqueada, 900), oferta("nota", notaBaixa, 1499.9)],
+  };
+
+  it("validOffers exclui loja bloqueada mesmo com trustedOnly desligado", () => {
+    expect(validOffers(comBloqueada, false).map((o) => o.id)).toEqual(["ok", "nota"]);
+  });
+
+  it("validOffers exclui loja bloqueada com trustedOnly ligado", () => {
+    expect(validOffers(comBloqueada, true).map((o) => o.id)).toEqual(["ok"]);
+  });
+
+  it("cheapestOffer nunca devolve oferta de loja bloqueada", () => {
+    expect(cheapestOffer(comBloqueada, false)?.id).toBe("nota");
+    const soBloqueada = { ...produto, offers: [oferta("golpe", bloqueada, 900)] };
+    expect(cheapestOffer(soBloqueada, false)).toBeNull();
+    expect(validOffers(soBloqueada, false)).toEqual([]);
+  });
+
+  it("blocked: false (ou ausente) não exclui nada", () => {
+    expect(validOffers({ ...produto, offers: [oferta("a", { ...oficial, blocked: false }, 100)] }, false)).toHaveLength(1);
+  });
+});
+
+describe("storeTrust: números que chegam como texto (V2, R-12)", () => {
+  // O PostgREST costuma devolver `numeric` como número, mas um driver ou uma
+  // view podem devolver texto. A regra não pode ser pulada em silêncio.
+  const comoTexto = (campos: Record<string, unknown>): Store =>
+    ({ id: "t", name: "Loja T", rating: 4.8, rating_count: 1000, is_official: true, url: null, ...campos }) as unknown as Store;
+
+  it("Reclame Aqui baixo em texto ainda derruba a loja", () => {
+    const t = storeTrust(comoTexto({ reclame_aqui_score: "5.1" }));
+    expect(t.trusted).toBe(false);
+    expect(t.reasons).toContain("Reclame Aqui baixo (5,1)");
+  });
+
+  it("Reclame Aqui bom em texto vira motivo", () => {
+    expect(storeTrust(comoTexto({ reclame_aqui_score: "8.2" })).reasons).toContain("Reclame Aqui 8,2");
+  });
+
+  it("anos de mercado em texto viram motivo", () => {
+    expect(storeTrust(comoTexto({ years_active: "12" })).reasons).toContain("12 anos de mercado");
+    expect(storeTrust(comoTexto({ years_active: "2" })).reasons.some((r) => r.includes("mercado"))).toBe(false);
+  });
+
+  it("nota em texto vale como número (4.8 confia, 4.2 não)", () => {
+    const boa = storeTrust(comoTexto({ rating: "4.8", rating_count: "125000" }));
+    expect(boa.trusted).toBe(true);
+    expect(boa.reasons).toContain("Nota 4,8 (125.000 avaliações)");
+    const fraca = storeTrust(comoTexto({ rating: "4.2" }));
+    expect(fraca.trusted).toBe(false);
+    expect(fraca.reasons).toContain("Nota 4,2, abaixo de 4,5");
+  });
+
+  it("texto vazio ou inválido conta como não informado (não derruba nem confia)", () => {
+    expect(storeTrust(comoTexto({ reclame_aqui_score: "" })).trusted).toBe(true);
+    expect(storeTrust(comoTexto({ reclame_aqui_score: "abc" })).trusted).toBe(true);
+    expect(storeTrust(comoTexto({ years_active: " " })).reasons.some((r) => r.includes("mercado"))).toBe(false);
+    // Nota ilegível nunca é confiável.
+    expect(storeTrust(comoTexto({ rating: "abc" })).trusted).toBe(false);
+  });
+
+  it("o texto dá o mesmo resultado que o número", () => {
+    const comNumero = storeTrust(comoTexto({ reclame_aqui_score: 5.1, years_active: 12 }));
+    const comTexto = storeTrust(comoTexto({ reclame_aqui_score: "5.1", years_active: "12" }));
+    expect(comTexto).toEqual(comNumero);
+  });
+});
+
+describe("trustLevel: uma régua só para selo, rótulo e cor (V2, LOG-17)", () => {
+  it("confiável, não verificada e bloqueada", () => {
+    expect(trustLevel(oficial)).toBe("trusted");
+    expect(trustLevel(notaBaixa)).toBe("unverified");
+    expect(trustLevel({ ...oficial, blocked: true })).toBe("blocked");
+  });
+
+  it("nota 4,0 a 4,49 não é confiável (antes aparecia verde)", () => {
+    expect(trustLevel({ ...oficial, rating: 4.4 })).toBe("unverified");
+    expect(trustLevel({ ...oficial, rating: 4.5 })).toBe("trusted");
+  });
+
+  it("loja não oficial com nota alta continua não verificada", () => {
+    expect(trustLevel({ ...oficial, is_official: false, rating: 4.9 })).toBe("unverified");
+  });
+
+  it("Reclame Aqui baixo derruba para não verificada", () => {
+    expect(trustLevel({ ...oficial, reclame_aqui_score: 4 })).toBe("unverified");
+  });
+
+  it("concorda com isTrustedStore", () => {
+    for (const s of [oficial, notaBaixa, oficialNotaBaixa, { ...oficial, blocked: true }]) {
+      expect(trustLevel(s) === "trusted").toBe(isTrustedStore(s));
     }
   });
 });
