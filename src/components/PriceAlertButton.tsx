@@ -36,6 +36,15 @@ export function PriceAlertButton({
     supabase.auth.getUser().then(({ data }) => setLogado(Boolean(data.user)));
   }, [configurado]);
 
+  // Modo de demonstração (sem banco): o link de login levaria a um beco sem saída.
+  if (!configurado) {
+    return (
+      <p className="max-w-xs text-sm text-ink-faint" role="note">
+        Alertas de preço precisam do banco configurado (modo de demonstração).
+      </p>
+    );
+  }
+
   if (logado === false) {
     return (
       <ButtonLink href={`/entrar?next=${encodeURIComponent(`/peca/${productSlug}`)}`} variant="secondary">
