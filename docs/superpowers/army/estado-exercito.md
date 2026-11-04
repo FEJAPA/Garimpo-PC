@@ -56,7 +56,7 @@ BuildSuccess.upgrades/ignored em builder-types.ts; src/lib/chart-colors.ts; regr
 - Revisor Fable (xhigh): sem bloqueador; 2 altos, 6 médios, 15 baixos (revisao-fable.md, F-01..F-23).
 - Porcos-Trufeiros 2 e Avaliador de Usabilidade: em andamento (entram na revisão final / página de usabilidade).
 
-## Rodada final de correções (Opus xhigh) — iniciada 2026-11-04 ~18:15 UTC
+## Rodada final de correções (Opus xhigh) — CONCLUÍDA 2026-11-04 ~19:05 UTC (6/6; 41 de 43 itens únicos corrigidos; 468 unitários; 43 e2e contra a build; docs alinhadas)
 | Grupo | Arquivos (dono único) | Itens |
 |---|---|---|
 | G1 Dinheiro | lib/money, payments, mixed-plan, installment-tables, seed-payments, PaymentPlanner, lib/share, BuildSummary | S-01/F-14/T-3, S-03/T-1, S-04, S-04b, S-05, S-06, F-11, F-12, F-13, T-5 |
