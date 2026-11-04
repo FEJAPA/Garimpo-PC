@@ -11,7 +11,8 @@ Tudo aqui vem do código real: `src/app/page.tsx` (home), `src/app/montar/page.t
 `src/app/entrar/page.tsx`, `src/app/conta/page.tsx` e `src/app/api/check-alerts/route.ts`.
 
 > **Legenda de cores** nos fluxos: amarelo = tela, azul = decisão, vermelho = erro,
-> verde = sucesso, cinza claro = site de fora, **cinza tracejado = V2 (ainda não existe)**.
+> verde = sucesso, cinza claro = site de fora, **cinza tracejado = V2 que ainda não existe**,
+> **cinza-azulado tracejado = V2 com código pronto, mas ainda não ligado à tela**.
 
 ---
 
@@ -64,6 +65,7 @@ flowchart TD
     classDef erro fill:#ffe3e6,stroke:#b3261e,color:#4a0d12
     classDef ok fill:#dff5e6,stroke:#1b7a3f,color:#0b3320
     classDef v2 fill:#eeeeee,stroke:#777777,stroke-dasharray:5 5,color:#444444
+    classDef v2pronto fill:#eef3f7,stroke:#4f7390,stroke-dasharray:5 5,color:#1f3547
 
     A["Home /<br/>Quanto você pode gastar?"]:::tela
     A --> B{"Preencheu o formulário<br/>da home?"}:::decisao
@@ -112,9 +114,10 @@ flowchart TD
     S -->|"não, quer mudar algo"| H
     S -->|"sim"| T["Segue para Ir à loja<br/>diagrama da seção 4"]:::tela
 
-    Q -.-> X1["V2 pacote B e F<br/>perfil de uso e resolução na tela"]:::v2
-    Q -.-> X2["V2 pacote F<br/>copiar link e baixar lista de compras"]:::v2
-    Q -.-> X3["V2 pacote G<br/>salvar a montagem na conta"]:::v2
+    Q -.-> X1["V2 pacotes B e F - ainda não existe<br/>perfil de uso e resolução na tela"]:::v2
+    Q -.-> X2["V2 pacote F - ainda não existe<br/>copiar link e baixar lista de compras"]:::v2
+    Q -.-> X3["V2 pacote G - ainda não existe<br/>salvar a montagem na conta"]:::v2
+    Q -.-> X4["V2 pacote E - código pronto<br/>aba Misturar em Como pagar, escondida até<br/>o pacote F passar as peças para a tela"]:::v2pronto
 ```
 
 ### O que a pessoa vê em cada decisão
@@ -126,7 +129,7 @@ flowchart TD
 | Alvo vazio, zero ou não numérico | Botão "Montar meu PC" desabilitado | "Informe um valor maior que zero." | `BuilderForm` (`alvoInvalido`) |
 | Orçamento insuficiente | Não monta nada | "Orçamento insuficiente: a montagem mais barata compatível custa R$ 4.699,30. Suba o teto ou desative “Só lojas confiáveis”." (valor do catálogo de exemplo) | `autoBuild` (passo 2) |
 | Filtro de lojas deixou uma categoria vazia | Não monta nada | "Não há fonte disponível com os filtros atuais. Desative “Só lojas confiáveis” ou tente mais tarde." (a categoria muda) | `autoBuild` (passo 1) |
-| Sem filtro de lojas | Passa a aceitar ofertas de marketplaces, que costumam ser mais baratas e menos seguras | Nenhum aviso especial: a pessoa só vê a nota da loja no selo. **V2 pacote C** adiciona o aviso "preço bom demais" | `cheapestOffer` em `trust.ts` |
+| Sem filtro de lojas | Passa a aceitar ofertas de marketplaces, que costumam ser mais baratas e menos seguras | Em `/montar` a pessoa só vê o selo da loja (nota, "Oficial" e, ao passar o mouse, os motivos da confiança). O aviso "Preço bom demais?" já existe, mas só na página `/peca/[slug]` (V2 pacote C) | `cheapestOffer` em `trust.ts`; `flagSuspiciousOffers` em `suspicious.ts` |
 
 ---
 
@@ -189,7 +192,7 @@ flowchart TD
     L1 -->|"não"| L3["Aparece sem link<br/>não há o que clicar"]:::erro
     L2 --> L4["Compra no site da loja<br/>fora do GarimpoPC, o preço pode ter mudado"]:::externo
 
-    R1 -->|"clica no nome da peça"| P["Página /peca/slug<br/>lojas lado a lado e histórico de preços"]:::tela
+    R1 -->|"clica no nome da peça"| P["Página /peca/slug<br/>lojas lado a lado com os motivos de confiança,<br/>aviso Preço bom demais e histórico de preços"]:::tela
     P --> P1{"Quer ser avisada<br/>quando o preço cair?"}:::decisao
     P1 -->|"não"| L2
     P1 -->|"sim"| B1["Botão Criar alerta de preço<br/>desabilitado enquanto descobre se há login"]:::tela
@@ -209,7 +212,7 @@ flowchart TD
 
     B2 -->|"sim"| B3["Campo Avise-me quando custar até<br/>sugestão: 90% do preço atual"]:::tela
     B3 --> B4{"createAlert aceita?"}:::decisao
-    B4 -->|"preço inválido, peça inexistente ou erro do banco"| B5["Mensagem de erro no próprio botão"]:::erro
+    B4 -->|"sem login, preço inválido, peça inexistente ou erro do banco"| B5["Mensagem de erro em vermelho<br/>abaixo do campo"]:::erro
     B5 --> B3
     B4 -->|"sim"| B6["Alerta criado!<br/>Avisaremos quando o preço cair"]:::ok
 
@@ -231,8 +234,9 @@ flowchart TD
   nota baixa no diagrama de visão geral.
 - **Da home para `/montar` ainda falta um clique**: os valores digitados chegam preenchidos,
   mas a montagem só roda quando a pessoa clica em "Montar meu PC".
-- **Sem filtro de lojas não há aviso de risco** além do selo da loja. O aviso "preço bom demais"
-  é V2 (pacote C, tarefa C3).
+- **Sem filtro de lojas, `/montar` não avisa do risco** além do selo da loja. O aviso "Preço bom
+  demais?" (oferta 25% ou mais abaixo da mediana das lojas confiáveis) já existe na página da
+  peça, mas ainda não chega à tela do Montador.
 - **Alertas já avisados continuam na lista de `/conta`**: a tela lista todos os alertas
   `is_active`, e o job só preenche `notified_at`, sem desativar o alerta.
 - **Sem Supabase configurado** (modo de demonstração) não dá para entrar: `/entrar` mostra

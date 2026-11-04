@@ -15,7 +15,9 @@ Em linguagem simples, o algoritmo faz isto:
 6. Calcula o desempenho esperado e o plano de pagamento.
 
 > **Legenda**: amarelo = passo, azul = decisão, vermelho = falha, verde = sucesso, roxo = regra
-> aplicada naquele passo, **cinza tracejado = V2 (ainda não existe)**.
+> aplicada naquele passo, **cinza tracejado = V2 que ainda não existe**, **cinza-azulado tracejado
+> = V2 com código pronto, mas ainda não ligado à tela** (o plano está em
+> `docs/superpowers/plans/2026-11-04-montador-de-pc-v2.md`).
 
 ---
 
@@ -29,11 +31,12 @@ flowchart TD
     classDef ok fill:#dff5e6,stroke:#1b7a3f,color:#0b3320
     classDef regra fill:#f3ecff,stroke:#6a4bc4,color:#22124d
     classDef v2 fill:#eeeeee,stroke:#777777,stroke-dasharray:5 5,color:#444444
+    classDef v2pronto fill:#eef3f7,stroke:#4f7390,stroke-dasharray:5 5,color:#1f3547
 
     IN["Entrada<br/>products, specs e prefs<br/>prefs traz budget, trustedOnly e aesthetics"]:::passo
     IN --> P0["normalizeBudget<br/>o teto nunca fica menor que o alvo<br/>valores inválidos viram zero"]:::passo
-    P0 --> P1["Passo 1 - buildCandidates<br/>só entram produtos que têm spec<br/>cheapestOffer escolhe a oferta em estoque<br/>mais barata no Pix"]:::passo
-    R1["Regra: com trustedOnly só valem lojas<br/>oficiais com nota 4,5 ou mais"]:::regra
+    P0 --> P1["Passo 1 - buildCandidates<br/>só entram produtos que têm spec<br/>cheapestOffer escolhe a oferta em estoque, com preço<br/>maior que zero, mais barata no Pix"]:::passo
+    R1["Regra: com trustedOnly só valem lojas confiáveis<br/>isTrustedStore usa storeTrust: oficial, nota 4,5 ou mais,<br/>não bloqueada e Reclame Aqui 6 ou mais quando informado"]:::regra
     R1 -.-> P1
 
     P1 --> D1{"As 7 categorias têm<br/>ao menos um candidato?"}:::decisao
@@ -65,18 +68,22 @@ flowchart TD
     P5 --> P6["Notas em linguagem simples<br/>Usou R$ X da folga, Sobrou dinheiro no alvo<br/>ou A montagem ficou R$ X acima do alvo"]:::passo
     P6 --> P7["toBuildParts<br/>ordena as peças na ordem de exibição DISPLAY_ORDER"]:::passo
     P7 --> P8["Passo 6a - buildPaymentSummary<br/>totais Pix e parcelado por loja"]:::passo
-    P8 --> P9["Passo 6b - estimatePerformance<br/>Índice GarimpoPC, referência mais próxima e FPS"]:::passo
+    P8 --> P9["Passo 6b - estimatePerformance<br/>Índice GarimpoPC, referência mais próxima,<br/>FPS e notas de desempenho"]:::passo
     P9 --> OUT["SUCESSO<br/>parts, totalPix, totalInstallment, budget,<br/>usedWiggleRoom igual a totalPix maior que alvo,<br/>leftover igual a teto menos totalPix,<br/>notes, performance e payment"]:::ok
 
     INV["Invariante testada:<br/>totalPix menor ou igual ao teto<br/>em todo resultado ok"]:::regra
     INV -.-> OUT
 
-    X1["V2 pacote B<br/>otimização global por pares CPU e placa-mãe<br/>perfil de uso e resolução-alvo"]:::v2
-    X2["V2 pacote A<br/>peça sem spec ignorada e contada em notes"]:::v2
-    X3["V2 pacote C<br/>reputação com motivos e aviso de preço bom demais"]:::v2
+    X1["V2 pacote B - ainda não existe<br/>otimização global por pares CPU e placa-mãe<br/>perfil de uso e resolução-alvo"]:::v2
+    X2["V2 pacote A - ainda não existe<br/>aviso de peças ignoradas por falta de spec"]:::v2
+    X3["V2 pacote A - código pronto<br/>getPartSpecs lê a tabela part_specs do Supabase<br/>mas /montar ainda usa PART_SPECS direto"]:::v2pronto
+    X4["V2 pacote C - código pronto<br/>flagSuspiciousOffers marca preço bom demais<br/>hoje só a página /peca usa"]:::v2pronto
+    X5["V2 pacote E - código pronto<br/>buildPaymentSummary aceita tabelas de juros<br/>mas autoBuild ainda não as recebe"]:::v2pronto
     X1 -.-> P3
     X2 -.-> P1
-    X3 -.-> P1
+    X3 -.-> IN
+    X4 -.-> P1
+    X5 -.-> P8
 ```
 
 ### Quatro camadas que garantem `total ≤ teto`
@@ -178,9 +185,15 @@ flowchart TD
     E2 --> E3{"perf do processador menor que<br/>metade do perf da placa de vídeo?"}:::decisao
     E3 -->|"sim"| E4["Nota de gargalo: o processador pode<br/>limitar a placa de vídeo"]:::passo
     E3 -->|"não"| E5
-    E4 --> E5["closestReference<br/>a referência com menor diferença de score"]:::passo
-    E5 --> E6["interpolateFps<br/>entre as duas referências vizinhas do score<br/>fora da faixa, escala proporcional à ponta"]:::passo
-    E6 --> E7["Devolve score, closest, fps e notes"]:::ok
+    E4 --> E5["interpolateFps<br/>entre as duas referências vizinhas do score<br/>fora da faixa, escala proporcional à ponta"]:::passo
+    E5 --> E6{"Memória de 16 GB ou menos?<br/>só vale se a spec informa capacityGb"}:::decisao
+    E6 -->|"sim"| E7["FPS dos jogos AAA pesados x 0,92<br/>e nota: 16 GB podem engasgar em jogos pesados"]:::passo
+    E6 -->|"não"| E8
+    E7 --> E8{"A placa de vídeo tem<br/>DLSS, FSR ou XeSS na spec?"}:::decisao
+    E8 -->|"sim"| E9["Nota informativa sobre upscaling<br/>os números não mudam"]:::passo
+    E8 -->|"não"| E10
+    E9 --> E10["closestReference<br/>a referência com menor diferença de score"]:::passo
+    E10 --> E11["Devolve score, closest, fps e notes"]:::ok
 ```
 
 O `buildPaymentSummary` (passo 6a) tem página própria: [`fluxo-pagamento.md`](fluxo-pagamento.md).
@@ -255,7 +268,8 @@ escrito na nota é calculado só pelo desempenho (`perf`).
 | `autoBuild` | `auto-build.ts` | Orquestra tudo e devolve `BuildResult` |
 | `normalizeBudget` | `budget.ts` | Garante teto maior ou igual ao alvo e números válidos |
 | `buildCandidates` | `auto-build.ts` | Candidatos por categoria: produto + oferta mais barata + spec |
-| `cheapestOffer` e `validOffers` | `trust.ts` | Filtram ofertas em estoque e, se pedido, só lojas confiáveis |
+| `cheapestOffer` e `validOffers` | `trust.ts` | Filtram ofertas em estoque, com preço maior que zero e, se pedido, só de lojas confiáveis |
+| `isTrustedStore` e `storeTrust` | `trust.ts` | Decidem se a loja é confiável (oficial, nota 4,5 ou mais, sem bloqueio, Reclame Aqui 6 ou mais quando informado) e explicam os motivos |
 | `cheapestCompatibleBuild` | `auto-build.ts` | A montagem compatível mais barata possível |
 | `canComplete` | `auto-build.ts` | Garante que a escolha atual não impede de fechar as categorias restantes |
 | `categoryShares` e `partUtility` | `scoring.ts` | Fatias do alvo e utilidade de cada peça |
@@ -263,7 +277,8 @@ escrito na nota é calculado só pelo desempenho (`perf`).
 | `greedyPass` | `auto-build.ts` | Passo guloso por fatias |
 | `downgradeToCap` | `auto-build.ts` | Rebaixa até caber no teto |
 | `upgradePass` | `auto-build.ts` | Sobe GPU e CPU com sobras e folga |
-| `estimatePerformance` | `performance.ts` | Índice, referência mais próxima e FPS |
+| `estimatePerformance` | `performance.ts` | Índice, referência mais próxima, FPS e notas (gargalo, memória de 16 GB, upscaling) |
+| `closestReferences` | `performance.ts` | As 3 referências mais próximas, usadas em "PCs parecidos com o seu" na tela (V2 pacote D) |
 | `buildPaymentSummary` | `payments.ts` | Totais Pix e parcelado por loja |
 
 ---
@@ -315,6 +330,7 @@ fatia mais a sobra das categorias anteriores.
 | Nota | "Usou R$ 999,30 da folga para subir placa de vídeo: NVIDIA GeForce RTX 4060 8GB → AMD Radeon RX 7700 XT 12GB (+42% de desempenho)." |
 | Índice GarimpoPC | round(0,7 × 142 + 0,3 × 100) = **129** |
 | Referência mais próxima | "PC intermediário forte" (índice 129) |
+| Nota de desempenho | "Com DLSS/FSR os FPS podem subir bastante em 1440p" (informativa, não muda os números) |
 
 ### 6.2 Outros casos (o que cada entrada produz)
 
@@ -325,7 +341,7 @@ fatia mais a sobra das categorias anteriores.
 | Orçamento impossível | 1.000 / 1.000 / 25 / sim | Falha: "Orçamento insuficiente: a montagem mais barata compatível custa R$ 4.699,30" | teste "orçamento impossível falha dizendo o valor" |
 | Montagem mais barata do catálogo | qualquer | R$ 4.699,30 | teste "a montagem mais barata compatível do catálogo custa R$ 4.699,30" |
 | No limite do teto | 4.700 / 4.700 / 25 / sim | O guloso estoura, o rebaixamento não resolve e entra a salvaguarda: monta a mais barata (R$ 4.699,30) com a nota "Para caber no teto, usamos a montagem compatível mais barata" | execução do `autoBuild` |
-| Filtro de lojas | 5.500 / 5.500 / 0 / não e sim | Sem filtro, a RTX 4060 vem do Promo Center por R$ 1.649,90; com filtro vem da KaBuM! por R$ 1.899,90 | teste "sem o filtro de lojas, aceita a oferta boa demais" |
+| Filtro de lojas | 5.500 / 5.500 / 0 / não e sim | Sem filtro, a RTX 4060 vem do Promo Center (marketplace) por R$ 1.399,90; com filtro vem da KaBuM! por R$ 1.899,90 | teste "sem o filtro de lojas, aceita a oferta boa demais" |
 | Estética máxima | 6.000 / 7.000 / 100 / sim | Escolhe o gabinete Montech Sky Two | teste "no extremo estético escolhe o gabinete bonito" |
 | Teto igual ao alvo | 7.000 / 7.000 / 50 / sim | Nunca marca uso de folga | teste "teto igual ao alvo nunca marca uso de folga" |
 

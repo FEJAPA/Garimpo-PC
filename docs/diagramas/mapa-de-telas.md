@@ -5,9 +5,9 @@ Todas as rotas do GarimpoPC e como a pessoa navega entre elas. As rotas são as 
 navegada por pessoas**: `/api/check-alerts`, chamada por um agendador para mandar os e-mails
 de alerta.
 
-> **Legenda**: caixas amarelas = páginas, azul = job de fundo (sem tela), cinza claro = fora
-> do GarimpoPC, **cinza tracejado = V2 (ainda não existe)**. O texto sobre cada seta diz qual
-> elemento da tela leva até o destino.
+> **Legenda**: caixas amarelas = páginas, roxo = presente em todas as páginas, azul = job de fundo
+> (sem tela), cinza claro = fora do GarimpoPC, **cinza tracejado = V2 que ainda não existe**. O
+> texto sobre cada seta diz qual elemento da tela leva até o destino.
 
 ## 1. Navegação entre as telas
 
@@ -17,12 +17,12 @@ flowchart LR
     classDef job fill:#e3ecff,stroke:#2f4fbf,color:#0f1d4d
     classDef externo fill:#eceff1,stroke:#607d8b,color:#263238
     classDef erro fill:#ffe3e6,stroke:#b3261e,color:#4a0d12
-    classDef global fill:#f3ecff,stroke:#6a4bc4,color:#22124d
+    classDef comum fill:#f3ecff,stroke:#6a4bc4,color:#22124d
     classDef v2 fill:#eeeeee,stroke:#777777,stroke-dasharray:5 5,color:#444444
 
-    subgraph GLOBAL["Em todas as telas - layout.tsx"]
-        HDR["Cabeçalho<br/>logo, Peças, Montar PC,<br/>busca, Entrar ou Minha conta"]:::global
-        FTR["Rodapé<br/>Peças, Montar PC, Minha conta"]:::global
+    subgraph GRPCOMUM["Em todas as telas - layout.tsx"]
+        HDR["Cabeçalho<br/>logo, Peças, Montar PC,<br/>busca, Entrar ou Minha conta"]:::comum
+        FTR["Rodapé<br/>Peças, Montar PC, Minha conta"]:::comum
     end
 
     subgraph PUBLICAS["Telas públicas - sem login"]
@@ -96,8 +96,8 @@ flowchart LR
 |---|---|---|---|---|
 | `/` | Convencer a montar ou comparar | Promessa, formulário "Quanto você pode gastar?", 3 passos, "Mais procuradas" (6 peças), diferenciais | `getPopularProducts` em `popularity.ts` | Faixa "Modo de demonstração"; "Nenhuma peça cadastrada ainda" |
 | `/busca` | Achar peças por nome, marca ou categoria (`?q=termo`) | Contagem, chips de categoria, grade de cartões com menor preço Pix e selo da loja | `searchProducts` em `products.ts` | Faixa de demonstração; "Nenhuma peça encontrada" com sugestão de termos |
-| `/peca/[slug]` | Comparar lojas e ver o histórico | Melhor preço agora, botão de alerta, lojas do menor ao maior preço Pix (com parcelado e "Ver na loja"), gráfico de histórico | `getProductBySlug`, `getPriceHistory`; registra a visita com `registerView` | Slug inexistente vira 404; "Indisponível" por oferta; "Ainda não há histórico de preços" |
-| `/montar` | Montar o PC dentro do orçamento (`?alvo=` e `?teto=` opcionais) | Painel de entradas, resultado (total, peças, desempenho, pagamento) | `getProducts`; a montagem roda no navegador (`autoBuild`) | Vazio, Carregando, Erro, Sucesso, "Catálogo vazio"; ver `jornada-usuario.md` |
+| `/peca/[slug]` | Comparar lojas e ver o histórico | Melhor preço agora, botão de alerta, lojas do menor ao maior preço Pix (com parcelado e "Ver na loja"), "Por que confiável" com os motivos de cada loja, aviso "Preço bom demais?" em ofertas suspeitas, gráfico de histórico | `getProductBySlug`, `getPriceHistory`; registra a visita com `registerView` | Slug inexistente vira 404; "Indisponível" por oferta; "Ainda não há histórico de preços" |
+| `/montar` | Montar o PC dentro do orçamento (`?alvo=` e `?teto=` opcionais) | Painel de entradas e resultado: total, peças, desempenho (com "PCs parecidos com o seu") e Como pagar (abas Pix e Parcelado; a aba Misturar existe no código, mas fica escondida) | `getProducts`; a montagem roda no navegador (`autoBuild`) | Vazio, Carregando, Erro, Sucesso, "Catálogo vazio"; ver `jornada-usuario.md` |
 | `/entrar` | Entrar ou criar conta (opcional) | E-mail, senha, botões Entrar e Criar conta | Ações `login` e `signup` em `src/app/auth/actions.ts` | `?erro=` (caixa vermelha), `?mensagem=` (caixa verde), aviso de login não configurado |
 | `/conta` | Ver e remover alertas de preço | E-mail da pessoa, lista de alertas ativos (peça e preço-alvo), botão Sair | Tabela `price_alerts` com a sessão da pessoa | Sem login redireciona para `/entrar`; "Você ainda não tem alertas" |
 | `/api/check-alerts` | Avisar por e-mail quando o preço cair | Nenhuma tela: devolve JSON `verificados` e `emails_enviados` | Tabelas `price_alerts`, `products`, `offers` (chave de serviço) | 401 sem o token; 500 sem a chave de serviço |
