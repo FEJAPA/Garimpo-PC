@@ -156,7 +156,9 @@ resultado real varia com jogo, drivers e configurações".
 
 - `pixTotal` = soma dos `price_pix`.
 - `installmentTotal` = soma dos `price_installment` (se nulo, usa `price_pix`).
-- `maxInstallments` = menor `installment_count` entre as lojas usadas (nulo = 1).
+- `maxInstallments` = menor `installment_count` entre as lojas usadas (nulo = 1). **V2 (pacote E):**
+  quando a loja tem tabela de juros (`store_installments`), cada loja usa o seu máximo e o seletor
+  vai até o MAIOR deles; parcela = soma por loja de `pixTotal × fator(n)`.
 - Por loja: itens, `pixTotal`, `installmentTotal`, `installmentCount`. (Cada loja é um
   pagamento separado; a tela mostra isso.)
 - `installmentPlan(summary, n)`: `n` limitado a `[1, maxInstallments]`; parcela =

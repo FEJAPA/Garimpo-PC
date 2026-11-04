@@ -122,8 +122,9 @@ export const MOCK_PRODUCTS: ProductWithOffers[] = [
         product_id: "p-rtx-4060",
         store_id: "promocenter",
         url: null,
-        price_pix: 1649.9,
-        price_installment: 1899.9,
+        // Propositalmente ~26% abaixo da mediana das lojas confiáveis: aciona o aviso de preço suspeito.
+        price_pix: 1399.9,
+        price_installment: 1599.9,
         installment_count: 12,
         in_stock: true,
         store: lojas.promocenter,

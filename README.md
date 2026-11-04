@@ -1,5 +1,7 @@
 # GarimpoPC ⛏️
 
+[![CI](https://github.com/FEJAPA/Garimpo-PC/actions/workflows/ci.yml/badge.svg)](https://github.com/FEJAPA/Garimpo-PC/actions/workflows/ci.yml)
+
 Comparador de preços de **hardware gamer no Brasil** com **Montador de PC automático**:
 você diz quanto pode gastar e o site monta um computador completo com peças compatíveis,
 de lojas confiáveis, mostra o desempenho esperado e como pagar (Pix ou parcelado).
@@ -39,7 +41,7 @@ Os índices de desempenho e os PCs de referência da V1 são **ilustrativos** (v
 - **Next.js 16** (React 19) + **TypeScript** + **Tailwind CSS 4** — site
 - **Supabase** (PostgreSQL + Auth) — banco de dados e login (com modo de demonstração sem banco)
 - **Recharts** — gráficos · **lucide-react** — ícones · **Resend** — e-mails · **Playwright** — coleta
-- **Vitest** — testes da lógica do Montador
+- **Vitest** — testes da lógica do Montador · **Playwright Test** — testes ponta a ponta (`tests/e2e/`)
 
 ## Organização do código
 
@@ -49,7 +51,8 @@ Os índices de desempenho e os PCs de referência da V1 são **ilustrativos** (v
 - `src/app/` — telas (`/`, `/busca`, `/peca/[slug]`, **`/montar`**, `/entrar`, `/conta`)
 - `src/components/ui/` — design system (Button, Card, Badge, Callout, Field, Toggle, Slider…)
 - `src/components/builder/` — componentes do Montador
-- `scripts/` — coleta de preços · `supabase/` — SQL · `docs/` — spec e planos
+- `scripts/` — coleta de preços e de specs · `supabase/` — SQL · `docs/` — spec, planos e **diagramas** (`docs/diagramas/`)
+- `tests/e2e/` — testes ponta a ponta · `.github/workflows/` — CI e coleta agendada
 - `PRODUCT.md` e `DESIGN.md` — verdade do produto e sistema visual
 
 ## Rodar localmente
@@ -66,6 +69,7 @@ Checagens:
 npm run typecheck   # gera tipos de rota + tsc
 npm run lint
 npm test            # testes do Montador (Vitest)
+npm run test:e2e    # ponta a ponta (Playwright; sobe o site na porta 3100)
 npm run build
 ```
 
@@ -73,11 +77,19 @@ npm run build
 
 Rode os scripts da pasta `supabase/` no SQL Editor do Supabase, nesta ordem:
 `schema.sql` → `seed.sql` → `schema-auth.sql` → `schema-popularity.sql` → `seed-extras.sql`
-→ `schema-builder.sql` → `seed-builder.sql`.
+→ `schema-stores.sql` → `seed-stores.sql` → `schema-builder.sql` → `seed-builder.sql`
+→ `seed-references.sql` → `schema-payments.sql` → `seed-payments.sql`.
+
+No GitHub, cadastre os segredos `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`
+(Settings → Secrets → Actions) para a coleta agendada funcionar.
 
 ## Coleta de preços
 
 ```bash
 npm run collect:dry   # testa sem gravar
 npm run collect       # coleta de verdade (requer SUPABASE_SERVICE_ROLE_KEY)
+npm run collect:specs # preenche especificações faltantes (ver docs/COLETA-SPECS.md)
 ```
+
+A coleta roda todo dia no GitHub Actions (`.github/workflows/coleta.yml`); quando mais de
+30% das ofertas de uma loja falham, o robô abre uma issue "Seletor quebrado".

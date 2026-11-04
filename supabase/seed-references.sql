@@ -8,10 +8,8 @@
 -- públicos (ver coluna `source`), não medições nossas. `measured_at` guarda o mês
 -- dos agregados (dia 01 por convenção, porque a coluna é do tipo date).
 
--- A coluna ram_gb ainda não existe em schema-builder.sql (dono: pacote A).
+-- A coluna ram_gb existe em schema-builder.sql (rode-o antes deste arquivo).
 -- TODO(V2-D): mover esta linha para schema-builder.sql e apagá-la daqui.
-alter table public.reference_builds add column if not exists ram_gb integer;
-
 insert into public.reference_builds
   (id, name, description, parts, approx_price, score, fps, ram_gb, source, measured_at)
 values

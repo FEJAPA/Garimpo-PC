@@ -128,7 +128,10 @@ export type StorePayment = {
 export type PaymentSummary = {
   pixTotal: number;
   installmentTotal: number;
-  /** Menor número máximo de parcelas entre as lojas usadas. */
+  /**
+   * Máximo de parcelas selecionável: menor máximo entre as lojas (V1, sem tabela de
+   * juros) ou MAIOR entre as lojas quando há tabela (cada loja limita a sua, V2-E).
+   */
   maxInstallments: number;
   /** Quanto se economiza pagando tudo no Pix. */
   pixSavings: number;

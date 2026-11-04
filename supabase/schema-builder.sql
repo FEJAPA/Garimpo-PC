@@ -35,10 +35,13 @@ create table if not exists public.reference_builds (
   parts         text,                            -- peças principais em texto
   approx_price  numeric(10,2),
   score         numeric(6,1) not null,           -- Índice GarimpoPC
+  ram_gb        integer,                         -- memória da referência em GB
   fps           jsonb not null,                  -- {"esports":{"1080p":260,"1440p":180},...}
   source        text,                            -- fonte dos benchmarks (V2)
   measured_at   date
 );
+
+alter table public.reference_builds add column if not exists ram_gb integer;
 
 -- 3) Montagens salvas pela pessoa (V2, pacote G).
 create table if not exists public.saved_builds (
