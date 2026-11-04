@@ -26,7 +26,7 @@ Cores (tema escuro único):
 | `surface-2` | `#1c1f26` | superfícies elevadas, campos |
 | `surface-3` | `#242832` | hover de superfícies |
 | `line` | `#2b2f3a` | bordas (hairline) |
-| `line-strong` | `#3a3f4d` | bordas de controles |
+| `line-strong` | `#6b7180` | bordas de controles, trilho do slider e interruptor desligado (≥ 3:1 sobre as superfícies, WCAG 1.4.11) |
 | `ink` | `#f2efe6` | texto principal (branco quente) |
 | `ink-muted` | `#aeb0b8` | texto secundário (≥ 7:1 em surface) |
 | `ink-faint` | `#8b8e99` | legendas (≥ 4.5:1 em surface) |

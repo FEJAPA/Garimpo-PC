@@ -46,11 +46,20 @@ export function PriceAlertButton({
   }
 
   if (!aberto) {
+    // Depois de salvar, o formulário fecha e a confirmação continua visível aqui
+    // (antes ela sumia junto com o formulário e a pessoa salvava de novo).
     return (
-      <Button variant="secondary" onClick={() => setAberto(true)} disabled={logado === null}>
-        <Bell className="h-4 w-4" aria-hidden />
-        Criar alerta de preço
-      </Button>
+      <div className="flex flex-col items-start gap-2">
+        <Button variant="secondary" onClick={() => setAberto(true)} disabled={logado === null}>
+          <Bell className="h-4 w-4" aria-hidden />
+          {feedback?.ok ? "Mudar alerta de preço" : "Criar alerta de preço"}
+        </Button>
+        {feedback && (
+          <p className={`text-xs ${feedback.ok ? "text-good" : "text-bad"}`} role="status">
+            {feedback.message}
+          </p>
+        )}
+      </div>
     );
   }
 

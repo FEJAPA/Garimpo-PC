@@ -16,7 +16,7 @@
   --color-surface-2: #1c1f26;
   --color-surface-3: #242832;
   --color-line: #2b2f3a;
-  --color-line-strong: #3a3f4d;
+  --color-line-strong: #6b7180; /* >= 3:1 sobre surface e surface-2 (WCAG 1.4.11: bordas de campo, trilho do slider, interruptor) */
 
   /* Texto */
   --color-ink: #f2efe6;
