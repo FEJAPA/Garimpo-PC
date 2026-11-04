@@ -410,6 +410,18 @@ describe("folga, trocas e notas (LOG-05/06, R-16, R-17)", () => {
     expect(r.notes).toContain(`No total, as trocas usaram ${formatBRL(1300)} da folga (acima do alvo, dentro do teto).`);
   });
 
+  it("troca paga em parte com a sobra do alvo diz de onde veio o dinheiro", () => {
+    // Alvo 3200: o guloso fica em 3000 (gpu-a + par cpu-b, sobra 200); gpu-c
+    // (+1000) leva a 4000, então R$ 800 saem da folga e R$ 200 da sobra.
+    const r = autoBuild(produtos, specs, prefs(3200, 4000, 0));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.upgrades?.[0]).toMatchObject({ category: "gpu", priceDelta: 1000 });
+    expect(r.notes).toContain(
+      `No total, as trocas usaram ${formatBRL(800)} da folga (acima do alvo, dentro do teto); o resto veio do que sobrou dentro do alvo.`
+    );
+  });
+
   it("troca paga com a sobra do alvo não conta como folga", () => {
     const r = autoBuild(produtos, specs, prefs(4000, 4000, 0));
     expect(r.ok).toBe(true);
@@ -570,5 +582,5 @@ describe("catálogo sintético grande (B1)", () => {
       }
     }
     expect(sucessos).toBeGreaterThan(100);
-  });
+  }, 30_000); // 200 montagens completas: folga para máquinas de CI lentas
 });

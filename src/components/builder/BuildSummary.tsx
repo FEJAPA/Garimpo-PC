@@ -61,6 +61,11 @@ export function BuildSummary({ parts }: { parts: BuildPart[] }) {
                       ) : (
                         <p className="text-xs text-ink-faint">só à vista</p>
                       )}
+                      {offer.recorded_at && (
+                        <p className="text-xs text-ink-faint">
+                          lido em {new Date(offer.recorded_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+                        </p>
+                      )}
                     </div>
                     {link ? (
                       <ButtonLink href={link} external size="sm" variant="secondary">

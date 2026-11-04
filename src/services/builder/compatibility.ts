@@ -64,16 +64,48 @@ export function requiredWattage(parts: PartSpec[]): number {
 /**
  * Diz se `candidate` é compatível com as peças já escolhidas. Só verifica
  * pares cujas duas peças estão presentes; o resto é considerado compatível.
+ * Por isso o Montador só aceita peças com `hasRequiredSpec` (LOG-02).
+ *
+ * Atenção: o planejador de auto-build.ts (`makePlanner`) depende do formato
+ * destas regras (cpu×placa-mãe, placa-mãe×memória, placa-mãe×gabinete e
+ * fonte×(gpu + cpu)). Regra nova aqui = ajustar o planejador também.
+ *
+ * Feito com um laço só (sem copiar listas) porque roda centenas de milhares de
+ * vezes numa montagem com catálogo grande (V2-B1).
  */
 export function isCompatible(chosen: PartSpec[], candidate: PartSpec): boolean {
-  const all = [...chosen, candidate];
-  const by = (cat: PartSpec["category"]) => all.find((p) => p.category === cat);
-
-  const cpu = by("cpu");
-  const mobo = by("motherboard");
-  const ram = by("ram");
-  const gabinete = by("case");
-  const psu = by("psu");
+  // Primeira peça de cada categoria (na ordem: escolhidas, depois a candidata)
+  // e o consumo de todas as gpus/cpus.
+  let cpu: PartSpec | undefined;
+  let mobo: PartSpec | undefined;
+  let ram: PartSpec | undefined;
+  let gabinete: PartSpec | undefined;
+  let psu: PartSpec | undefined;
+  let consumo = 0;
+  for (let i = 0; i <= chosen.length; i++) {
+    const p = i < chosen.length ? chosen[i] : candidate;
+    switch (p.category) {
+      case "cpu":
+        cpu ??= p;
+        consumo += p.tdp ?? 0;
+        break;
+      case "gpu":
+        consumo += p.tdp ?? 0;
+        break;
+      case "motherboard":
+        mobo ??= p;
+        break;
+      case "ram":
+        ram ??= p;
+        break;
+      case "case":
+        gabinete ??= p;
+        break;
+      case "psu":
+        psu ??= p;
+        break;
+    }
+  }
 
   if (cpu && mobo && cpu.socket && mobo.socket && cpu.socket !== mobo.socket) return false;
   if (ram && mobo && ram.ramType && mobo.ramType && ram.ramType !== mobo.ramType) return false;
@@ -81,8 +113,7 @@ export function isCompatible(chosen: PartSpec[], candidate: PartSpec): boolean {
     if (!gabinete.caseSupports.includes(mobo.formFactor)) return false;
   }
   if (psu && psu.wattage !== undefined) {
-    const consumidores = all.filter((p) => p.category === "gpu" || p.category === "cpu");
-    if (psu.wattage < requiredWattage(consumidores)) return false;
+    if (psu.wattage < Math.ceil((consumo + BASE_WATTS) * SAFETY_FACTOR)) return false;
   }
   return true;
 }

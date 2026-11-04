@@ -29,7 +29,22 @@ seguintes o Comandante lança mais agentes diretos, com posse de arquivos mais f
 - Gerente Rigoroso: APROVADA COM CORREÇÕES (portao1-rigoroso.md) — build PASS, e2e PASS (11+1), R-01..R-19.
 - Fantasmas: nenhum. Lacunas declaradas: C3 (Candidate.suspicious não preenchido), A (nota de peças ignoradas; ligação na página).
 
-## Onda 2 — Executar (B, F, G + correções) — iniciada 2026-11-04 ~16:50 UTC
+## Onda 2 — Executar (B, F, G + correções) — CONCLUÍDA 2026-11-04 ~17:30 UTC
+
+| Agente | Modelo | Status | Entregas |
+|---|---|---|---|
+| Pacote-B Algoritmo | opus/high | COMPLETE | ctx, oferta suspeita, specs inválidas, folga, perfis de uso, planejador exato (24 ms/150 peças) |
+| Pacote-F Tela | opus/high | COMPLETE | ligação de specs/refs/juros, parseMoney, perfil/resolução, link ?b=, CSV, salvar, a11y; e2e 23 passam |
+| Pacote-G Conta/Alertas | opus/high | COMPLETE | montagens salvas, alerta da montagem, rota fechada, e-mail honesto, recorded_at |
+| Correções-Pagamentos | opus/high | COMPLETE | preço a prazo como piso, faixas, economia honesta, plano misto por custo evitado |
+| Correções-Desempenho | sonnet/xhigh | COMPLETE | RAM sem dupla contagem, fontes honestas, guardas, metodologia |
+| Correções-Confiança-A11y | sonnet/xhigh | COMPLETE | régua única, melhor preço honesto, bloqueio, skip link, títulos, gráfico acessível |
+| Correções-Dados-Scripts | sonnet/xhigh | COMPLETE | specs validadas, coletor com gravação verificada, e2e no CI contra next start |
+
+Integração do Comandante: rota /metodologia, headers de segurança, aviso de specs vazias, "lido em" no resumo,
+safeHref na peça, spec §5/§7, diagrama de pagamento, README, .env.example, AGENTS.md.
+
+(iniciada 2026-11-04 ~16:50 UTC)
 Agentes diretos: Pacote-B (opus/high), Pacote-F (opus/high), Pacote-G (opus/high), Correções-Pagamentos (opus/high),
 Correções-Desempenho (sonnet/xhigh), Correções-Confiança-A11y (sonnet/xhigh), Correções-Dados-Scripts (sonnet/xhigh).
 Fundação feita pelo Comandante: BuildContext, SavedBuild, InstallmentPlan.schedule, PaymentSummary.bestInstallment,

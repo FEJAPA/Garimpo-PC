@@ -18,7 +18,7 @@ As contas ficam em `src/services/builder/payments.ts` (e `mixed-plan.ts`, `coupo
 | Recurso | Estado | Onde |
 |---|---|---|
 | Totais Pix e parcelado por loja, economia no Pix, seletor de parcelas | **Funciona hoje** (premissa V1: o preço parcelado da loja vale para qualquer número de parcelas até o máximo dela) | `buildPaymentSummary`, `installmentPlan` |
-| Tabela de juros por loja (`InstallmentRate`), plano por loja, "sem juros até Nx" | **V2 pacote E: código pronto, não ligado.** `autoBuild` chama `buildPaymentSummary(buildParts)` sem tabelas, e nada na pasta `src/app` chama `getInstallmentTables()` | `rateFor`, `interestFreeUpTo`, `storeInstallment`, `src/services/installments.ts` |
+| Tabela de juros por loja (`InstallmentRate`), plano por loja, "sem acréscimo até Nx" | **V2 pacote E: ligado na tela** (onda 2). `/montar` carrega `getInstallmentTables()` e passa pelo `BuildContext` até `buildPaymentSummary(parts, tables)`; o preço a prazo da oferta é o piso | `rateFor`, `storeNoExtraUpTo`, `storeInstallment`, `installmentBands`, `src/services/installments.ts` |
 | Aba "Misturar" (parte no Pix, parte no cartão) | **V2 pacote E: código pronto, escondida.** A aba só aparece se `PaymentPlanner` receber `parts`, e `BuildResultView` ainda não as passa (depende do pacote F) | `mixedPlan`, `Misturar` |
 | Cupons de desconto | **V2 pacote E: só a lógica.** Não há tabela `coupons`, serviço nem campo de cupom na tela | `applyCoupon` em `coupons.ts` |
 | Cashback | **V2: ainda não existe** | — |
@@ -185,7 +185,7 @@ flowchart TD
 |---|---|---|
 | Fator por parcelas | Usa a **menor faixa que cobre** o número de parcelas pedido. Entre faixas usa a de cima (a mais cara). Acima da maior faixa usa a maior. Tabela vazia = fator 1 | `rateFor` |
 | Total em n parcelas | `pixTotal da loja × fator`. O fator nunca é menor que 1 (o banco e o serviço descartam linhas com fator menor) | `storeInstallment` |
-| Sem juros até | Maior número de parcelas com fator 1 | `interestFreeUpTo` |
+| Sem acréscimo até | Maior número de parcelas em que o total fica no preço a prazo da oferta | `storeNoExtraUpTo` |
 | Parcela somada | Soma o plano de cada loja. Se uma loja termina antes, as últimas parcelas ficam menores | `installmentPlan` |
 | Tabelas no banco | `store_installments(store_id, count, factor)`, leitura pública. Sem Supabase usa o mock; com erro no banco devolve vazio, para não esconder juros reais atrás de juros de exemplo | `supabase/schema-payments.sql`, `getInstallmentTables` |
 | Cupom | Desconto em % ou valor fixo, na loja ou na montagem toda; confere validade, valor mínimo e nunca desconta mais que o total daquela loja | `applyCoupon` |

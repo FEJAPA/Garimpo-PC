@@ -82,14 +82,18 @@ export type SuspicionCheck = (product: ProductWithOffers) => Map<string, { reaso
  * diferentes não podem dividir a resposta.
  */
 function makeTrustCache(): (store: Store) => boolean {
-  const cache = new Map<string, boolean>();
+  const porObjeto = new WeakMap<Store, boolean>();
+  const porConteudo = new Map<string, boolean>();
   return (store) => {
+    let v = porObjeto.get(store);
+    if (v !== undefined) return v;
     const k = JSON.stringify(store);
-    let v = cache.get(k);
+    v = porConteudo.get(k);
     if (v === undefined) {
       v = isTrustedStore(store);
-      cache.set(k, v);
+      porConteudo.set(k, v);
     }
+    porObjeto.set(store, v);
     return v;
   };
 }
@@ -289,8 +293,12 @@ function makePlanner(cands: CandidatesByCategory) {
     return best;
   }
 
-  /** A montagem compatível mais barata que contém as peças `fixed` (ou null). */
-  function completar(fixed: Fixed): Plan | null {
+  /**
+   * A montagem compatível mais barata que contém as peças `fixed` (ou null).
+   * Com `qualquer`, devolve a primeira que fechar (não necessariamente a mais
+   * barata): o guloso só precisa saber se ainda DÁ para completar.
+   */
+  function completar(fixed: Fixed, qualquer = false): Plan | null {
     const ssd = lista("ssd", fixed).find((s) => isCompatible([], s.spec));
     if (!ssd) return null;
     let best: { cpu: Candidate; placa: Branch; video: Branch; total: number } | null = null;
@@ -302,13 +310,17 @@ function makePlanner(cands: CandidatesByCategory) {
       if (!video) continue;
       const total = cpu.price + placa.cost + video.cost + ssd.price;
       if (!best || total < best.total) best = { cpu, placa, video, total };
+      if (qualquer) break;
     }
     if (!best) return null;
     const parts = [best.video.parts[0], best.cpu, ...best.placa.parts, ssd, best.video.parts[1]];
     return { parts, total: totalOf(parts) };
   }
 
-  return { sorted, completar };
+  /** Ainda dá para completar uma montagem compatível com estas peças? */
+  const podeCompletar = (fixed: Fixed): boolean => completar(fixed, true) !== null;
+
+  return { sorted, completar, podeCompletar };
 }
 
 type Planner = ReturnType<typeof makePlanner>;
@@ -400,25 +412,33 @@ function greedyPass(
       }
     }
 
-    const viaveis: Option[] = [];
-    for (const op of opcoes) {
-      const juntas = [...parts, ...op];
-      // Compatível com o que já foi escolhido e ainda dá para completar a montagem.
-      if (!op.every((c) => compatible(juntas.filter((x) => x !== c), c))) continue;
-      if (!planner.completar(fixedOf(juntas))) continue;
+    const todas: Option[] = opcoes.map((op) => ({
+      parts: op,
+      price: totalOf(op),
       // Utilidade do par = média das utilidades, pesada pelas fatias de cada categoria.
-      const u =
+      utility:
         fatia > 0
           ? op.reduce((s, c) => s + shares[c.spec.category] * utility(c), 0) / fatia
-          : op.reduce((s, c) => s + utility(c), 0) / op.length;
-      viaveis.push({ parts: op, price: totalOf(op), utility: u, key: op.map((c) => c.spec.slug).join("+") });
-    }
-    if (viaveis.length === 0) return null;
+          : op.reduce((s, c) => s + utility(c), 0) / op.length,
+      key: op.map((c) => c.spec.slug).join("+"),
+    }));
 
-    viaveis.sort((a, b) => b.utility - a.utility || a.price - b.price || a.key.localeCompare(b.key));
-    let chosen = viaveis.find((o) => o.price <= allowance);
+    // Viável = compatível com o que já foi escolhido e ainda dá para completar a
+    // montagem. Só é calculado para as opções que o guloso de fato olha (com
+    // 150 × 150 pares, conferir todos custava dezenas de ms à toa).
+    const viavel = (o: Option): boolean => {
+      const juntas = [...parts, ...o.parts];
+      if (!o.parts.every((c) => compatible(juntas.filter((x) => x !== c), c))) return false;
+      return planner.podeCompletar(fixedOf(juntas));
+    };
+
+    // A de maior utilidade que cabe na fatia + sobra; senão, a viável mais barata.
+    todas.sort((a, b) => b.utility - a.utility || a.price - b.price || a.key.localeCompare(b.key));
+    let chosen = todas.find((o) => o.price <= allowance && viavel(o));
     if (!chosen) {
-      chosen = viaveis.reduce((m, o) => (o.price < m.price || (o.price === m.price && o.key < m.key) ? o : m));
+      todas.sort((a, b) => a.price - b.price || a.key.localeCompare(b.key));
+      chosen = todas.find(viavel);
+      if (!chosen) return null;
       semFatia.push(...step);
     }
     carry = allowance - chosen.price;
@@ -606,9 +626,13 @@ export function autoBuild(
       notes.push(`Antes das trocas, as peças já passavam ${formatBRL(excessoAntes)} do alvo (dentro do teto).`);
     }
     if (excessoDepois > excessoAntes) {
-      notes.push(
-        `No total, as trocas usaram ${formatBRL(round2(excessoDepois - excessoAntes))} da folga (acima do alvo, dentro do teto).`
-      );
+      // Parte do preço das trocas pode ter vindo da sobra dentro do alvo; a folga
+      // é só o que passou do alvo. Ex.: troca de R$ 1.100, sobra de R$ 300,70 →
+      // "usaram R$ 799,30 da folga; o resto veio do que sobrou dentro do alvo".
+      const daFolga = round2(excessoDepois - excessoAntes);
+      const custoTrocas = round2(up.upgrades.reduce((soma, u) => soma + u.priceDelta, 0));
+      const resto = custoTrocas > daFolga ? "; o resto veio do que sobrou dentro do alvo" : "";
+      notes.push(`No total, as trocas usaram ${formatBRL(daFolga)} da folga (acima do alvo, dentro do teto)${resto}.`);
     }
   }
 

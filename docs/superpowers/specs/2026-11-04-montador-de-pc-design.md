@@ -81,9 +81,13 @@ aesthetics }`. Saída: `BuildResult` (sucesso com peças, totais, notas, desempe
 pagamento; ou falha com motivo).
 
 ### 5.1 Candidatos
-Para cada categoria: produtos que têm `PartSpec` e ao menos uma oferta `in_stock`
-(se `trustedOnly`, só ofertas de lojas confiáveis). O preço do candidato é o **menor
-`price_pix`** entre as ofertas válidas; a oferta escolhida é essa.
+Para cada categoria: produtos que têm `PartSpec` **válida** (`hasRequiredSpec`: campos obrigatórios por
+categoria, `perf` > 0, categoria igual à do produto) e ao menos uma oferta `in_stock` com preço > 0
+(se `trustedOnly`, só ofertas de lojas confiáveis; loja bloqueada nunca). O preço do candidato é o **menor
+`price_pix`** entre as ofertas válidas **não suspeitas** (≥ 25% abaixo da mediana das lojas confiáveis =
+suspeita); se só houver suspeitas, usa a mais barata e marca `Candidate.suspicious`, e a tela avisa.
+Peças ignoradas por spec ausente/inválida são contadas em `BuildSuccess.ignored` e viram uma nota.
+`BuildPreferences.usage` ("jogos" | "trabalho" | "criacao") ajusta as fatias de §5.3.
 
 ### 5.2 Utilidade de uma peça
 Para a categoria, `perfNorm = perf / maior perf entre os candidatos` e
@@ -120,8 +124,10 @@ Com o limite igual ao teto (quando teto = alvo, só as sobras do alvo contam), t
 percorre os candidatos compatíveis em ordem de utilidade e aceita o **melhor** que (a)
 tenha utilidade ≥ 1,10 × utilidade atual e (b) mantenha `total ≤ hardCap` — incluindo,
 se a troca exigir, a troca da fonte pela mais barata suficiente. Se aceitou alguma troca e
-`total > target`, marca `usedWiggleRoom = true` e explica na nota ("Usou R$ X da folga
-para subir de A para B").
+`total > target`, marca `usedWiggleRoom = true` (só quando houve troca E o total passou do alvo) e explica
+em uma nota por troca ("Usou R$ X da folga para subir de A para B") mais uma nota com o total;
+`BuildSuccess.upgrades` guarda as trocas. Um total acima do alvo sem troca aparece como
+"Acima do alvo, dentro do teto".
 
 ### 5.5 Teto (garantia)
 Se após o passo 1 o total for maior que `hardCap`, rebaixa a categoria mais cara para a
@@ -155,7 +161,8 @@ resultado real varia com jogo, drivers e configurações".
 ## 7. Pagamento (`buildPaymentSummary`, scaffold)
 
 - `pixTotal` = soma dos `price_pix`.
-- `installmentTotal` = soma dos `price_installment` (se nulo, usa `price_pix`).
+- `installmentTotal` = soma dos `price_installment` (se nulo ou ≤ 0, usa `price_pix`). É o **preço a prazo** das ofertas e,
+  na V2, é o piso do parcelado mesmo com tabela de juros (a tabela só encarece).
 - `maxInstallments` = menor `installment_count` entre as lojas usadas (nulo = 1). **V2 (pacote E):**
   quando a loja tem tabela de juros (`store_installments`), cada loja usa o seu máximo e o seletor
   vai até o MAIOR deles; parcela = soma por loja de `pixTotal × fator(n)`.
@@ -165,7 +172,12 @@ resultado real varia com jogo, drivers e configurações".
   `installmentTotal / n`. **Premissa V1:** o preço parcelado da loja vale para qualquer
   número de parcelas até o máximo. V2 (pacote E): tabela de juros por loja e por número de
   parcelas, mistura Pix + cartão, "quanto cabe por mês".
-- `pixSavings = installmentTotal − pixTotal` ("você economiza R$ X pagando no Pix").
+- `pixSavings = bestInstallment.total − pixTotal`, onde `bestInstallment` é o plano parcelado mais barato com
+  mais de 1 parcela ("você economiza R$ X em relação a Nx no cartão"). **V2 (pacote E):** `installmentPlan`
+  devolve também `schedule` (faixas, ex.: 10x de R$ 586,17 + 2x de R$ 551,49, com Σ count × monthly = total e
+  os centavos ajustados na 1ª parcela de cada loja); "sem acréscimo até Nx" significa "mesmo preço a prazo da
+  oferta até Nx"; parcelas limitadas a 1..24; o seletor abre no maior número de parcelas sem acréscimo.
+  O plano misto (`mixedPlan`) manda para o Pix as peças com maior custo evitado (ágio a prazo e juros).
 
 ## 8. Interface
 

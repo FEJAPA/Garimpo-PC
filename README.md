@@ -50,7 +50,7 @@ Os índices de desempenho e os PCs de referência da V1 são **ilustrativos** (v
 - `src/models/` — tipos, conexão com o banco, categorias, **specs das peças**, **PCs de referência**, dados mock
 - `src/services/` — produtos/busca, popularidade, e-mail, **`builder/`** (orçamento, lojas confiáveis,
   pontuação, compatibilidade, montagem automática, desempenho, pagamentos — todos com testes)
-- `src/app/` — telas (`/`, `/busca`, `/peca/[slug]`, **`/montar`**, `/entrar`, `/conta`)
+- `src/app/` — telas (`/`, `/busca`, `/peca/[slug]`, **`/montar`**, `/metodologia`, `/entrar`, `/conta`) e o job `/api/check-alerts`
 - `src/components/ui/` — design system (Button, Card, Badge, Callout, Field, Toggle, Slider…)
 - `src/components/builder/` — componentes do Montador
 - `scripts/` — coleta de preços e de specs · `supabase/` — SQL · `docs/` — spec, planos e **diagramas** (`docs/diagramas/`)
@@ -79,8 +79,11 @@ npm run build
 
 Rode os scripts da pasta `supabase/` no SQL Editor do Supabase, nesta ordem:
 `schema.sql` → `seed.sql` → `schema-auth.sql` → `schema-popularity.sql` → `seed-extras.sql`
-→ `schema-stores.sql` → `seed-stores.sql` → `schema-builder.sql` → `seed-builder.sql`
+→ `schema-stores.sql` → `seed-stores.sql` → `schema-builder.sql` → `schema-alerts.sql` → `seed-builder.sql`
 → `seed-references.sql` → `schema-payments.sql` → `seed-payments.sql`.
+
+Os seeds `seed-stores.sql`, `seed-payments.sql`, `seed-builder.sql` e `seed-references.sql` têm valores
+**só para demonstração** (Reclame Aqui, juros, índices): não rode em um banco com dados reais.
 
 No GitHub, cadastre os segredos `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`
 (Settings → Secrets → Actions) para a coleta agendada funcionar.

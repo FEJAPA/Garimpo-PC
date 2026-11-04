@@ -26,7 +26,7 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
  * para ela, então o link vai para o arquivo no repositório.
  * TODO(V2-D): trocar por uma página interna (ex.: /metodologia) que renderize o documento.
  */
-const URL_METODOLOGIA = "https://github.com/FEJAPA/Garimpo-PC/blob/main/docs/METODOLOGIA-DESEMPENHO.md";
+const URL_METODOLOGIA = "/metodologia";
 
 /** "2026-10" → "out/2026"; formato inesperado volta como veio. */
 function formatarMes(aaaamm: string): string {

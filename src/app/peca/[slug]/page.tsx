@@ -23,7 +23,7 @@ import { StoreBadge } from "@/components/StoreBadge";
 import { PriceHistoryChart } from "@/components/PriceHistoryChart";
 import { PriceAlertButton } from "@/components/PriceAlertButton";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink, safeHref } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -146,7 +146,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                           </p>
                         )}
                       </div>
-                      {oferta.url && oferta.in_stock && !bloqueada && (
+                      {oferta.url && safeHref(oferta.url) && oferta.in_stock && !bloqueada && (
                         <ButtonLink href={oferta.url} external size="sm">
                           Ver na loja
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden />

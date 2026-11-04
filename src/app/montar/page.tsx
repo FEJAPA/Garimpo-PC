@@ -54,6 +54,13 @@ export default async function MontarPage(props: PageProps<"/montar">) {
         </Callout>
       )}
 
+      {usingRealData() && Object.keys(specs).length === 0 && (
+        <Callout tone="warn" className="mt-5" title="Sem especificações cadastradas">
+          O banco não tem a tabela <code>part_specs</code> preenchida, então nenhuma peça entra na montagem.
+          Rode <code>npm run collect:specs</code> (ver docs/COLETA-SPECS.md).
+        </Callout>
+      )}
+
       {products.length === 0 ? (
         <Callout tone="bad" className="mt-5" title="Catálogo vazio">
           O banco de dados não tem peças. Rode os scripts da pasta <code>supabase/</code> (ver README).

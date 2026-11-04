@@ -45,6 +45,9 @@ npm run dev         # servidor local
 - Oferta suspeita (≥ 25% abaixo da mediana das lojas confiáveis) ou de loja bloqueada nunca é
   recomendada em silêncio: o Montador prefere a não suspeita e, se usar, avisa; "melhor preço" e
   alertas seguem a mesma regra (`src/lib/format.ts`, `src/services/builder/trust.ts`).
+- Identificadores que seguem convenção de framework ou de domínio técnico podem ficar em inglês
+  (`login`, `signup`, `createAlert`, nomes de tabelas e colunas); textos de tela, comentários,
+  mensagens e documentação ficam em pt-BR.
 - Não editar arquivos gerados (`.next/`, `next-env.d.ts`).
 - Branch de trabalho: nunca commitar direto na `main`.
 
