@@ -67,6 +67,12 @@ BuildSuccess.upgrades/ignored em builder-types.ts; src/lib/chart-colors.ts; regr
 | G7 E2E+CI | tests/e2e, next.config | S-16/F-19a/T-11, F-22 (HSTS) |
 Adiados para a V3: F-21 (catálogo como prop), F-22 (CSP com nonce), SEG-06, DAD-01.
 
+## Página de usabilidade e fluxos (publicada 2026-11-04 ~19:15 UTC)
+- Artefato: https://claude.ai/artifact/TrGzrL8u48cVYsmrsR58uS (cópia em docs/superpowers/army/usabilidade-garimpopc.html).
+- Dados: usabilidade.json (7 telas, 4 tarefas, 20 critérios WCAG), pareceres dos portões, revisão Fable, inspeções, docs/diagramas.
+
+## Revisão final (Fable, xhigh) — em andamento; entregável docs/superpowers/army/revisao-final.md
+
 ## Flags abertas
 - R-14 (e2e para filtro desligado, preço suspeito, faixas do parcelado): depois de F e B.
 - A4 (categoria cooler): fora da V2 desta sessão.

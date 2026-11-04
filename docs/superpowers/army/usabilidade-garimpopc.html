@@ -1,0 +1,551 @@
+<title>Usabilidade GarimpoPC V2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout: uma coluna de leitura (72ch) com faixas de gráficos; mesmo mundo visual do app (grafite morno + ouro), escuro primeiro. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e0f12; --surface: #15171c; --surface-2: #1c1f26; --line: #2b2f3a; --line-strong: #6b7180;
+    --fg: #f2efe6; --fg-muted: #aeb0b8; --fg-faint: #8b8e99;
+    --accent: #f0b43a; --accent-ink: #1c1505;
+    --good: #4fd08a; --warn: #ff9f5a; --bad: #ff6b7a;
+    --viz-1: #fde3a4; --viz-2: #f0b43a; --viz-3: #c48c1f; --viz-4: #8a6214; /* rampa ordinal ouro (validada) */
+    --viz-context: #626877; --viz-grid: #2b2f3a;
+    --display: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+    --body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --bg: #fbf9f3; --surface: #ffffff; --surface-2: #f3f0e8; --line: #e2ddd0; --line-strong: #9a948a;
+      --fg: #1c1a16; --fg-muted: #4f4b43; --fg-faint: #6b665c;
+      --accent: #b8801a; --accent-ink: #ffffff;
+      --good: #1f8a4c; --warn: #b65a12; --bad: #c2353f;
+      --viz-1: #e3a32a; --viz-2: #b8801a; --viz-3: #80590f; --viz-4: #4d3508;
+      --viz-context: #b9b3a6; --viz-grid: #e2ddd0;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fbf9f3; --surface: #ffffff; --surface-2: #f3f0e8; --line: #e2ddd0; --line-strong: #9a948a;
+    --fg: #1c1a16; --fg-muted: #4f4b43; --fg-faint: #6b665c;
+    --accent: #b8801a; --accent-ink: #ffffff;
+    --good: #1f8a4c; --warn: #b65a12; --bad: #c2353f;
+    --viz-1: #e3a32a; --viz-2: #b8801a; --viz-3: #80590f; --viz-4: #4d3508;
+    --viz-context: #b9b3a6; --viz-grid: #e2ddd0;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+  * { box-sizing: border-box; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.1; }
+  h2 { font-size: 1.35rem; margin-top: 8px; }
+  h3 { font-size: 1rem; }
+  p { margin: 0; max-width: 72ch; }
+  .muted { color: var(--fg-muted); } .faint { color: var(--fg-faint); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  header { padding-block: 40px 20px; display: grid; gap: 12px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--fg-faint); }
+  section { padding-block: 28px; border-top: 1px solid var(--line); display: grid; gap: 16px; }
+  .intro { color: var(--fg-muted); max-width: 72ch; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; min-width: 0; }
+  .kpi .label { font-size: 0.8rem; color: var(--fg-faint); }
+  .kpi .value { font-family: var(--display); font-size: 1.9rem; font-weight: 600; line-height: 1; }
+  .kpi .sub { font-size: 0.8rem; color: var(--fg-muted); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 9px; font-size: 0.75rem; font-weight: 500; background: var(--surface-2); color: var(--fg-muted); white-space: nowrap; }
+  .chip::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--viz-context); }
+  .chip.good::before { background: var(--good); } .chip.warn::before { background: var(--warn); } .chip.bad::before { background: var(--bad); } .chip.accent::before { background: var(--accent); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+  figcaption { font-size: 0.85rem; color: var(--fg-muted); }
+  svg { max-width: 100%; height: auto; display: block; }
+  .bar-label { font-size: 12px; fill: var(--fg-muted); }
+  .bar-value { font-size: 12px; font-weight: 600; fill: var(--fg); }
+  .axis { stroke: var(--viz-grid); stroke-width: 1; }
+  .tick { font-size: 11px; fill: var(--fg-faint); }
+  .bar { fill: var(--viz-2); } .bar.context { fill: var(--viz-context); } .bar:hover { opacity: 0.85; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  thead th { border-top: 0; font-size: 0.78rem; color: var(--fg-faint); font-weight: 500; background: var(--surface-2); }
+  td.num, th.num { text-align: right; }
+  .heat td.cell { text-align: center; font-weight: 600; min-width: 44px; }
+  .h0 { background: color-mix(in oklab, var(--bad) 35%, var(--surface)); }
+  .h1 { background: color-mix(in oklab, var(--viz-4) 70%, var(--surface)); color: var(--fg); }
+  .h2 { background: color-mix(in oklab, var(--viz-3) 55%, var(--surface)); color: var(--fg); }
+  .h3 { background: color-mix(in oklab, var(--viz-2) 45%, var(--surface)); color: var(--fg); }
+  .h4 { background: color-mix(in oklab, var(--viz-1) 75%, var(--surface)); color: #1c1505; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 0.8rem; color: var(--fg-muted); align-items: center; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+  .seg { display: flex; height: 28px; border-radius: 6px; overflow: hidden; gap: 2px; background: var(--bg); }
+  .seg > div { display: flex; align-items: center; padding-left: 8px; font-size: 0.78rem; font-weight: 600; color: #1c1505; min-width: 0; white-space: nowrap; overflow: visible; }
+  .seg .atende { background: var(--good); } .seg .parcial { background: var(--warn); } .seg .nao { background: var(--bad); color: #fff; } .seg .na { background: var(--viz-context); color: #fff; }
+  ul.clean { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ul.clean li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+  .sev { font-family: var(--display); font-weight: 700; font-size: 0.8rem; border-radius: 6px; padding: 2px 7px; background: var(--surface-2); color: var(--fg-muted); white-space: nowrap; }
+  .sev.s3 { background: color-mix(in oklab, var(--bad) 30%, var(--surface)); color: var(--fg); }
+  .sev.s2 { background: color-mix(in oklab, var(--warn) 30%, var(--surface)); color: var(--fg); }
+  .timeline { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 8px; padding-left: 16px; }
+  .timeline > div { position: relative; padding: 6px 0 14px; }
+  .timeline > div::before { content: ""; position: absolute; left: -23px; top: 12px; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); }
+  .timeline b { font-family: var(--display); font-weight: 600; }
+  pre.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; margin: 0; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  summary { cursor: pointer; font-weight: 500; }
+  footer { padding-block: 24px; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--fg-faint); display: grid; gap: 6px; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) { .bar { transition: opacity 150ms ease-out; } }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Usabilidade e fluxos do GarimpoPC depois da V2</h1>
+  <p class="intro">Avaliação heurística por leitura de código e capturas de tela, mais os números do exército de agentes que construiu a V2. Não houve teste com pessoas: as notas e os tempos são de especialista, com escala de 0 a 4 por heurística de Nielsen.</p>
+  <div class="meta">
+    <span>Avaliado em 04/11/2026</span><span>7 telas · 4 tarefas-chave · 20 critérios WCAG 2.2</span><span>Fonte: <code>docs/superpowers/army/usabilidade.json</code></span>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><span class="label">Média geral (0–4)</span><span class="value tnum">2,6</span><span class="sub">7 telas · melhor: Início 2,8 · pior: Entrar 2,4</span></div>
+    <div class="kpi"><span class="label">Problemas encontrados</span><span class="value tnum">43</span><span class="sub">3 graves (sev. 3) · 22 médios · 19 menores</span></div>
+    <div class="kpi"><span class="label">WCAG 2.2 (20 critérios)</span><span class="value tnum">13</span><span class="sub">atendem · 4 parciais · 1 não atende · 2 não avaliados</span></div>
+    <div class="kpi"><span class="label">Testes automatizados</span><span class="value tnum" id="kpi-testes">468</span><span class="sub" id="kpi-testes-sub">unitários + 43 ponta a ponta (desktop e celular)</span></div>
+    <div class="kpi"><span class="label">Achados do exército</span><span class="value tnum" id="kpi-achados">199</span><span class="sub" id="kpi-achados-sub">em 5 revisões e inspeções independentes; 41 de 43 itens únicos da rodada final corrigidos</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>Nota por tela</h2>
+  <p class="intro">Média das 10 heurísticas. A tela do Montador concentra mais achados porque é a mais densa; a tela Entrar perde pontos por não ter recuperação de senha nem mensagens específicas de erro.</p>
+  <figure>
+    <svg viewBox="0 0 640 262" role="img" aria-label="Notas médias por tela, de 0 a 4: Início 2,8; Minha conta 2,8; Busca 2,7; Metodologia 2,7; Montar PC 2,6; Peça 2,5; Entrar 2,4.">
+      <g class="tick"><text x="150" y="252">0</text><text x="262" y="252">1</text><text x="378" y="252">2</text><text x="494" y="252">3</text><text x="606" y="252">4</text></g>
+      <g class="axis"><line x1="150" y1="8" x2="150" y2="238"/><line x1="266" y1="8" x2="266" y2="238"/><line x1="382" y1="8" x2="382" y2="238"/><line x1="498" y1="8" x2="498" y2="238"/><line x1="614" y1="8" x2="614" y2="238"/></g>
+      <!-- escala: 116px por ponto; barra 18px, ponta arredondada -->
+      <g><text class="bar-label" x="142" y="30" text-anchor="end">Início</text><rect class="bar" x="150" y="18" width="325" height="18" rx="4"><title>Início: 2,8</title></rect><text class="bar-value tnum" x="483" y="31">2,8</text></g>
+      <g><text class="bar-label" x="142" y="62" text-anchor="end">Minha conta</text><rect class="bar" x="150" y="50" width="325" height="18" rx="4"><title>Minha conta: 2,8</title></rect><text class="bar-value tnum" x="483" y="63">2,8</text></g>
+      <g><text class="bar-label" x="142" y="94" text-anchor="end">Busca</text><rect class="bar" x="150" y="82" width="313" height="18" rx="4"><title>Busca: 2,7</title></rect><text class="bar-value tnum" x="471" y="95">2,7</text></g>
+      <g><text class="bar-label" x="142" y="126" text-anchor="end">Metodologia</text><rect class="bar" x="150" y="114" width="313" height="18" rx="4"><title>Metodologia: 2,7</title></rect><text class="bar-value tnum" x="471" y="127">2,7</text></g>
+      <g><text class="bar-label" x="142" y="158" text-anchor="end">Montar PC</text><rect class="bar" x="150" y="146" width="302" height="18" rx="4"><title>Montar PC: 2,6</title></rect><text class="bar-value tnum" x="460" y="159">2,6</text></g>
+      <g><text class="bar-label" x="142" y="190" text-anchor="end">Peça</text><rect class="bar" x="150" y="178" width="290" height="18" rx="4"><title>Peça: 2,5</title></rect><text class="bar-value tnum" x="448" y="191">2,5</text></g>
+      <g><text class="bar-label" x="142" y="222" text-anchor="end">Entrar</text><rect class="bar" x="150" y="210" width="278" height="18" rx="4"><title>Entrar: 2,4</title></rect><text class="bar-value tnum" x="436" y="223">2,4</text></g>
+    </svg>
+    <figcaption>Média das heurísticas por tela (escala 0–4). A tabela abaixo traz as notas por heurística.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table class="heat tnum">
+      <caption class="faint" style="text-align:left;padding:8px 12px">Heurísticas de Nielsen × telas. 0 = problema grave · 1 = problema maior · 2 = problema menor · 3 = boa · 4 = excelente.</caption>
+      <thead><tr><th scope="col">Heurística</th><th scope="col">Início</th><th scope="col">Busca</th><th scope="col">Peça</th><th scope="col">Montar</th><th scope="col">Conta</th><th scope="col">Entrar</th><th scope="col">Metod.</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Visibilidade do estado</th><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h1">1</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Correspondência com o mundo real</th><td class="cell h4">4</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h2">2</td></tr>
+        <tr><th scope="row">Controle e liberdade</th><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h1">1</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td></tr>
+        <tr><th scope="row">Consistência e padrões</th><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Prevenção de erros</th><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h4">4</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Reconhecimento em vez de lembrança</th><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Flexibilidade e eficiência</th><td class="cell h2">2</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Estética e minimalismo</th><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Recuperação de erros</th><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h1">1</td><td class="cell h3">3</td></tr>
+        <tr><th scope="row">Ajuda e documentação</th><td class="cell h2">2</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h3">3</td><td class="cell h2">2</td><td class="cell h3">3</td><td class="cell h2">2</td></tr>
+        <tr><th scope="row">Média</th><td class="cell">2,8</td><td class="cell">2,7</td><td class="cell">2,5</td><td class="cell">2,6</td><td class="cell">2,8</td><td class="cell">2,4</td><td class="cell">2,7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legend"><span><i class="sw" style="background:var(--viz-4)"></i>1 problema maior</span><span><i class="sw" style="background:var(--viz-3)"></i>2 problema menor</span><span><i class="sw" style="background:var(--viz-2)"></i>3 boa</span><span><i class="sw" style="background:var(--viz-1)"></i>4 excelente</span></div>
+</section>
+
+<section>
+  <h2>Tarefas-chave</h2>
+  <p class="intro">Quatro tarefas percorridas passo a passo lendo os textos reais dos botões e campos. O tempo é estimado por modelo de ações (não medido com pessoas).</p>
+  <div class="table-wrap">
+    <table class="tnum">
+      <thead><tr><th scope="col">Tarefa</th><th scope="col" class="num">Passos</th><th scope="col" class="num">Cliques</th><th scope="col" class="num">Campos</th><th scope="col" class="num">Telas</th><th scope="col" class="num">Tempo est.</th><th scope="col" class="num">Atritos</th></tr></thead>
+      <tbody>
+        <tr><td>Montar um PC com R$ 6.000 (teto 7.000) e ir à loja da placa</td><td class="num">7</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">43 s</td><td class="num">5</td></tr>
+        <tr><td>Descobrir se a RTX 4060 está em promoção e criar um alerta</td><td class="num">10</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">95 s</td><td class="num">8</td></tr>
+        <tr><td>Quanto pagar no Pix e quanto parcelar (R$ 3.000 à vista, R$ 400/mês)</td><td class="num">8</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">56 s</td><td class="num">7</td></tr>
+        <tr><td>Compartilhar a montagem com um amigo e salvá-la na conta</td><td class="num">10</td><td class="num">7</td><td class="num">4</td><td class="num">2</td><td class="num">90 s</td><td class="num">8</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure>
+    <svg viewBox="0 0 640 170" role="img" aria-label="Tempo estimado por tarefa: montar um PC 43 segundos; comparar peça e criar alerta 95 segundos; pagamento misto 56 segundos; compartilhar e salvar 90 segundos.">
+      <g class="tick"><text x="230" y="162">0 s</text><text x="340" y="162">30 s</text><text x="452" y="162">60 s</text><text x="564" y="162">90 s</text></g>
+      <g class="axis"><line x1="230" y1="8" x2="230" y2="148"/><line x1="342" y1="8" x2="342" y2="148"/><line x1="454" y1="8" x2="454" y2="148"/><line x1="566" y1="8" x2="566" y2="148"/></g>
+      <!-- escala: 3,733px por segundo -->
+      <g><text class="bar-label" x="222" y="30" text-anchor="end">Montar um PC</text><rect class="bar" x="230" y="18" width="161" height="18" rx="4"><title>43 s</title></rect><text class="bar-value tnum" x="399" y="31">43 s</text></g>
+      <g><text class="bar-label" x="222" y="62" text-anchor="end">Promoção + alerta</text><rect class="bar" x="230" y="50" width="355" height="18" rx="4"><title>95 s</title></rect><text class="bar-value tnum" x="593" y="63">95 s</text></g>
+      <g><text class="bar-label" x="222" y="94" text-anchor="end">Pagamento misto</text><rect class="bar" x="230" y="82" width="209" height="18" rx="4"><title>56 s</title></rect><text class="bar-value tnum" x="447" y="95">56 s</text></g>
+      <g><text class="bar-label" x="222" y="126" text-anchor="end">Compartilhar + salvar</text><rect class="bar" x="230" y="114" width="336" height="18" rx="4"><title>90 s</title></rect><text class="bar-value tnum" x="574" y="127">90 s</text></g>
+    </svg>
+    <figcaption>Tempo estimado por tarefa. As duas tarefas que passam por login são as mais longas: a conta ainda é a maior fonte de atrito.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Acessibilidade (WCAG 2.2, 20 critérios)</h2>
+  <div class="seg" role="img" aria-label="20 critérios WCAG: 13 atendem, 4 parciais, 1 não atende, 2 não avaliados.">
+    <div class="atende" style="flex:13">13 atendem</div><div class="parcial" style="flex:4">4</div><div class="nao" style="flex:1"></div><div class="na" style="flex:2">2</div>
+  </div>
+  <div class="legend"><span><i class="sw" style="background:var(--good)"></i>Atende (13)</span><span><i class="sw" style="background:var(--warn)"></i>Parcial (4)</span><span><i class="sw" style="background:var(--bad)"></i>Não atende (1)</span><span><i class="sw" style="background:var(--viz-context)"></i>Não avaliado (2)</span></div>
+  <div class="grid-2">
+    <div>
+      <h3>Parciais e pendências</h3>
+      <ul class="clean" style="margin-top:8px">
+        <li><span class="chip bad">não atende</span><span><b>1.4.11 Contraste não textual.</b> Bordas de campo (1,6:1), trilho do slider (1,7:1) e interruptor desligado (1,2:1). <em>Corrigido depois da avaliação: o token de borda de controle subiu para 3,4:1.</em></span></li>
+        <li><span class="chip warn">parcial</span><span><b>2.4.2 Título da página.</b> A tela Minha conta usava o título genérico. <em>Em correção na rodada final.</em></span></li>
+        <li><span class="chip warn">parcial</span><span><b>3.3.1 Identificação de erro.</b> Erros de login genéricos; e-mail não confirmado sem mensagem própria. <em>Em correção.</em></span></li>
+        <li><span class="chip warn">parcial</span><span><b>4.1.2 Nome, função, valor.</b> O gráfico de comparáveis tinha um contêiner focável dentro de uma "imagem". <em>Em correção.</em></span></li>
+        <li><span class="chip warn">parcial</span><span><b>4.1.3 Mensagens de status.</b> A confirmação do alerta de preço não aparecia. <em>Corrigido.</em></span></li>
+        <li><span class="chip">não avaliado</span><span><b>1.4.4 Redimensionar texto</b> e <b>2.4.11 Foco não obscurecido</b> precisam de navegador real.</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>O que já atende</h3>
+      <ul class="clean" style="margin-top:8px">
+        <li><span class="chip good">atende</span><span>1.1.1, 1.3.1, 1.4.1, 1.4.3, 1.4.10 — conteúdo não textual, relações, cor, contraste de texto, reflow.</span></li>
+        <li><span class="chip good">atende</span><span>2.1.1, 2.4.1, 2.4.3, 2.4.4, 2.4.7 — teclado, pular blocos, ordem e visibilidade do foco, finalidade do link.</span></li>
+        <li><span class="chip good">atende</span><span>2.5.8, 3.1.1, 3.3.2 — tamanho de alvo, idioma, rótulos.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Problemas prioritários</h2>
+  <ul class="clean">
+    <li><span class="sev s3">sev. 3</span><span><b>Montar:</b> "Entre para salvar a montagem" perdia o resultado, porque a URL não guardava a montagem. <em>Em correção: a URL passa a receber <code>?b=</code> ao montar.</em></span></li>
+    <li><span class="sev s3">sev. 3</span><span><b>Peça:</b> o alerta de preço era salvo sem confirmação visível e dava para duplicar. <em>Corrigido: confirmação visível e atualização em vez de duplicata.</em></span></li>
+    <li><span class="sev s3">sev. 3</span><span><b>Entrar:</b> sem recuperação de senha; erros como "e-mail não confirmado" caíam numa mensagem genérica. <em>Mensagem específica em correção; recuperação de senha fica para a V3.</em></span></li>
+    <li><span class="sev s2">sev. 2</span><span><b>Peça:</b> "É promoção de verdade?" só tem o gráfico como resposta, sem veredito em texto. <em>V3.</em></span></li>
+    <li><span class="sev s2">sev. 2</span><span><b>Montar:</b> "Como pagar", com a aba Misturar, é o último bloco de uma página longa, sem atalho. <em>V3: sumário fixo das seções.</em></span></li>
+  </ul>
+  <h3>O que já funciona bem</h3>
+  <ul class="clean">
+    <li><span class="chip accent">forte</span><span>Anti-golpe visível: régua única de confiança com motivos por loja, "Preço bom demais?" por oferta, loja bloqueada sem botão e melhor preço que ignora a oferta suspeita.</span></li>
+    <li><span class="chip accent">forte</span><span>Estados do Montador: vazio que ensina, esqueleto de carregamento, erro com motivo e saída, foco levado ao resumo.</span></li>
+    <li><span class="chip accent">forte</span><span>Estimativa de desempenho honesta: rotulada como estimativa, com PCs parecidos, tabela equivalente ao gráfico, fonte, mês e página de metodologia.</span></li>
+    <li><span class="chip accent">forte</span><span>Pagamento à brasileira com decisão pronta: Pix × Parcelado × Misturar, acréscimo por loja e veredito "cabe no seu orçamento".</span></li>
+    <li><span class="chip accent">forte</span><span>Base de acessibilidade: skip link, foco no resultado, aria-current, radiogroup e switch nativos, gráficos com tabela, contraste de texto.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>O que mudou da V1 para a V2</h2>
+  <p class="intro">Dezessete aspectos comparados entre o scaffold da manhã e o estado depois do exército. Sete com impacto alto para quem usa.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Aspecto</th><th scope="col">V1</th><th scope="col">V2</th><th scope="col">Impacto</th></tr></thead>
+      <tbody>
+        <tr><td>Avisos de preço suspeito</td><td>ausentes</td><td>aviso por peça, no herói da peça e na lista de lojas</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Rótulo de confiança da loja</td><td>nota e selo "oficial"</td><td>régua única: confiável, não verificada ou bloqueada, com motivos</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Loja bloqueada</td><td>não existia</td><td>nunca elegível; sem botão de compra</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Desempenho esperado</td><td>6 referências ilustrativas</td><td>12 referências com fonte e mês, 3 PCs parecidos, metodologia pública</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Pagamento</td><td>Pix × parcelado simples</td><td>preço a prazo como piso, juros por loja, faixas, plano misto</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Salvar e compartilhar</td><td>não existia</td><td>link <code>?b=</code>, CSV, montagens salvas, alerta da montagem</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Confirmação do alerta de preço</td><td>invisível</td><td>confirmação visível, sem duplicata</td><td><span class="chip bad">alto</span></td></tr>
+        <tr><td>Entradas do Montador</td><td>orçamento, lojas, slider</td><td>+ perfil de uso, resolução, valor interpretado na dica</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Estados do resultado</td><td>vazio e erro</td><td>+ esqueleto, foco, notas explicativas por troca</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Explicação da montagem</td><td>notas soltas</td><td>"Como chegamos aqui" com uma nota por decisão</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Metodologia</td><td>não existia</td><td>página /metodologia</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Retorno após login</td><td>sempre /conta</td><td>volta à página de origem</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Alertas em /conta</td><td>lista única</td><td>ativos × avisados, reativar, alerta da montagem</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Gráficos acessíveis</td><td>só visual</td><td>role=img + tabela equivalente</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Teclado e leitor de tela</td><td>básico</td><td>skip link, aria-current, radiogroup, foco gerenciado</td><td><span class="chip warn">médio</span></td></tr>
+        <tr><td>Título por página</td><td>genérico</td><td>título próprio em cada tela</td><td><span class="chip">baixo</span></td></tr>
+        <tr><td>Página inicial</td><td>vitrine</td><td>+ campos de orçamento aceitam qualquer valor</td><td><span class="chip">baixo</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="exercito">
+  <h2>O exército de agentes</h2>
+  <p class="intro" id="exercito-intro">Como a V2 foi construída: ondas de agentes com posse exclusiva de arquivos, portões de qualidade com dois gerentes (um tranquilo, um rigoroso), inspeções de código só-leitura e uma revisão independente antes da rodada final de correções.</p>
+  <div class="kpis" id="exercito-kpis">
+    <div class="kpi"><span class="label">Agentes lançados</span><span class="value tnum" id="k-agentes">28</span><span class="sub">em 7 etapas, todos com dono único de arquivo</span></div>
+    <div class="kpi"><span class="label">Tokens consumidos</span><span class="value tnum" id="k-tokens">≈ 7,1 mi</span><span class="sub">soma dos 28 agentes até a rodada final (sem o Comandante nem a revisão final)</span></div>
+    <div class="kpi"><span class="label">Testes unitários</span><span class="value tnum" id="k-unit">468</span><span class="sub">de 53 na V1 (23 arquivos de teste)</span></div>
+    <div class="kpi"><span class="label">Achados tratados</span><span class="value tnum" id="k-tratados">41 / 43</span><span class="sub">itens únicos da rodada final; 2 adiados para a V3 com motivo</span></div>
+  </div>
+  <div class="timeline" id="exercito-timeline">
+    <div><b>V1 pela manhã.</b> Scaffold do Montador, nova identidade visual, 53 testes, spec e plano V2 (8 pacotes).</div>
+    <div><b>Onda 1.</b> Pacotes A, C, D, E, H, diagramas e inspeção Haiku (68 achados). Nenhuma conclusão-fantasma.</div>
+    <div><b>Portão 1.</b> Dois gerentes Opus: aprovada com correções. 19 achados novos; a funcionalidade existia, mas não chegava à tela.</div>
+    <div><b>Onda 2.</b> Pacotes B, F, G e 4 grupos de correção. Tudo ligado na tela; 376 testes; e2e 23.</div>
+    <div><b>Portão 2 + revisão Fable.</b> 0 violações de invariantes em 3.852 montagens; 2 altos (campo da home com <code>step=100</code>; rebaixamento ao teto por preço) e 29 médios/baixos.</div>
+    <div id="tl-final"><b>Rodada final.</b> 6 grupos Opus em esforço extra, dono único por arquivo: 41 de 43 itens corrigidos, sondas de propriedade (3.000 carrinhos, 1.600 montagens) e testes de mutação; 468 unitários e 43 e2e contra a build de produção.</div>
+    <div><b>Inspeção 2 e avaliação de usabilidade.</b> 53 achados novos de código (5 mais graves corrigidos na rodada; o resto listado para a V3) e 43 problemas de usabilidade com severidade.</div>
+  </div>
+  <figure id="fig-achados">
+    <svg viewBox="0 0 640 178" role="img" aria-label="Achados por etapa de revisão: inspeção da onda 1, 68; portão 1, 19 novos; portão 2, 36; revisão Fable, 23; inspeção da onda 2, 53.">
+      <g class="tick"><text x="170" y="170">0</text><text x="282" y="170">20</text><text x="394" y="170">40</text><text x="506" y="170">60</text><text x="618" y="170">80</text></g>
+      <g class="axis"><line x1="170" y1="8" x2="170" y2="156"/><line x1="282" y1="8" x2="282" y2="156"/><line x1="394" y1="8" x2="394" y2="156"/><line x1="506" y1="8" x2="506" y2="156"/><line x1="618" y1="8" x2="618" y2="156"/></g>
+      <!-- escala: 5,6px por achado -->
+      <g><text class="bar-label" x="162" y="30" text-anchor="end">Inspeção, onda 1</text><rect class="bar" x="170" y="18" width="381" height="18" rx="4"><title>68 achados</title></rect><text class="bar-value tnum" x="559" y="31">68</text></g>
+      <g><text class="bar-label" x="162" y="58" text-anchor="end">Portão 1 (novos)</text><rect class="bar" x="170" y="46" width="106" height="18" rx="4"><title>19 achados</title></rect><text class="bar-value tnum" x="284" y="59">19</text></g>
+      <g><text class="bar-label" x="162" y="86" text-anchor="end">Portão 2 (novos)</text><rect class="bar" x="170" y="74" width="202" height="18" rx="4"><title>36 achados</title></rect><text class="bar-value tnum" x="380" y="87">36</text></g>
+      <g><text class="bar-label" x="162" y="114" text-anchor="end">Revisão Fable</text><rect class="bar" x="170" y="102" width="129" height="18" rx="4"><title>23 achados</title></rect><text class="bar-value tnum" x="307" y="115">23</text></g>
+      <g><text class="bar-label" x="162" y="142" text-anchor="end">Inspeção, onda 2</text><rect class="bar" x="170" y="130" width="297" height="18" rx="4"><title>53 achados</title></rect><text class="bar-value tnum" x="475" y="143">53</text></g>
+    </svg>
+    <figcaption>Achados novos por etapa de revisão. Cada etapa leu o código depois das correções da anterior; a queda é esperada e desejada.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Fluxos de uso</h2>
+  <p class="intro">Diagramas mantidos em <code>docs/diagramas/</code> e conferidos contra o código. Jornada da pessoa, mapa de telas, o algoritmo do Montador e o pagamento.</p>
+    <figure>
+    <h3>Jornada: do orçamento ao resultado</h3>
+    <pre class="mermaid">
+flowchart TD
+    classDef tela fill:#fff4d6,stroke:#9a6b00,color:#2b2200
+    classDef decisao fill:#e3ecff,stroke:#2f4fbf,color:#0f1d4d
+    classDef erro fill:#ffe3e6,stroke:#b3261e,color:#4a0d12
+    classDef ok fill:#dff5e6,stroke:#1b7a3f,color:#0b3320
+
+    A["Home /&lt;br/&gt;Quanto você pode gastar?"]:::tela
+    A --&gt; B{"Preencheu o formulário&lt;br/&gt;da home?"}:::decisao
+    B --&gt;|"sim"| C["Abre /montar com alvo e teto&lt;br/&gt;já preenchidos, aceita 6.550 ou 6.550,50"]:::tela
+    B --&gt;|"não, clicou em Montar meu PC"| D["Abre /montar com os valores padrão&lt;br/&gt;alvo 6.000 e teto 7.000"]:::tela
+    B --&gt;|"abriu um link /montar?b="| LK{"O código do link é válido?"}:::decisao
+    LK --&gt;|"não"| LK1["Aviso: Não conseguimos abrir este link&lt;br/&gt;a pessoa preenche os campos"]:::erro
+    LK --&gt;|"sim"| LK2["Restaura as escolhas e monta sozinho&lt;br/&gt;com os preços de hoje e avisa o que mudou"]:::tela
+    LK1 --&gt; E
+    LK2 --&gt; Q
+    C --&gt; E["/montar no estado Vazio&lt;br/&gt;o card explica os passos do Montador"]:::tela
+    D --&gt; E
+
+    E --&gt; F{"Valores válidos?&lt;br/&gt;maior que zero e até R$ 1.000.000"}:::decisao
+    F --&gt;|"não"| F1["Campo em erro com mensagem&lt;br/&gt;botão Montar desabilitado"]:::erro
+    F1 --&gt; E
+    F --&gt;|"sim"| G{"Teto menor que o alvo?"}:::decisao
+    G --&gt;|"sim"| G1["Aviso no campo: o teto será tratado&lt;br/&gt;como igual ao alvo, sem folga"]:::tela
+    G --&gt;|"não"| G2["Mostra a folga calculada&lt;br/&gt;ou Sem folga se forem iguais"]:::tela
+    G1 --&gt; H
+    G2 --&gt; H
+    H["Escolhe Para que você vai usar, Resolução do monitor,&lt;br/&gt;Só lojas confiáveis e o slider Desempenho e Estética"]:::tela
+    H --&gt; I["Clica em Montar meu PC"]:::tela
+    I --&gt; J["Estado Carregando&lt;br/&gt;esqueleto do resultado ou resultado anterior esmaecido"]:::tela
+
+    J --&gt; K0{"Alguma peça tem&lt;br/&gt;especificação técnica?"}:::decisao
+    K0 --&gt;|"não"| K01["Erro: Nenhuma peça do catálogo tem&lt;br/&gt;especificação técnica cadastrada"]:::erro
+    K0 --&gt;|"sim"| K{"Toda categoria tem ao menos uma&lt;br/&gt;peça disponível com os filtros?"}:::decisao
+    K --&gt;|"não"| K1["Erro: Não há categoria disponível&lt;br/&gt;com os filtros atuais"]:::erro
+    K --&gt;|"sim"| L{"Existe alguma combinação&lt;br/&gt;compatível de peças?"}:::decisao
+    L --&gt;|"não"| L1["Erro: Não encontramos uma combinação&lt;br/&gt;compatível de peças no catálogo"]:::erro
+    L --&gt;|"sim"| M{"A montagem compatível mais barata&lt;br/&gt;cabe no teto?"}:::decisao
+    M --&gt;|"não"| M1["Erro: Orçamento insuficiente, a montagem mais&lt;br/&gt;barata compatível custa R$ X"]:::erro
+
+    K01 --&gt; R
+    K1 --&gt; R
+    L1 --&gt; R
+    M1 --&gt; R
+    R["Estado Erro: caixa Não deu para montar&lt;br/&gt;a pessoa sobe o teto ou desliga o filtro de lojas"]:::erro
+    R --&gt; H
+
+    M --&gt;|"sim"| N["Algoritmo monta as peças&lt;br/&gt;detalhes em fluxo-montador.md"]:::tela
+    N --&gt; O{"Houve troca paga e o total&lt;br/&gt;passou do alvo?"}:::decisao
+    O --&gt;|"sim"| O0{"Sobrou menos de R$ 1&lt;br/&gt;até o teto?"}:::decisao
+    O0 --&gt;|"sim"| O1["Selo Usou a folga até o teto"]:::ok
+    O0 --&gt;|"não"| O3["Selo Usou a folga&lt;br/&gt;a nota explica quanto e por quê"]:::ok
+    O --&gt;|"não"| O2{"Total passou do alvo?"}:::decisao
+    O2 --&gt;|"sim"| O5["Selo Acima do alvo, dentro do teto"]:::ok
+    O2 --&gt;|"não"| O4["Selo Dentro do alvo"]:::ok
+    O1 --&gt; Q
+    O3 --&gt; Q
+    O4 --&gt; Q
+    O5 --&gt; Q
+    Q["Estado Sucesso&lt;br/&gt;Total no Pix, Peças, Desempenho esperado, Como pagar&lt;br/&gt;a URL vira /montar?b= da montagem na tela"]:::ok
+
+    Q --&gt; S{"O resultado serve?"}:::decisao
+    S --&gt;|"não, quer mudar algo"| H
+    S --&gt;|"sim"| T["Salvar montagem, Copiar link, Baixar lista CSV&lt;br/&gt;ou ir à loja, diagrama da seção 4"]:::tela
+    </pre>
+    <figcaption>Fonte: <code>docs/diagramas/jornada-usuario.md</code>.</figcaption>
+  </figure>
+  <figure>
+    <h3>Mapa de telas</h3>
+    <pre class="mermaid">
+flowchart LR
+    classDef pagina fill:#fff4d6,stroke:#9a6b00,color:#2b2200
+    classDef job fill:#e3ecff,stroke:#2f4fbf,color:#0f1d4d
+    classDef externo fill:#eceff1,stroke:#607d8b,color:#263238
+    classDef erro fill:#ffe3e6,stroke:#b3261e,color:#4a0d12
+    classDef comum fill:#f3ecff,stroke:#6a4bc4,color:#22124d
+
+    subgraph GRPCOMUM["Em todas as telas - layout.tsx"]
+        HDR["Cabeçalho&lt;br/&gt;logo, Peças, Montar PC,&lt;br/&gt;busca, Entrar ou Minha conta"]:::comum
+        FTR["Rodapé&lt;br/&gt;Peças, Montar PC, Minha conta"]:::comum
+    end
+
+    subgraph PUBLICAS["Telas públicas - sem login"]
+        HOME["/&lt;br/&gt;Home"]:::pagina
+        BUSCA["/busca&lt;br/&gt;Resultados da busca"]:::pagina
+        PECA["/peca/slug&lt;br/&gt;Detalhe da peça"]:::pagina
+        MONTAR["/montar&lt;br/&gt;Montador de PC&lt;br/&gt;aceita alvo, teto e b na URL"]:::pagina
+        METOD["/metodologia&lt;br/&gt;Como estimamos o desempenho"]:::pagina
+    end
+
+    subgraph CONTA_GRP["Conta - login opcional"]
+        ENTRAR["/entrar&lt;br/&gt;Entrar ou criar conta&lt;br/&gt;volta para o next"]:::pagina
+        CONTA["/conta&lt;br/&gt;Minhas montagens e&lt;br/&gt;Meus alertas de preço"]:::pagina
+    end
+
+    subgraph FUNDO["Fora do navegador"]
+        AGENDADOR["Agendador&lt;br/&gt;workflow alertas.yml ou cron do provedor"]:::externo
+        API["/api/check-alerts&lt;br/&gt;job de alertas"]:::job
+        EMAIL["E-mail de alerta&lt;br/&gt;enviado pelo Resend"]:::externo
+    end
+
+    LOJA["Site da loja&lt;br/&gt;nova aba"]:::externo
+    N404["Página 404&lt;br/&gt;peça não encontrada"]:::erro
+
+    HDR --&gt;|"logo"| HOME
+    HDR --&gt;|"Peças ou caixa de busca"| BUSCA
+    HDR --&gt;|"Montar PC"| MONTAR
+    HDR --&gt;|"Entrar, sem login"| ENTRAR
+    HDR --&gt;|"Minha conta, com login"| CONTA
+    FTR --&gt;|"links do rodapé"| BUSCA
+    FTR --&gt; MONTAR
+    FTR --&gt; CONTA
+
+    HOME --&gt;|"Montar meu PC"| MONTAR
+    HOME --&gt;|"formulário Quanto você pode gastar&lt;br/&gt;leva alvo e teto na URL"| MONTAR
+    HOME --&gt;|"Comparar peças, Ver todas&lt;br/&gt;e chips de categoria"| BUSCA
+    HOME --&gt;|"cartão de Mais procuradas"| PECA
+
+    BUSCA --&gt;|"cartão da peça"| PECA
+    BUSCA --&gt;|"chips de categoria ou&lt;br/&gt;link todas as peças"| BUSCA
+
+    PECA --&gt;|"Todas as peças"| BUSCA
+    PECA --&gt;|"Ver na loja"| LOJA
+    PECA --&gt;|"slug que não existe"| N404
+    PECA --&gt;|"Entre para criar um alerta,&lt;br/&gt;com next da peça"| ENTRAR
+
+    MONTAR --&gt;|"nome da peça"| PECA
+    MONTAR --&gt;|"Ver na loja"| LOJA
+    MONTAR --&gt;|"ver metodologia, no desempenho"| METOD
+    MONTAR --&gt;|"Entre para salvar a montagem,&lt;br/&gt;com next da montagem"| ENTRAR
+    MONTAR --&gt;|"Copiar link: /montar com b"| MONTAR
+    MONTAR --&gt;|"Montagem salva: link Minha conta"| CONTA
+
+    ENTRAR --&gt;|"Entrar com sucesso, volta ao next"| MONTAR
+    ENTRAR --&gt;|"Entrar com sucesso, volta ao next"| PECA
+    ENTRAR --&gt;|"Entrar sem next"| CONTA
+    ENTRAR --&gt;|"erro ou Conta criada&lt;br/&gt;volta com um código na URL"| ENTRAR
+    ENTRAR --&gt;|"Voltar"| HOME
+
+    CONTA --&gt;|"sem login, redireciona com next"| ENTRAR
+    CONTA --&gt;|"Sair"| HOME
+    CONTA --&gt;|"nome do alerta de peça"| PECA
+    CONTA --&gt;|"Abrir no Montador"| MONTAR
+    CONTA --&gt;|"Ver peças, sem alertas"| BUSCA
+
+    AGENDADOR --&gt;|"GET com Bearer CRON_SECRET"| API
+    API --&gt;|"preço ou total atingiu o alvo"| EMAIL
+    EMAIL --&gt;|"alerta de peça: Ver oferta"| PECA
+    EMAIL --&gt;|"alerta de montagem"| CONTA
+    </pre>
+    <figcaption>Fonte: <code>docs/diagramas/mapa-de-telas.md</code>.</figcaption>
+  </figure>
+  <figure>
+    <h3>O algoritmo do Montador (autoBuild)</h3>
+    <pre class="mermaid">
+flowchart TD
+    classDef passo fill:#fff4d6,stroke:#9a6b00,color:#2b2200
+    classDef decisao fill:#e3ecff,stroke:#2f4fbf,color:#0f1d4d
+    classDef falha fill:#ffe3e6,stroke:#b3261e,color:#4a0d12
+    classDef ok fill:#dff5e6,stroke:#1b7a3f,color:#0b3320
+    classDef regra fill:#f3ecff,stroke:#6a4bc4,color:#22124d
+    classDef v2 fill:#eeeeee,stroke:#777777,stroke-dasharray:5 5,color:#444444
+
+    IN["Entrada&lt;br/&gt;products, specs, prefs e ctx&lt;br/&gt;prefs: budget, trustedOnly, aesthetics, usage, resolution&lt;br/&gt;ctx: references e installmentTables vindos do servidor"]:::passo
+    IN --&gt; P0["normalizeBudget&lt;br/&gt;o teto nunca fica menor que o alvo&lt;br/&gt;valores inválidos viram zero"]:::passo
+    P0 --&gt; P1["Passo 1 - collectCandidates&lt;br/&gt;só entra peça com spec completa da mesma categoria&lt;br/&gt;e com oferta válida, a mais barata não suspeita&lt;br/&gt;peça sem spec vai para ignored"]:::passo
+    R1["Regra de confiança: isTrustedStore&lt;br/&gt;oficial, nota 4,5 ou mais, Reclame Aqui 6 ou mais&lt;br/&gt;quando informado e nunca bloqueada"]:::regra
+    R1 -.-&gt; P1
+
+    P1 --&gt; D0{"Alguma peça, ou alguma peça&lt;br/&gt;de cada categoria, tem spec válida?"}:::decisao
+    D0 --&gt;|"não"| F0["FALHA&lt;br/&gt;Nenhuma peça do catálogo tem&lt;br/&gt;especificação técnica cadastrada"]:::falha
+    D0 --&gt;|"sim"| D1{"As 7 categorias têm&lt;br/&gt;ao menos um candidato?"}:::decisao
+    D1 --&gt;|"não"| F1["FALHA&lt;br/&gt;Não há categoria disponível&lt;br/&gt;com os filtros atuais"]:::falha
+    D1 --&gt;|"sim"| P2["Passo 2 - planejador exato makePlanner&lt;br/&gt;a montagem compatível mais barata possível&lt;br/&gt;cheapestFrom confere tudo com allCompatible"]:::passo
+    P2 --&gt; D2{"Achou alguma montagem&lt;br/&gt;compatível?"}:::decisao
+    D2 --&gt;|"não"| F2["FALHA&lt;br/&gt;Não encontramos uma combinação&lt;br/&gt;compatível de peças"]:::falha
+    D2 --&gt;|"sim"| D3{"Total da mais barata&lt;br/&gt;maior que o teto?"}:::decisao
+    D3 --&gt;|"sim"| F3["FALHA&lt;br/&gt;Orçamento insuficiente&lt;br/&gt;a mais barata compatível custa R$ N"]:::falha
+
+    D3 --&gt;|"não"| P3["Passo 3 - greedyPass&lt;br/&gt;um passo por vez em GREEDY_STEPS&lt;br/&gt;placa de vídeo, par processador e placa-mãe,&lt;br/&gt;memória, SSD, gabinete e fonte"]:::passo
+    R2["Regras: fatias do alvo pelo slider e pelo perfil,&lt;br/&gt;utilidade pelo slider, compatibilidade&lt;br/&gt;e o planejador diz se ainda dá para completar"]:::regra
+    R2 -.-&gt; P3
+    P3 --&gt; D4{"greedyPass devolveu&lt;br/&gt;uma montagem compatível?"}:::decisao
+    D4 --&gt;|"não"| P3b["Salvaguarda: usa a montagem&lt;br/&gt;mais barata do passo 2"]:::passo
+    D4 --&gt;|"sim"| D5
+    P3b --&gt; D5{"Total maior que o teto?"}:::decisao
+
+    D5 --&gt;|"sim"| P4["Passo 4 - downgradeToCap&lt;br/&gt;na peça mais cara com alternativa mais barata,&lt;br/&gt;escolhe a de MAIOR utilidade que já faz caber no teto&lt;br/&gt;se nenhuma basta, a mais barata, e segue para a próxima peça"]:::passo
+    P4 --&gt; D6{"Ainda maior que o teto?"}:::decisao
+    D6 --&gt;|"sim"| P4b["Usa a montagem mais barata do passo 2&lt;br/&gt;e avisa: Para caber no teto, usamos&lt;br/&gt;a montagem compatível mais barata"]:::passo
+    D6 --&gt;|"não"| P5
+    D5 --&gt;|"não"| P5
+    P4b --&gt; P5
+
+    P5["Passo 5 - upgradePass&lt;br/&gt;sobe peças usando sobras e folga até o teto&lt;br/&gt;na ordem do perfil de uso"]:::passo
+    R3["Ordem da folga por perfil&lt;br/&gt;jogos: placa de vídeo e depois processador&lt;br/&gt;criação: processador e depois placa de vídeo&lt;br/&gt;trabalho: só o processador&lt;br/&gt;ganho mínimo de 10 por cento, MIN_UPGRADE_GAIN 1,10"]:::regra
+    R3 -.-&gt; P5
+    P5 --&gt; P6["Notas em linguagem simples&lt;br/&gt;Subimos a placa de vídeo: A para B, por mais R$ X&lt;br/&gt;ou economizando R$ X, e quanto veio da folga"]:::passo
+    P6 --&gt; P7["toBuildParts&lt;br/&gt;ordena as peças na ordem de exibição DISPLAY_ORDER"]:::passo
+    P7 --&gt; P8["Avisos&lt;br/&gt;suspicionNotes para peça de oferta suspeita&lt;br/&gt;e N peças ignoradas por falta de especificação"]:::passo
+    P8 --&gt; P9["Passo 6a - buildPaymentSummary&lt;br/&gt;com as tabelas de juros de ctx&lt;br/&gt;ver fluxo-pagamento.md"]:::passo
+    P9 --&gt; P10["Passo 6b - estimatePerformance&lt;br/&gt;com as referências de ctx&lt;br/&gt;Índice GarimpoPC, referência mais próxima, FPS e notas"]:::passo
+    P10 --&gt; OUT["SUCESSO&lt;br/&gt;parts, totalPix, totalInstallment, budget,&lt;br/&gt;usedWiggleRoom, leftover, notes,&lt;br/&gt;upgrades, ignored, performance e payment"]:::ok
+
+    INV["Invariantes testadas:&lt;br/&gt;totalPix menor ou igual ao teto,&lt;br/&gt;só lojas confiáveis com o filtro ligado&lt;br/&gt;e peças compatíveis"]:::regra
+    INV -.-&gt; OUT
+
+    X1["Pendência pós-V2 - pacote B&lt;br/&gt;otimização global, por exemplo busca em feixe,&lt;br/&gt;e resolução mudando a montagem"]:::v2
+    X1 -.-&gt; P3
+    </pre>
+    <figcaption>Fonte: <code>docs/diagramas/fluxo-montador.md</code>.</figcaption>
+  </figure>
+  <figure>
+    <h3>Pagamento: Pix, parcelado e misto</h3>
+    <pre class="mermaid">
+flowchart TD
+    classDef passo fill:#fff4d6,stroke:#9a6b00,color:#2b2200
+    classDef decisao fill:#e3ecff,stroke:#2f4fbf,color:#0f1d4d
+    classDef ok fill:#dff5e6,stroke:#1b7a3f,color:#0b3320
+    classDef regra fill:#f3ecff,stroke:#6a4bc4,color:#22124d
+
+    A["autoBuild termina de escolher as peças&lt;br/&gt;e chama buildPaymentSummary com as peças&lt;br/&gt;e as tabelas de juros de ctx"]:::passo
+    A --&gt; B["Para cada peça, lê a oferta escolhida&lt;br/&gt;price_pix, price_installment e installment_count"]:::passo
+    B --&gt; C{"price_installment é um número&lt;br/&gt;finito maior que zero?"}:::decisao
+    C --&gt;|"não"| C1["Preço a prazo da peça: o Pix&lt;br/&gt;parcelas: 1, só à vista&lt;br/&gt;não anuncia parcelas"]:::passo
+    C --&gt;|"sim"| C2["Preço a prazo da peça: o maior entre&lt;br/&gt;price_installment e o Pix&lt;br/&gt;parcelas: installment_count, entre 1 e 24"]:::passo
+    C1 --&gt; E
+    C2 --&gt; E["Agrupa por loja: soma itens, pixTotal e installmentTotal&lt;br/&gt;installmentCount: o menor entre as peças da loja&lt;br/&gt;offersInstallmentCount: o menor número anunciado,&lt;br/&gt;zero se alguma oferta da loja só tem Pix"]:::passo
+    E --&gt; F{"A loja tem tabela de juros válida?&lt;br/&gt;parcelas de 1 a 24 e fator 1 ou mais"}:::decisao
+    F --&gt;|"não"| G["A loja parcela até o que as ofertas anunciam&lt;br/&gt;pelo preço a prazo, em qualquer número de parcelas"]:::passo
+    F --&gt;|"sim"| H["interestTable guardada na loja&lt;br/&gt;a loja parcela até o maior número da tabela"]:::passo
+    G --&gt; I
+    H --&gt; I["maxInstallments: o MAIOR máximo entre as lojas&lt;br/&gt;cada loja limita só a si mesma"]:::passo
+    I --&gt; J["installmentOptions de 1x até maxInstallments&lt;br/&gt;com o total e o acréscimo de cada uma"]:::passo
+    J --&gt; K["bestInstallment: o parcelado mais barato com mais de 1 parcela&lt;br/&gt;empate fica com o maior número de parcelas"]:::passo
+    K --&gt; L["pixSavings igual a bestInstallment.total menos pixTotal&lt;br/&gt;nunca negativo"]:::passo
+    L --&gt; N["PaymentSummary&lt;br/&gt;pixTotal, installmentTotal, maxInstallments,&lt;br/&gt;bestInstallment, pixSavings e stores"]:::ok
+    R["Regra: o preço a prazo é o piso do parcelado&lt;br/&gt;e o Pix é o piso do preço a prazo"]:::regra
+    R -.-&gt; C2
+    </pre>
+    <figcaption>Fonte: <code>docs/diagramas/fluxo-pagamento.md</code>.</figcaption>
+  </figure>
+
+</section>
+
+<footer>
+  <span>Método: avaliação heurística (Nielsen) por leitura de código e capturas; severidade 0–4; WCAG 2.2 por inspeção. Sem teste com pessoas. Tempos por modelo de ações.</span>
+  <span>Fontes: <code>docs/superpowers/army/usabilidade.json</code>, <code>portao1-*.md</code>, <code>portao2-*.md</code>, <code>revisao-fable.md</code>, <code>onda1-trufas.md</code>, <code>docs/diagramas/</code>. Repositório FEJAPA/Garimpo-PC, branch <code>claude/exciting-faraday-afn7pd</code>.</span>
+</footer>
+</div>
