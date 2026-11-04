@@ -1,3 +1,4 @@
+-- SÓ PARA DEMONSTRAÇÃO: peças, ofertas e histórico de exemplo (preços ilustrativos).
 -- Peças extras de várias categorias (CPU, RAM, SSD, placa-mãe, fonte, gabinete),
 -- para a busca "funcionar pra tudo" já no banco real.
 -- Rode no SQL Editor DEPOIS do seed.sql principal. Pode rodar de novo sem

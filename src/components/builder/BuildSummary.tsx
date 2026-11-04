@@ -72,7 +72,7 @@ export function BuildSummary({
                       <p className="tnum text-lg font-semibold text-ink">{formatBRL(offer.price_pix)}</p>
                       {parcelado ? (
                         <p className="tnum text-xs text-ink-faint">
-                          ou {parcelado.count}x de {formatBRL(parcelado.monthly)}
+                          {parcelado.count > 1 ? `ou ${parcelado.count}x de ${formatBRL(parcelado.monthly)}` : `ou ${formatBRL(parcelado.total)} a prazo`}
                         </p>
                       ) : (
                         <p className="text-xs text-ink-faint">só à vista</p>

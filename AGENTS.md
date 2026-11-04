@@ -40,7 +40,7 @@ npm run dev         # servidor local
 - Moeda em reais com `formatBRL`. Datas ISO no banco.
 - **Dado ilustrativo nunca vira fato no modo real.** Com Supabase configurado, um serviço com
   fallback devolve o mock SÓ quando o banco não está configurado; em erro ou tabela vazia devolve
-  vazio/`null` e a tela avisa. Seeds com valores inventados (`seed-stores.sql`, `seed-payments.sql`,
+  vazio/`null` e a tela avisa. Seeds com valores inventados (`seed.sql`, `seed-extras.sql`, `seed-stores.sql`, `seed-payments.sql`,
   `seed-builder.sql`, `seed-references.sql`) são só para demonstração e dizem isso no cabeçalho.
 - Oferta suspeita (≥ 25% abaixo da mediana das lojas confiáveis) ou de loja bloqueada nunca é
   recomendada em silêncio: o Montador prefere a não suspeita e, se usar, avisa; "melhor preço" e

@@ -266,7 +266,7 @@
   <p class="intro" id="exercito-intro">Como a V2 foi construída: ondas de agentes com posse exclusiva de arquivos, portões de qualidade com dois gerentes (um tranquilo, um rigoroso), inspeções de código só-leitura e uma revisão independente antes da rodada final de correções.</p>
   <div class="kpis" id="exercito-kpis">
     <div class="kpi"><span class="label">Agentes lançados</span><span class="value tnum" id="k-agentes">28</span><span class="sub">em 7 etapas, todos com dono único de arquivo</span></div>
-    <div class="kpi"><span class="label">Tokens consumidos</span><span class="value tnum" id="k-tokens">≈ 7,1 mi</span><span class="sub">soma dos 28 agentes até a rodada final (sem o Comandante nem a revisão final)</span></div>
+    <div class="kpi"><span class="label">Tokens consumidos</span><span class="value tnum" id="k-tokens">≈ 7,4 mi</span><span class="sub">soma dos 28 agentes, incluindo a revisão final (sem o Comandante)</span></div>
     <div class="kpi"><span class="label">Testes unitários</span><span class="value tnum" id="k-unit">468</span><span class="sub">de 53 na V1 (23 arquivos de teste)</span></div>
     <div class="kpi"><span class="label">Achados tratados</span><span class="value tnum" id="k-tratados">41 / 43</span><span class="sub">itens únicos da rodada final; 2 adiados para a V3 com motivo</span></div>
   </div>
@@ -276,6 +276,7 @@
     <div><b>Portão 1.</b> Dois gerentes Opus: aprovada com correções. 19 achados novos; a funcionalidade existia, mas não chegava à tela.</div>
     <div><b>Onda 2.</b> Pacotes B, F, G e 4 grupos de correção. Tudo ligado na tela; 376 testes; e2e 23.</div>
     <div><b>Portão 2 + revisão Fable.</b> 0 violações de invariantes em 3.852 montagens; 2 altos (campo da home com <code>step=100</code>; rebaixamento ao teto por preço) e 29 médios/baixos.</div>
+    <div><b>Revisão final (Fable, esforço extra).</b> Pronto para mostrar com ressalvas e pronto para continuar: 41 de 43 itens resolvidos, 0 regressões em 6.786 cenários de montagem e 77 mil planos de pagamento; 24 achados menores registrados nas pendências.</div>
     <div id="tl-final"><b>Rodada final.</b> 6 grupos Opus em esforço extra, dono único por arquivo: 41 de 43 itens corrigidos, sondas de propriedade (3.000 carrinhos, 1.600 montagens) e testes de mutação; 468 unitários e 43 e2e contra a build de produção.</div>
     <div><b>Inspeção 2 e avaliação de usabilidade.</b> 53 achados novos de código (5 mais graves corrigidos na rodada; o resto listado para a V3) e 43 problemas de usabilidade com severidade.</div>
   </div>

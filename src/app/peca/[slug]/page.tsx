@@ -153,7 +153,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                         <p className="tnum text-xl font-semibold text-ink">{formatBRL(oferta.price_pix)}</p>
                         {parcelado && (
                           <p className="tnum text-xs text-ink-faint">
-                            ou {parcelado.count}x de {formatBRL(parcelado.monthly)} ({formatBRL(parcelado.total)})
+                            {parcelado.count > 1 ? `ou ${parcelado.count}x de ${formatBRL(parcelado.monthly)} (${formatBRL(parcelado.total)})` : `ou ${formatBRL(parcelado.total)} a prazo`}
                           </p>
                         )}
                       </div>

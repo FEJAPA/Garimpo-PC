@@ -1,3 +1,5 @@
+-- SÓ PARA DEMONSTRAÇÃO: preços, ofertas e histórico abaixo são de exemplo (não medidos).
+-- NÃO rode em um banco com dados reais: este script apaga lojas, peças, ofertas e histórico.
 -- Dados iniciais do GarimpoPC: lojas confiáveis, algumas placas de vídeo reais,
 -- suas ofertas e um histórico de preços de exemplo para o gráfico.
 -- Pode rodar várias vezes sem duplicar (usa "on conflict do nothing" / limpeza).

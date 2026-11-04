@@ -36,7 +36,7 @@ export async function registerView(productId: string): Promise<void> {
 export async function getPopularProducts(limit = 6): Promise<ProductWithOffers[]> {
   const supabase = getSupabase();
   if (!supabase) {
-    // Modo de exemplo: marca algumas como destaque para a vitrine ficar boa.
+    // Modo de exemplo: devolve as primeiras peças do mock (a ordem do arquivo faz de vitrine).
     return MOCK_PRODUCTS.slice(0, limit);
   }
 

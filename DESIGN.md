@@ -85,8 +85,8 @@ tem botão "Ver na loja".
 ## Componentes base (`src/components/ui/`)
 
 `Button` (primary/secondary/ghost/danger; sm/md/lg), `Card`, `Badge` (neutral/good/warn/
-bad/brand), `Field` + `NumberInput` (prefixo "R$"), `Toggle` (switch com rótulo),
-`Slider` (com rótulos nas pontas), `Callout` (info/warn/bad, com ícone), `SectionTitle`.
+bad/brand), `Field` + `MoneyInput` (prefixo "R$", prévia do valor), `Toggle` (switch com rótulo),
+`Slider` (com rótulos nas pontas), `SegmentedControl` (radiogroup com setas), `Skeleton`, `Callout` (info/warn/bad, com ícone), `SectionTitle`.
 
 ## Voz
 

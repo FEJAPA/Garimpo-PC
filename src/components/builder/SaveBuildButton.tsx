@@ -21,7 +21,7 @@ import { isSupabaseConfigured } from "@/models/supabase";
 import { createBuildAlert, saveBuild } from "@/app/account/actions";
 import { DEFAULT_BUILD_NAME, SAVED_BUILD_NAME_MAX, toSavedBuildRow } from "@/services/saved-builds";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { Field, INPUT_CLASSES, MoneyInput } from "@/components/ui/Field";
+import {Field, INPUT_CLASSES, MoneyInput, fieldMessageIds } from "@/components/ui/Field";
 
 type Retorno = { ok: boolean; message: string };
 
@@ -108,10 +108,11 @@ export function SaveBuildButton({ prefs, result }: { prefs: BuildPreferences; re
               id="nome-montagem"
               name="name"
               type="text"
+              aria-invalid={nomeLongo || undefined}
+              aria-describedby={nomeLongo ? fieldMessageIds("nome-montagem").error : fieldMessageIds("nome-montagem").hint}
               value={nome}
               maxLength={SAVED_BUILD_NAME_MAX + 20}
               onChange={(e) => setNome(e.target.value)}
-              aria-invalid={nomeLongo || undefined}
               disabled={logado === null}
               className={INPUT_CLASSES}
             />

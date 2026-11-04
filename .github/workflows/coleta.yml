@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false # SEG-N4: não deixa o token do GITHUB no checkout
 
       - name: Instalar o Node 22
         uses: actions/setup-node@v4

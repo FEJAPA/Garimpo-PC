@@ -81,9 +81,10 @@ function maisBarata(ofertas: OfferWithStore[]): OfferWithStore {
 export type SuspicionCheck = (product: ProductWithOffers) => Map<string, { reason: string }>;
 
 /**
- * Confiança da loja com cache. Por quê: `isTrustedStore` monta os textos dos
- * motivos (com `toLocaleString`) a cada chamada e custa dezenas de µs; com 150
- * peças por categoria e várias ofertas por peça, isso sozinho passava de 200 ms.
+ * Confiança da loja com cache. Histórico: `isTrustedStore` chegou a custar dezenas
+ * de µs (montava os textos dos motivos) e passava de 200 ms com 150 peças por
+ * categoria; hoje é barato (S-14) e o cache fica só por segurança, sem custo
+ * relevante (`TODO(V2-B)`: remover se uma medição mostrar que não ajuda).
  * A chave é a loja inteira (todos os campos), e não só o id: vindo do banco, cada
  * oferta traz o próprio objeto de loja, e dois objetos com o mesmo id e dados
  * diferentes não podem dividir a resposta.

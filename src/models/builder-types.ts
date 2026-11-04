@@ -14,7 +14,7 @@ export type BudgetPlan = {
 /** Preferências que a pessoa escolhe na tela /montar. */
 export type BuildPreferences = {
   budget: BudgetPlan;
-  /** Só considerar ofertas de lojas confiáveis (oficial e nota >= 4.5). */
+  /** Só considerar ofertas de lojas confiáveis (oficial, nota ≥ 4,5, sem Reclame Aqui baixo; loja bloqueada nunca entra). */
   trustedOnly: boolean;
   /** Balanço do slider: 0 = máximo desempenho, 100 = máxima estética. */
   aesthetics: number;

@@ -71,12 +71,16 @@ Adiados para a V3: F-21 (catálogo como prop), F-22 (CSP com nonce), SEG-06, DAD
 - Artefato: https://claude.ai/artifact/TrGzrL8u48cVYsmrsR58uS (cópia em docs/superpowers/army/usabilidade-garimpopc.html).
 - Dados: usabilidade.json (7 telas, 4 tarefas, 20 critérios WCAG), pareceres dos portões, revisão Fable, inspeções, docs/diagramas.
 
-## Revisão final (Fable, xhigh) — em andamento; entregável docs/superpowers/army/revisao-final.md
+## Revisão final (Fable, xhigh) — CONCLUÍDA 2026-11-04 ~19:35 UTC
+- Veredito: pronto para mostrar com ressalvas (modo de demonstração rotulado; deploy real depende de "Antes do deploy"); pronto para continuar.
+- tsc/lint/vitest 468/build/e2e 43 PASS; 41/43 itens resolvidos (F-21 e nonce de CSP adiados); 0 regressões funcionais (6.786 cenários, 38.236 planos de parcelas, 39.528 planos mistos).
+- Inspeção 2: 13 resolvidos, 10 adiados com registro, 24 abertos menores + 5 parciais → registrados em docs/PENDENCIAS-POS-V2.md; pontas fechadas pelo Comandante no encerramento.
+- Total: 28 agentes, ≈ 7,4 milhões de tokens (sem o Comandante).
 
 ## Flags abertas
-- R-14 (e2e para filtro desligado, preço suspeito, faixas do parcelado): depois de F e B.
+- R-14: resolvido na rodada final (G7).
 - A4 (categoria cooler): fora da V2 desta sessão.
-- DAD-01 (constraints no banco), SEG-07 (headers), PERF-02/03/04: adiados (pós-V2).
+- SEG-07: resolvido (headers em next.config.ts). DAD-01 (constraints no banco), PERF-02/03/04: adiados (pós-V2).
 
 ## Decisões
 - Fundação de tipos feita pelo Comandante (campos opcionais) para não serializar a onda 1.

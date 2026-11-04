@@ -117,3 +117,30 @@ Nenhum muda o que a pessoa paga ou vê como fato.
 - Resolveu um `TODO(V2-*)`? Apague o marcador no código e a linha aqui, no mesmo commit.
 - Criou um marcador novo? Use `TODO(V2-<letra do pacote>)` e acrescente uma linha na seção 1.
 - A contagem do título da seção 1 é o número de linhas que o `grep` acima devolve, menos a do teste.
+
+
+## Inspeção 2 (onda2-trufas.md) — itens menores ainda abertos
+
+Triados na revisão final (`docs/superpowers/army/revisao-final.md`, seção "Triagem da inspeção 2"). Já fechados no
+encerramento: SEG-N4 (parte `persist-credentials`), CON-N11, A11Y-03, CON-N5, PERF-N2 (comentário). Ficam:
+
+| id | onde | o quê | sev. |
+|---|---|---|---|
+| SEG-N4 (parte) | .github/workflows/*.yml | fixar as ações por SHA em vez de tag | médio |
+| SEG-08 | supabase/schema-popularity.sql | leitura pública de product_views; view sem security_invoker | baixo/médio |
+| PERF-N1 | src/app/page.tsx, product_views | vitrine lê a view a cada visita; sem retenção de visitas | médio |
+| SEG-09 | src/models/supabase-admin.ts | adicionar `import "server-only"` (pacote) | baixo |
+| SEG-N2 | auth/actions.ts, entrar/page.tsx | "já está cadastrado" revela conta (decisão: manter até ter confirmação de e-mail) | baixo |
+| SEG-N3 | src/services/email.ts | e-mail da pessoa no log | baixo |
+| A11Y-11 / A11Y-N2 / A11Y-N3 / A11Y-N4 / A11Y-N5 | ProductCard, StoreBadge, SegmentedControl, Button, PaymentPlanner | motivos só em title; hint só em title; span aria-disabled; label envolvendo select; nome acessível longo do card | baixo |
+| CON-07 | src/models/categories.ts | "memória de vídeo" casa com RAM | baixo |
+| CON-N4 | BuilderForm (notasDoLink), BuildResultView (situacaoDe) | lógica em componente sem teste; mover para lib/ | baixo |
+| CON-N8 | playwright.config.ts, scripts | caminho do Chromium local; PW_CHROMIUM_PATH fora do .env.example | baixo |
+| LOG-N2 | auto-build.ts, format.ts | ramo "só sobrou suspeita" inalcançável com a regra atual | baixo |
+| LOG-N7 | auto-build.ts | `perfGainPct ?? 0` | baixo |
+| LOG-N8 | api/check-alerts/route.ts | e-mail sai antes de gravar notified_at ("pelo menos uma vez") | baixo |
+| TST-N2 | tests/e2e/*.spec.ts | seletores frágeis (XPath, ul > li) | baixo |
+| PERF-08 | package.json | playwright em dependencies | baixo |
+| PERF-N4 | SiteHeader.tsx | dois SearchBar renderizados | baixo |
+
+Os 5 itens parciais e a limitação do `in_stock` na coleta também estão descritos na revisão final.
