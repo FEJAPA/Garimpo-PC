@@ -1,40 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Tipografia (DESIGN.md): Sora para títulos e números-herói, Inter para UI e corpo.
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+const sora = Sora({ variable: "--font-sora", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "GarimpoPC — Preços de hardware gamer no Brasil",
+  title: {
+    default: "GarimpoPC — monte e compare seu PC gamer pelo preço certo",
+    template: "%s · GarimpoPC",
+  },
   description:
-    "Acompanhe e compare preços de peças de PC gamer no Brasil, com histórico de preços e lojas confiáveis.",
+    "Monte um PC gamer automaticamente dentro do seu orçamento, com peças compatíveis de lojas confiáveis, e compare preços com histórico real.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col text-ink">
+    <html lang="pt-BR" className={`${inter.variable} ${sora.variable} h-full`}>
+      <body className="flex min-h-full flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-line py-6 text-center text-xs text-ink-faint">
-          GarimpoPC · projeto em desenvolvimento
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

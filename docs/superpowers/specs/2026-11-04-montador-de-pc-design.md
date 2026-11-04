@@ -115,8 +115,8 @@ de utilidade e escolhe o primeiro cujo preço cabe em `fatia + sobra`, onde `sob
 acumulado de `(fatia − gasto)` das categorias anteriores (pode ficar negativa). Se nenhum
 cabe, escolhe o **mais barato compatível** e registra uma nota.
 
-### 5.4 Folga (passo 2, só se `hardCap > target`)
-Com `room = hardCap − total`, tenta **subir a placa de vídeo** e depois o **processador**:
+### 5.4 Sobras e folga (passo 2)
+Com o limite igual ao teto (quando teto = alvo, só as sobras do alvo contam), tenta **subir a placa de vídeo** e depois o **processador**:
 percorre os candidatos compatíveis em ordem de utilidade e aceita o **melhor** que (a)
 tenha utilidade ≥ 1,10 × utilidade atual e (b) mantenha `total ≤ hardCap` — incluindo,
 se a troca exigir, a troca da fonte pela mais barata suficiente. Se aceitou alguma troca e

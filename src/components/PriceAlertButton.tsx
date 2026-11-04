@@ -1,15 +1,17 @@
 "use client";
 
 // Botão "Criar alerta de preço" na página da peça.
-// - Se o usuário NÃO está logado, leva para a tela de login.
-// - Se está logado, abre um campo para digitar o preço-alvo e cria o alerta.
+// - Sem login: leva para a tela de entrar.
+// - Com login: abre um campo para o preço-alvo e cria o alerta.
 
 import { useState, useEffect, useTransition } from "react";
-import Link from "next/link";
+import { Bell } from "lucide-react";
 import { getBrowserSupabase } from "@/models/supabase-browser";
 import { isSupabaseConfigured } from "@/models/supabase";
 import { createAlert } from "@/app/account/actions";
 import { formatBRL } from "@/lib/format";
+import { Button, ButtonLink } from "./ui/Button";
+import { INPUT_CLASSES } from "./ui/Field";
 
 export function PriceAlertButton({
   productSlug,
@@ -20,43 +22,35 @@ export function PriceAlertButton({
   productName: string;
   currentPrice: number;
 }) {
-  const [logado, setLogado] = useState<boolean | null>(null);
+  const configurado = isSupabaseConfigured();
+  // Sem Supabase, já sabemos que não há login; com Supabase, descobrimos no navegador.
+  const [logado, setLogado] = useState<boolean | null>(configurado ? null : false);
   const [aberto, setAberto] = useState(false);
-  // Sugere um alvo 10% abaixo do preço atual, arredondado.
   const [alvo, setAlvo] = useState(Math.round(currentPrice * 0.9));
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Descobre, no navegador, se há um usuário logado.
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setLogado(false);
-      return;
-    }
+    if (!configurado) return;
     const supabase = getBrowserSupabase();
     supabase.auth.getUser().then(({ data }) => setLogado(Boolean(data.user)));
-  }, []);
+  }, [configurado]);
 
   if (logado === false) {
     return (
-      <Link
-        href="/entrar"
-        className="inline-flex items-center justify-center rounded-lg border border-brand/40 bg-brand/10 px-4 py-2.5 text-sm font-semibold text-brand-strong transition hover:bg-brand/20"
-      >
-        🔔 Entre para criar um alerta de preço
-      </Link>
+      <ButtonLink href="/entrar" variant="secondary">
+        <Bell className="h-4 w-4" aria-hidden />
+        Entre para criar um alerta de preço
+      </ButtonLink>
     );
   }
 
   if (!aberto) {
     return (
-      <button
-        onClick={() => setAberto(true)}
-        disabled={logado === null}
-        className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-strong disabled:opacity-50"
-      >
-        🔔 Criar alerta de preço
-      </button>
+      <Button variant="secondary" onClick={() => setAberto(true)} disabled={logado === null}>
+        <Bell className="h-4 w-4" aria-hidden />
+        Criar alerta de preço
+      </Button>
     );
   }
 
@@ -72,30 +66,31 @@ export function PriceAlertButton({
   }
 
   return (
-    <div className="w-full max-w-xs rounded-xl border border-line bg-surface-2 p-3">
-      <p className="text-xs text-ink-muted">
+    <div className="w-full max-w-xs rounded-card border border-line bg-surface-2 p-3">
+      <label htmlFor="alvo-alerta" className="text-xs text-ink-muted">
         Avise-me quando <strong className="text-ink">{productName}</strong> custar até:
-      </p>
+      </label>
       <div className="mt-2 flex items-center gap-2">
-        <span className="text-sm text-ink-muted">R$</span>
-        <input
-          type="number"
-          min={1}
-          value={alvo}
-          onChange={(e) => setAlvo(Number(e.target.value))}
-          className="w-28 rounded-lg border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-        />
-        <button
-          onClick={salvar}
-          disabled={pending}
-          className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-strong disabled:opacity-50"
-        >
-          {pending ? "Salvando…" : "Salvar"}
-        </button>
+        <div className="relative flex-1">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink-faint">
+            R$
+          </span>
+          <input
+            id="alvo-alerta"
+            type="number"
+            min={1}
+            value={alvo}
+            onChange={(e) => setAlvo(Number(e.target.value))}
+            className={`${INPUT_CLASSES} tnum pl-10`}
+          />
+        </div>
+        <Button onClick={salvar} loading={pending}>
+          Salvar
+        </Button>
       </div>
       <p className="mt-1 text-xs text-ink-faint">Preço atual: {formatBRL(currentPrice)}</p>
       {feedback && (
-        <p className={`mt-2 text-xs ${feedback.ok ? "text-good" : "text-bad"}`}>
+        <p className={`mt-2 text-xs ${feedback.ok ? "text-good" : "text-bad"}`} role="status">
           {feedback.message}
         </p>
       )}

@@ -38,7 +38,7 @@ Cores (tema escuro único):
 | `warn` / `warn-soft` | `#ff9f5a` / `#2d1d10` | atenção (sempre com ícone + texto) |
 | `bad` / `bad-soft` | `#ff6b7a` / `#2d1216` | indisponível, pouco confiável, erro |
 
-Gráficos (dataviz): série única/ênfase = `brand`; contexto (de-ênfase) = `#4a4f5c`;
+Gráficos (dataviz): série única/ênfase = `brand`; contexto (de-ênfase) = `#626877` (≥ 3:1 sobre `surface`);
 grade = `line`, hairline sólida; texto de eixos = `ink-faint`. Nunca cor de série em texto.
 
 Tipografia:

@@ -1,49 +1,46 @@
 "use client";
 
-// Barra de busca do cabeçalho. Ao enviar, leva para /busca?q=...
-// Funciona em qualquer página.
+// Barra de busca. Ao enviar, leva para /busca?q=... Funciona em qualquer página.
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Search } from "lucide-react";
+import { INPUT_CLASSES } from "./ui/Field";
 
 export function SearchBar({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [termo, setTermo] = useState(params.get("q") ?? "");
+  const q = params.get("q") ?? "";
 
-  // Mantém o campo em sincronia se a URL mudar (ex.: voltar do navegador).
-  useEffect(() => {
-    setTermo(params.get("q") ?? "");
-  }, [params]);
+  // Estado derivado da URL: quando "q" muda (ex.: botão voltar), o campo acompanha.
+  const [termo, setTermo] = useState(q);
+  const [ultimoQ, setUltimoQ] = useState(q);
+  if (q !== ultimoQ) {
+    setUltimoQ(q);
+    setTermo(q);
+  }
 
   function buscar(e: React.FormEvent) {
     e.preventDefault();
-    const q = termo.trim();
-    router.push(q ? `/busca?q=${encodeURIComponent(q)}` : "/busca");
+    const valor = termo.trim();
+    router.push(valor ? `/busca?q=${encodeURIComponent(valor)}` : "/busca");
   }
 
   return (
-    <form onSubmit={buscar} className={compact ? "w-full max-w-xs" : "w-full max-w-xl"} role="search">
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/30">
-        <span className="text-ink-faint" aria-hidden>
-          🔍
-        </span>
+    <form onSubmit={buscar} className="w-full" role="search">
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+          aria-hidden
+        />
         <input
           type="search"
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
-          placeholder="Busque por peça, marca ou categoria (ex.: RTX, Ryzen, SSD)"
+          placeholder={compact ? "Buscar peça, marca ou categoria" : "Buscar por peça, marca ou categoria (ex.: RTX, Ryzen, SSD)"}
           aria-label="Buscar peças"
-          className="w-full bg-transparent text-ink outline-none placeholder:text-ink-faint"
+          className={`${INPUT_CLASSES} ${compact ? "h-9 text-sm" : "h-11"} pl-9`}
         />
-        {!compact && (
-          <button
-            type="submit"
-            className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-strong"
-          >
-            Buscar
-          </button>
-        )}
       </div>
     </form>
   );

@@ -1,14 +1,15 @@
-// Selo de confiabilidade de uma loja: mostra a nota, nº de avaliações e se é
-// uma loja oficial/curada. É um dos diferenciais do produto (anti-golpe).
+// Selo de confiabilidade de uma loja: nome, selo "oficial" e nota com estrelas.
+// É um dos diferenciais do produto (anti-golpe).
 
+import { BadgeCheck, Star } from "lucide-react";
 import type { Store } from "@/models/types";
 import { trustLabel } from "@/lib/format";
+import { Badge, type BadgeTone } from "./ui/Badge";
 
-function corDaNota(rating: number): string {
-  if (rating >= 4.5) return "bg-good-soft text-good ring-good/30";
-  if (rating >= 4) return "bg-good-soft text-good ring-good/20";
-  if (rating >= 3) return "bg-warn-soft text-warn ring-warn/30";
-  return "bg-bad-soft text-bad ring-bad/30";
+function tomDaNota(rating: number): BadgeTone {
+  if (rating >= 4) return "good";
+  if (rating >= 3) return "warn";
+  return "bad";
 }
 
 export function StoreBadge({ store, showLabel = false }: { store: Store; showLabel?: boolean }) {
@@ -16,22 +17,16 @@ export function StoreBadge({ store, showLabel = false }: { store: Store; showLab
     <span className="inline-flex flex-wrap items-center gap-1.5 text-sm">
       <span className="font-medium text-ink">{store.name}</span>
       {store.is_official && (
-        <span
-          className="inline-flex items-center rounded-full bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand-strong ring-1 ring-brand/30"
-          title="Loja oficial verificada por nós"
-        >
-          ✓ Oficial
-        </span>
+        <Badge tone="brand" title="Loja oficial verificada por nós">
+          <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+          Oficial
+        </Badge>
       )}
-      <span
-        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${corDaNota(
-          store.rating
-        )}`}
-        title={`${store.rating_count.toLocaleString("pt-BR")} avaliações`}
-      >
-        ★ {store.rating.toFixed(1)}
-        {showLabel && <span className="ml-1 opacity-80">· {trustLabel(store.rating)}</span>}
-      </span>
+      <Badge tone={tomDaNota(store.rating)} title={`${store.rating_count.toLocaleString("pt-BR")} avaliações`}>
+        <Star className="h-3 w-3 fill-current" aria-hidden />
+        <span className="tnum">{store.rating.toFixed(1)}</span>
+        {showLabel && <span className="opacity-80">· {trustLabel(store.rating)}</span>}
+      </Badge>
     </span>
   );
 }

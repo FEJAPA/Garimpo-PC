@@ -1,26 +1,27 @@
 "use client";
 
-// Gráfico de histórico de preços. Roda no navegador (por isso "use client"),
-// usando a biblioteca Recharts. Mostra a evolução do menor preço ao longo do
-// tempo, ajudando a saber se uma "promoção" é real.
+// Gráfico de histórico de preços (Recharts). Uma série, cor da marca, grade
+// hairline e tooltip com a mesma informação da lista de lojas (não gateia nada).
 
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatBRL, formatDayMonth } from "@/lib/format";
 
 type Ponto = { date: string; price: number };
 
+const COR = {
+  linha: "#f0b43a",
+  grade: "#2b2f3a",
+  eixo: "#8b8e99",
+  superficie: "#15171c",
+  superficie2: "#1c1f26",
+  texto: "#f2efe6",
+  textoMuted: "#aeb0b8",
+};
+
 export function PriceHistoryChart({ data }: { data: Ponto[] }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg bg-surface-2 text-sm text-ink-faint">
+      <div className="flex h-64 items-center justify-center rounded-control bg-surface-2 text-sm text-ink-faint">
         Ainda não há histórico de preços para esta peça.
       </div>
     );
@@ -29,54 +30,52 @@ export function PriceHistoryChart({ data }: { data: Ponto[] }) {
   const precos = data.map((d) => d.price);
   const min = Math.min(...precos);
   const max = Math.max(...precos);
-  // Folga de 5% acima/abaixo para o gráfico não ficar colado nas bordas.
-  const folga = (max - min) * 0.05 || max * 0.05;
+  const folga = (max - min) * 0.08 || max * 0.05;
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={256} minHeight={256}>
-        <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="linhaPreco" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#9d7bff" />
-              <stop offset="100%" stopColor="#22d3ee" />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a3050" vertical={false} />
+      <ResponsiveContainer width="100%" height={260} minHeight={260}>
+        <LineChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid stroke={COR.grade} vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={formatDayMonth}
-            tick={{ fontSize: 12, fill: "#9aa3c7" }}
+            tick={{ fontSize: 12, fill: COR.eixo }}
             tickMargin={8}
-            stroke="#2a3050"
+            axisLine={{ stroke: COR.grade }}
+            tickLine={false}
           />
           <YAxis
             domain={[Math.floor(min - folga), Math.ceil(max + folga)]}
-            tickFormatter={(v: number) => `R$ ${Math.round(v)}`}
-            tick={{ fontSize: 12, fill: "#9aa3c7" }}
-            width={70}
-            stroke="#2a3050"
+            tickFormatter={(v: number) => formatBRL(Math.round(v)).replace(",00", "")}
+            tick={{ fontSize: 12, fill: COR.eixo }}
+            width={84}
+            axisLine={false}
+            tickLine={false}
           />
           <Tooltip
             formatter={(value) => [formatBRL(Number(value)), "Menor preço"]}
             labelFormatter={(label) => `Dia ${formatDayMonth(String(label))}`}
             contentStyle={{
               borderRadius: 10,
-              border: "1px solid #2a3050",
-              background: "#151829",
-              color: "#eef1ff",
+              border: `1px solid ${COR.grade}`,
+              background: COR.superficie2,
+              color: COR.texto,
               fontSize: 13,
+              boxShadow: "0 12px 28px -14px rgb(0 0 0 / 0.7)",
             }}
-            labelStyle={{ color: "#9aa3c7" }}
-            cursor={{ stroke: "#7c5cff", strokeWidth: 1, strokeDasharray: "4 4" }}
+            labelStyle={{ color: COR.textoMuted }}
+            itemStyle={{ color: COR.texto, fontWeight: 600 }}
+            cursor={{ stroke: COR.linha, strokeWidth: 1 }}
           />
           <Line
             type="monotone"
+            isAnimationActive={false}
             dataKey="price"
-            stroke="url(#linhaPreco)"
-            strokeWidth={3}
-            dot={{ r: 3, fill: "#22d3ee" }}
-            activeDot={{ r: 6, fill: "#22d3ee" }}
+            stroke={COR.linha}
+            strokeWidth={2}
+            dot={{ r: 4, fill: COR.linha, stroke: COR.superficie, strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: COR.linha, stroke: COR.superficie, strokeWidth: 2 }}
           />
         </LineChart>
       </ResponsiveContainer>

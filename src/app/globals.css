@@ -1,72 +1,181 @@
 @import "tailwindcss";
 
 /*
-  Identidade visual do GarimpoPC — tema "gamer escuro + neon".
-  - Fundo escuro (cara de painel de PC gamer)
-  - Roxo/ciano como cor da marca
-  - Verde = preço bom / oferta (você "garimpou" ouro)
-  - Âmbar = atenção / parcelado
-  As cores ficam como variáveis para o Tailwind usar (ex.: bg-brand, text-good).
+  Identidade visual do GarimpoPC — "Bancada de garimpo" (ver DESIGN.md).
+  Escuro, grafite morno, um único acento ouro. As cores viram utilitários do
+  Tailwind (ex.: bg-surface, text-ink-muted, bg-brand, text-good).
 */
 
 @theme {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-sora), var(--font-inter), ui-sans-serif, sans-serif;
 
   /* Fundos (do mais escuro ao mais claro) */
-  --color-base: #0b0d17; /* fundo da página */
-  --color-surface: #151829; /* cartões / superfícies */
-  --color-surface-2: #1d2236; /* superfícies elevadas / hover */
-  --color-line: #2a3050; /* bordas */
+  --color-base: #0e0f12;
+  --color-surface: #15171c;
+  --color-surface-2: #1c1f26;
+  --color-surface-3: #242832;
+  --color-line: #2b2f3a;
+  --color-line-strong: #3a3f4d;
 
   /* Texto */
-  --color-ink: #eef1ff; /* texto principal */
-  --color-ink-muted: #9aa3c7; /* texto secundário */
-  --color-ink-faint: #6b73a0; /* texto fraco / legendas */
+  --color-ink: #f2efe6;
+  --color-ink-muted: #aeb0b8;
+  --color-ink-faint: #8b8e99;
 
-  /* Marca (roxo → ciano) */
-  --color-brand: #7c5cff; /* roxo neon principal */
-  --color-brand-strong: #9d7bff;
-  --color-accent: #22d3ee; /* ciano neon (destaques) */
+  /* Marca: ouro */
+  --color-brand: #f0b43a;
+  --color-brand-strong: #ffc85c;
+  --color-brand-ink: #1c1505;
+  --color-brand-soft: rgb(240 180 58 / 0.12);
 
-  /* Semânticas */
-  --color-good: #34d399; /* preço bom / em estoque / confiável */
-  --color-good-soft: #0f2e22;
-  --color-warn: #fbbf24; /* atenção / parcelado */
-  --color-warn-soft: #2e2410;
-  --color-bad: #f87171; /* indisponível / pouco confiável */
-  --color-bad-soft: #2e1414;
+  /* Semânticas (sempre com ícone + texto, nunca só cor) */
+  --color-good: #4fd08a;
+  --color-good-soft: #0f2a1c;
+  --color-warn: #ff9f5a;
+  --color-warn-soft: #2d1d10;
+  --color-bad: #ff6b7a;
+  --color-bad-soft: #2d1216;
+
+  /* Gráficos: contexto (de-ênfase) */
+  --color-viz-context: #626877;
+
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 28px -14px rgb(0 0 0 / 0.7);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html {
   color-scheme: dark;
+  scrollbar-color: var(--color-line-strong) var(--color-base);
 }
 
 body {
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--color-base);
   color: var(--color-ink);
-  /* Brilho sutil de fundo, dando profundidade "neon". */
-  background-image:
-    radial-gradient(60rem 60rem at 15% -10%, rgba(124, 92, 255, 0.12), transparent 60%),
-    radial-gradient(50rem 50rem at 110% 0%, rgba(34, 211, 238, 0.1), transparent 55%);
-  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  /* Calor sutil no topo, como a luz de uma lamparina: sem neon. */
+  background-image: radial-gradient(90rem 40rem at 15% -20%, rgb(240 180 58 / 0.07), transparent 60%);
+  background-repeat: no-repeat;
 }
 
-/* Pequena classe utilitária para texto com gradiente da marca. */
-.text-gradient {
-  background-image: linear-gradient(90deg, var(--color-brand-strong), var(--color-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* Superfícies do navegador também usam a paleta. */
+::selection {
+  background: rgb(240 180 58 / 0.35);
+  color: var(--color-ink);
+}
+input,
+textarea,
+select {
+  caret-color: var(--color-brand);
+}
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+a {
+  text-underline-offset: 3px;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 999px;
+  border: 2px solid var(--color-base);
 }
 
-/* Efeito de brilho ao passar o mouse em cartões. */
-.glow-hover {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
-.glow-hover:hover {
-  border-color: color-mix(in oklab, var(--color-brand) 60%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 35%, transparent),
-    0 8px 30px -10px color-mix(in oklab, var(--color-brand) 50%, transparent);
+
+/* Números alinhados em tabelas e eixos. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* O único momento autoral de movimento: o resultado da montagem surge. */
+.reveal {
+  animation: reveal 240ms var(--ease-out-expo) both;
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Slider (input type=range) no tema. */
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+}
+input[type="range"].slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-brand) 0 var(--fill, 50%),
+    var(--color-line-strong) var(--fill, 50%) 100%
+  );
+}
+input[type="range"].slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line-strong);
+}
+input[type="range"].slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-brand);
+}
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  border: 2px solid var(--color-brand);
+  box-shadow: var(--shadow-float);
+  transition: transform 160ms ease-out;
+}
+input[type="range"].slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  border: 2px solid var(--color-brand);
+  box-shadow: var(--shadow-float);
+}
+input[type="range"].slider:hover::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }

@@ -1,117 +1,105 @@
-// Página de detalhe de uma peça: comparação entre lojas (preço PIX vs.
-// parcelado, confiabilidade) e o gráfico de histórico de preços.
+// Página de detalhe de uma peça: comparação entre lojas (Pix × parcelado,
+// confiabilidade) e o gráfico de histórico de preços.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getProductBySlug, getPriceHistory } from "@/services/products";
 import { registerView } from "@/services/popularity";
+import { categoryLabel } from "@/models/categories";
 import { formatBRL, getBestOffer } from "@/lib/format";
 import { StoreBadge } from "@/components/StoreBadge";
 import { PriceHistoryChart } from "@/components/PriceHistoryChart";
 import { PriceAlertButton } from "@/components/PriceAlertButton";
+import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 
 export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
   const { slug } = await props.params;
   const product = await getProductBySlug(slug);
-
   if (!product) notFound();
 
-  // Conta esta visita para o ranking de "mais procuradas" (não trava se falhar).
   await registerView(product.id);
 
   const history = await getPriceHistory(product);
   const melhor = getBestOffer(product);
-  // Ofertas ordenadas da mais barata para a mais cara.
   const ofertas = [...product.offers].sort((a, b) => a.price_pix - b.price_pix);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <Link href="/" className="text-sm text-accent hover:underline">
-        ← Voltar para a lista
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <Link href="/busca" className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Todas as peças
       </Link>
 
-      <header className="mt-4">
-        <span className="text-xs font-semibold uppercase tracking-wider text-brand-strong">
-          {product.brand}
-        </span>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{product.name}</h1>
-        {product.description && (
-          <p className="mt-2 max-w-2xl text-ink-muted">{product.description}</p>
-        )}
+      <header className="mt-5">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{product.name}</h1>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge>{categoryLabel(product.category)}</Badge>
+          {product.brand && <Badge>{product.brand}</Badge>}
+        </div>
+        {product.description && <p className="mt-4 max-w-[65ch] text-ink-muted">{product.description}</p>}
       </header>
 
       {melhor && (
-        <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-brand/30 bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-ink-muted">Melhor preço agora (PIX)</p>
-            <p className="text-3xl font-extrabold text-good">{formatBRL(melhor.price_pix)}</p>
+            <p className="text-sm text-ink-muted">Melhor preço agora (Pix)</p>
+            <p className="font-display text-4xl font-semibold tracking-tight text-ink">{formatBRL(melhor.price_pix)}</p>
             <p className="mt-1 text-sm text-ink-muted">
               na <strong className="text-ink">{melhor.store.name}</strong>
             </p>
           </div>
-          <PriceAlertButton
-            productSlug={product.slug}
-            productName={product.name}
-            currentPrice={melhor.price_pix}
-          />
-        </div>
+          <PriceAlertButton productSlug={product.slug} productName={product.name} currentPrice={melhor.price_pix} />
+        </Card>
       )}
 
-      {/* Comparação entre lojas */}
-      <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold">Comparação entre lojas</h2>
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-          {ofertas.map((oferta, i) => (
-            <div
-              key={oferta.id}
-              className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${
-                i > 0 ? "border-t border-line" : ""
-              }`}
-            >
-              <div className="flex flex-col gap-1">
-                <StoreBadge store={oferta.store} showLabel />
-                {!oferta.in_stock && (
-                  <span className="text-xs font-medium text-bad">Indisponível</span>
-                )}
-              </div>
+      <section className="mt-10">
+        <SectionTitle title="Comparação entre lojas" description="Ordenado do menor para o maior preço no Pix." />
+        <Card padding="none" className="mt-4 overflow-hidden">
+          <ul>
+            {ofertas.map((oferta, i) => (
+              <li
+                key={oferta.id}
+                className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${i > 0 ? "border-t border-line" : ""}`}
+              >
+                <div className="flex flex-col items-start gap-1.5">
+                  <StoreBadge store={oferta.store} showLabel />
+                  {!oferta.in_stock && <Badge tone="bad">Indisponível</Badge>}
+                  {i === 0 && oferta.in_stock && <Badge tone="good">Menor preço</Badge>}
+                </div>
 
-              <div className="flex items-end justify-between gap-6 sm:justify-end">
-                <div className="text-right">
-                  <p className="text-xs text-ink-faint">à vista / PIX</p>
-                  <p className="text-xl font-bold text-ink">{formatBRL(oferta.price_pix)}</p>
-                  {oferta.price_installment && oferta.installment_count && (
-                    <p className="text-xs text-ink-faint">
-                      ou {oferta.installment_count}x de{" "}
-                      {formatBRL(oferta.price_installment / oferta.installment_count)} (
-                      {formatBRL(oferta.price_installment)})
-                    </p>
+                <div className="flex items-end justify-between gap-6 sm:justify-end">
+                  <div className="text-right">
+                    <p className="text-xs text-ink-faint">à vista / Pix</p>
+                    <p className="tnum text-xl font-semibold text-ink">{formatBRL(oferta.price_pix)}</p>
+                    {oferta.price_installment && oferta.installment_count && (
+                      <p className="tnum text-xs text-ink-faint">
+                        ou {oferta.installment_count}x de {formatBRL(oferta.price_installment / oferta.installment_count)} (
+                        {formatBRL(oferta.price_installment)})
+                      </p>
+                    )}
+                  </div>
+                  {oferta.url && oferta.in_stock && (
+                    <ButtonLink href={oferta.url} external size="sm">
+                      Ver na loja
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    </ButtonLink>
                   )}
                 </div>
-                {oferta.url && oferta.in_stock && (
-                  <a
-                    href={oferta.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="whitespace-nowrap rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong"
-                  >
-                    Ver na loja
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </section>
 
-      {/* Histórico de preços */}
-      <section className="mt-8">
-        <h2 className="mb-1 text-lg font-semibold">Histórico de preços</h2>
-        <p className="mb-3 text-sm text-ink-faint">
-          Menor preço (PIX) entre as lojas ao longo do tempo.
-        </p>
-        <div className="rounded-2xl border border-line bg-surface p-4">
+      <section className="mt-10">
+        <SectionTitle title="Histórico de preços" description="Menor preço (Pix) entre as lojas ao longo do tempo." />
+        <Card className="mt-4">
           <PriceHistoryChart data={history} />
-        </div>
+        </Card>
       </section>
     </div>
   );

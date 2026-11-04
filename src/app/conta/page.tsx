@@ -1,12 +1,15 @@
-// Página "Minha conta": mostra o e-mail do usuário, seus alertas de preço ativos
-// e o botão de sair. Exige login (redireciona para /entrar se não estiver logado).
+// Página "Minha conta": e-mail, alertas de preço ativos e sair. Exige login.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Bell } from "lucide-react";
 import { getServerSupabase, getCurrentUser } from "@/models/supabase-server";
 import { logout } from "@/app/auth/actions";
 import { deleteAlert } from "@/app/account/actions";
 import { formatBRL } from "@/lib/format";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 
 type AlertRow = {
   id: string;
@@ -29,58 +32,52 @@ export default async function ContaPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Minha conta</h1>
-          <p className="mt-1 text-sm text-ink-muted">{user.email}</p>
-        </div>
-        <form action={logout}>
-          <button className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-bad hover:text-bad">
-            Sair
-          </button>
-        </form>
-      </div>
+      <SectionTitle
+        as="h1"
+        title="Minha conta"
+        description={user.email}
+        action={
+          <form action={logout}>
+            <Button variant="ghost" size="sm">
+              Sair
+            </Button>
+          </form>
+        }
+      />
 
       <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold">🔔 Meus alertas de preço</h2>
-
+        <SectionTitle as="h3" title="Meus alertas de preço" />
         {alertas.length === 0 ? (
-          <div className="rounded-2xl border border-line bg-surface p-6 text-center text-sm text-ink-muted">
-            Você ainda não tem alertas. Abra uma peça e clique em{" "}
-            <strong className="text-ink">“Criar alerta de preço”</strong>.
-            <div className="mt-3">
-              <Link href="/" className="text-accent hover:underline">
-                Ver peças →
-              </Link>
-            </div>
-          </div>
+          <Card className="mt-3 text-center text-sm text-ink-muted" padding="lg">
+            <Bell className="mx-auto h-6 w-6 text-ink-faint" aria-hidden />
+            <p className="mt-3">
+              Você ainda não tem alertas. Abra uma peça e clique em{" "}
+              <strong className="text-ink">“Criar alerta de preço”</strong>.
+            </p>
+            <Link href="/busca" className="mt-3 inline-block font-medium text-brand hover:underline">
+              Ver peças
+            </Link>
+          </Card>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-3">
             {alertas.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4"
-              >
-                <div>
-                  <Link
-                    href={`/peca/${a.product?.slug ?? ""}`}
-                    className="font-medium text-ink hover:text-accent"
-                  >
-                    {a.product?.name ?? "Peça"}
-                  </Link>
-                  <p className="text-sm text-ink-muted">
-                    avisar quando custar até{" "}
-                    <span className="font-semibold text-good">
-                      {formatBRL(a.target_price)}
-                    </span>
-                  </p>
-                </div>
-                <form action={deleteAlert}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <button className="text-sm text-ink-faint transition hover:text-bad">
-                    Remover
-                  </button>
-                </form>
+              <li key={a.id}>
+                <Card className="flex items-center justify-between gap-4" padding="sm">
+                  <div>
+                    <Link href={`/peca/${a.product?.slug ?? ""}`} className="font-medium text-ink hover:text-brand">
+                      {a.product?.name ?? "Peça"}
+                    </Link>
+                    <p className="text-sm text-ink-muted">
+                      avisar quando custar até <span className="tnum font-semibold text-ink">{formatBRL(a.target_price)}</span>
+                    </p>
+                  </div>
+                  <form action={deleteAlert}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <Button variant="ghost" size="sm">
+                      Remover
+                    </Button>
+                  </form>
+                </Card>
               </li>
             ))}
           </ul>
