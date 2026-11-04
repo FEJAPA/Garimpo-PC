@@ -18,7 +18,14 @@ export type BuildPreferences = {
   trustedOnly: boolean;
   /** Balanço do slider: 0 = máximo desempenho, 100 = máxima estética. */
   aesthetics: number;
+  /** V2 (pacote B): perfil de uso; ausente = "jogos". */
+  usage?: UsageProfile;
+  /** V2 (pacote D): resolução-alvo para destacar na tabela de FPS; ausente = "1080p". */
+  resolution?: Resolution;
 };
+
+/** Perfil de uso (V2, pacote B): muda as fatias do orçamento. */
+export type UsageProfile = "jogos" | "trabalho" | "criacao";
 
 export type Socket = "AM4" | "AM5" | "LGA1700";
 export type RamType = "DDR4" | "DDR5";
@@ -40,6 +47,12 @@ export type PartSpec = {
   caseSupports?: FormFactor[];
   /** Potência nominal da fonte em watts. */
   wattage?: number;
+  /** Capacidade em GB (ram, ssd). V2 (pacote D) usa para a penalidade de 16 GB. */
+  capacityGb?: number;
+  /** Tecnologias de upscaling da GPU (V2, pacote D). */
+  upscaling?: ("DLSS" | "FSR" | "XeSS")[];
+  /** De onde veio o número (V2, pacote A): fabricante, benchmark agregado, etc. */
+  source?: string;
 };
 
 /** Um candidato: produto + a melhor oferta válida + sua especificação. */
@@ -49,6 +62,8 @@ export type Candidate = {
   spec: PartSpec;
   /** Menor preço Pix entre as ofertas válidas (é o preço da oferta escolhida). */
   price: number;
+  /** V2 (pacote C): oferta "boa demais" em relação às lojas confiáveis. */
+  suspicious?: { reason: string };
 };
 
 /** Uma peça escolhida na montagem. */
@@ -70,7 +85,22 @@ export type ReferenceBuild = {
   score: number;
   /** FPS médio estimado por perfil de jogo e resolução. */
   fps: Record<GameProfile, Record<Resolution, number>>;
+  /** Memória da referência em GB (V2, pacote D). */
+  ramGb?: number;
+  /** Fonte dos benchmarks e data da medição (V2, pacote D). */
+  source?: string;
+  measuredAt?: string;
 };
+
+/** Resultado da avaliação de confiança de uma loja (V2, pacote C). */
+export type StoreTrust = {
+  trusted: boolean;
+  /** Motivos em linguagem simples, ex.: "Loja oficial", "Nota 4,8". */
+  reasons: string[];
+};
+
+/** Fator de juros para um número de parcelas (V2, pacote E): total = pix * factor. */
+export type InstallmentRate = { count: number; factor: number };
 
 export type PerformanceEstimate = {
   /** Índice GarimpoPC: round(0.7 * gpu.perf + 0.3 * cpu.perf). */
@@ -91,6 +121,8 @@ export type StorePayment = {
   installmentTotal: number;
   /** Máximo de parcelas que a loja oferece nas ofertas usadas (1 se não parcela). */
   installmentCount: number;
+  /** Tabela de juros da loja, quando conhecida (V2, pacote E). */
+  interestTable?: InstallmentRate[];
 };
 
 export type PaymentSummary = {

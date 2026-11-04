@@ -16,6 +16,12 @@ export type Store = {
   is_official: boolean;
   /** URL do site da loja. */
   url: string | null;
+  /** V2 (pacote C): nota no Reclame Aqui (0 a 10), se conhecida. */
+  reclame_aqui_score?: number | null;
+  /** V2 (pacote C): anos de mercado, se conhecido. */
+  years_active?: number | null;
+  /** V2 (pacote C): loja bloqueada por golpe/má reputação. Nunca é confiável. */
+  blocked?: boolean;
 };
 
 /** Uma peça (produto canônico), independente de loja. */
@@ -48,6 +54,8 @@ export type Offer = {
   installment_count: number | null;
   /** Se a oferta está disponível no momento. */
   in_stock: boolean;
+  /** V2 (pacote G): quando o preço desta oferta foi lido pela última vez (ISO 8601). */
+  recorded_at?: string | null;
 };
 
 /** Um registro de preço de uma oferta em um momento do tempo. */
