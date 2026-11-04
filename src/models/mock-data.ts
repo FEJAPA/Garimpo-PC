@@ -13,6 +13,10 @@ const lojas: Record<string, Store> = {
     rating_count: 125000,
     is_official: true,
     url: "https://www.kabum.com.br",
+    // V2 (pacote C): Reclame Aqui e tempo de mercado ILUSTRATIVOS (não são dados reais).
+    reclame_aqui_score: 8.2,
+    years_active: 22,
+    blocked: false,
   },
   pichau: {
     id: "pichau",
@@ -21,6 +25,10 @@ const lojas: Record<string, Store> = {
     rating_count: 48000,
     is_official: true,
     url: "https://www.pichau.com.br",
+    // V2 (pacote C): valores ilustrativos.
+    reclame_aqui_score: 7.6,
+    years_active: 15,
+    blocked: false,
   },
   terabyte: {
     id: "terabyte",
@@ -29,6 +37,10 @@ const lojas: Record<string, Store> = {
     rating_count: 61000,
     is_official: true,
     url: "https://www.terabyteshop.com.br",
+    // V2 (pacote C): valores ilustrativos.
+    reclame_aqui_score: 7.9,
+    years_active: 18,
+    blocked: false,
   },
   // Marketplace genérico (fictício) com nota baixa: NÃO é "loja confiável".
   // Serve para o Montador mostrar a diferença do filtro de lojas.
@@ -39,6 +51,10 @@ const lojas: Record<string, Store> = {
     rating_count: 2300,
     is_official: false,
     url: null,
+    // V2 (pacote C): Reclame Aqui baixo e pouco tempo de mercado (fictício).
+    reclame_aqui_score: 4.9,
+    years_active: 1,
+    blocked: false,
   },
 };
 
