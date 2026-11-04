@@ -1,6 +1,6 @@
 # Onda 2: achados dos Porcos-Trufeiros 2
 
-- Data: 2026-11-04. Repositório: `/home/user/Garimpo-PC`. Checkpoint inspecionado: `HEAD = 02772e9` (onda 2 integrada). Árvore sem alterações (`git status` limpo).
+- Data: 2026-11-04. Repositório: `/home/user/Garimpo-PC`. Base inspecionada: `HEAD = 02772e9` (onda 2 integrada), mais o working tree como estava até o último trecho lido, por volta de 17:50 UTC.
 - Escopo: `src/` (app, components, models, lib, services), `scripts/`, `supabase/*.sql`, `tests/`, `.github/workflows/`, configurações (`package.json`, `next.config.ts`, `tsconfig.json`, `vitest.config.mts`, `eslint.config.mjs`, `playwright.config.ts`, `.env.example`, `.impeccable/config.json`) e documentos (`AGENTS.md`, `DESIGN.md`, `PRODUCT.md`, `README.md`, spec, plano, `docs/*.md`, `docs/diagramas/*.md`).
 - Somente leitura. Este arquivo é o único escrito. Só comandos de git que não mudam estado (`status`, `log`, `diff`, `show`).
 
@@ -8,7 +8,8 @@
 
 - Sub-agentes não foram criados: a ferramenta `Agent` não existe neste ambiente. As cinco áreas foram inspecionadas pelo próprio Porcos-Trufeiros 2, em sequência, com leitura linha a linha (`cat -n`, `sed -n`, `grep`). Não houve revisão independente por área.
 - Evidência rodada nesta sessão: `npx tsc --noEmit` (exit 0), `npx eslint src scripts tests` (exit 0), `npx vitest run` (21 arquivos, 376/376). Não rodei build, dev, start, install nem e2e (regra da tarefa).
-- Sondas fora do repositório (no scratchpad, sem tocar no repo): `categoriesMatching` (CON-07), `parseMoney` (LOG-01) e o teste de tempo do Montador com `--reporter=verbose` (PERF-07, TST-N1).
+- Sondas fora do repositório (no scratchpad, sem tocar no repo): `categoriesMatching` (CON-07), `parseMoney` (LOG-01, que mudou depois, ver abaixo) e o teste de tempo do Montador com `--reporter=verbose` (PERF-07, TST-N1).
+- Working tree em movimento: durante a inspeção, outra frente de trabalho alterou arquivos (`git status`: `next.config.ts`, `src/app/auth/actions.ts`, `src/app/account/actions.ts`, `src/app/entrar/page.tsx`, `src/app/peca/[slug]/page.tsx`, `src/app/metodologia/page.tsx`, `src/components/ProductCard.tsx`, `src/components/StoreBadge.tsx`, `src/components/builder/PerformanceChart.tsx`, `src/components/builder/PerformancePanel.tsx`, `src/lib/money.ts`, `src/services/builder/trust.ts`, `src/services/products.ts`, `src/services/references.ts`, `DESIGN.md`, `src/app/globals.css` e testes). Reli os trechos afetados e atualizei achados e linhas. Não reverti nenhuma mudança. Mudanças feitas depois do último trecho lido (por volta de 17:50 UTC) não foram reverificadas.
 - Números de produção (coleta, alertas, histórico) são estimativas por análise e aparecem marcados como tal.
 - Origem dos achados: `(regressão)` = criado ou alterado pelas ondas 1 e 2 (conferido com `git diff --name-status e709af0..HEAD` e `git show e709af0:<arquivo>`); `(reincidente)` = já estava em `onda1-trufas.md` e continua aberto ou parcial; `(novo)` = já existia no checkpoint `e709af0` e não estava em `onda1-trufas.md`.
 
@@ -21,14 +22,14 @@
 ## Os 10 mais importantes
 
 1. **DAD-02** (alto): o histórico de preço corta os pontos mais recentes ao passar de 1.000 linhas por consulta.
-2. **DAD-03** (médio): as referências de desempenho caem no mock quando o banco falha ou está vazio, contra o AGENTS.md.
-3. **LOG-N1** (médio): o job de alertas nunca avalia os alertas depois do 5.000º enquanto houver 5.000 pendentes antes deles.
-4. **PERF-05** (médio): a coleta pode estourar os 120 min antes de gravar `coleta-resultado.json`, e a issue de seletor quebrado nunca abre.
-5. **SEG-02** (médio): em produção sem `RESEND_API_KEY`, o job responde 200 e nenhum e-mail sai.
-6. **CON-N3** (médio): nada no repositório agenda `/api/check-alerts`, e o README não diz isso.
-7. **CON-N11** (médio): `seed.sql` (histórico "de exemplo") fica fora da lista de seeds só para demonstração.
-8. **LOG-N3** (médio): a compatibilidade não cobre comprimento da GPU, cooler, M.2 e formato da fonte, mas o AGENTS.md diz "sempre compatíveis".
-9. **SEG-N1** (médio): `/entrar` mostra texto livre vindo da URL, dentro do domínio do site.
+2. **LOG-N1** (médio): o job de alertas nunca avalia os alertas depois do 5.000º enquanto houver 5.000 pendentes antes deles.
+3. **PERF-05** (médio): a coleta pode estourar os 120 min antes de gravar `coleta-resultado.json`, e a issue de seletor quebrado nunca abre.
+4. **SEG-02** (médio): em produção sem `RESEND_API_KEY`, o job responde 200 e nenhum e-mail sai.
+5. **CON-N3** (médio): nada no repositório agenda `/api/check-alerts`, e o README não diz isso.
+6. **CON-N11** (médio): `seed.sql` (histórico "de exemplo") fica fora da lista de seeds só para demonstração.
+7. **LOG-N3** (médio): a compatibilidade não cobre comprimento da GPU, cooler, M.2 e formato da fonte, mas o AGENTS.md diz "sempre compatíveis".
+8. **PERF-02** (médio): o cabeçalho lê a sessão em toda página, então home, busca e peça não são estáticas em produção.
+9. **SEG-06** (médio): `registerView` é aguardado a cada visita à peça, sem deduplicação.
 10. **A11Y-02** (médio): `/conta` continua sem título próprio (WCAG 2.4.2, nível A, em uma página).
 
 ---
@@ -40,15 +41,10 @@
 - Por que importa: em produção sem a chave, o agendador vê sucesso e nenhum e-mail sai. O único sinal é um log e um contador.
 - Correção: fora de desenvolvimento, sem a chave, responder erro com a contagem (ou tratar `simulated` como falha).
 
-**SEG-06 · médio · (reincidente) · `src/app/peca/[slug]/page.tsx:52`; `src/services/popularity.ts:25-33`**
+**SEG-06 · médio · (reincidente) · `src/app/peca/[slug]/page.tsx:73`; `src/services/popularity.ts:25-33`**
 - Problema: `registerView` é aguardado a cada renderização da página, com a chave de serviço, sem deduplicação, limite de taxa nem filtro de bot.
 - Por que importa: cada recarga e cada bot infla o ranking "mais procuradas" e soma uma gravação ao tempo de resposta. A tabela `product_views` cresce sem limite (ver PERF-N1).
 - Correção: deduplicar por sessão ou janela de tempo e registrar sem `await`.
-
-**SEG-07 · baixo · (reincidente, parcial) · `next.config.ts:5-12, 23-24`**
-- Problema: foram acrescentados `X-Frame-Options`, `X-Content-Type-Options` e `frame-ancestors`. Faltam HSTS (não está no código; pode vir da hospedagem, não verificado) e uma CSP de scripts: a única CSP é `frame-ancestors 'none'`.
-- Por que importa: sem HSTS e sem CSP de scripts, a proteção contra downgrade e injeção depende só do que a hospedagem fizer.
-- Correção: acrescentar `Strict-Transport-Security` e uma CSP com `default-src 'self'`, validada no e2e.
 
 **SEG-08 · baixo · (reincidente) · `supabase/schema-popularity.sql:23-25, 29-37`**
 - Problema: `product_views` tem leitura pública de todas as colunas, e a view `popular_products` não usa `security_invoker`, então roda com o dono do objeto.
@@ -60,15 +56,10 @@
 - Por que importa: um import futuro em componente cliente põe a chave de serviço no bundle sem falhar no build.
 - Correção: adicionar `server-only` às dependências e `import "server-only";` no topo do arquivo.
 
-**SEG-N1 · médio · (novo) · `src/app/entrar/page.tsx:29-30, 50-59`**
-- Problema: os parâmetros `erro` e `mensagem` da URL são exibidos como texto livre num `Callout`. Um link `/entrar?erro=...` mostra a frase que o autor quiser, dentro do domínio do site.
-- Por que importa: é um vetor de phishing no domínio legítimo. `src/app/account/actions.ts:19` diz que "a URL nunca carrega texto livre para a tela", e `/conta` segue essa regra; `/entrar` não.
-- Correção: trocar o texto por código (por exemplo `?erro=credenciais`) com um mapa de avisos, como em `/conta`.
-
-**SEG-N2 · baixo · (novo) · `src/app/auth/actions.ts:79`**
-- Problema: "Este e-mail já está cadastrado." revela se a conta existe.
+**SEG-N2 · baixo · (novo) · `src/app/auth/actions.ts:89-98`; `src/app/entrar/page.tsx:25`**
+- Problema: o código `ja-cadastrado` ("Este e-mail já está cadastrado. Use Entrar.") revela se a conta existe.
 - Por que importa: permite enumerar e-mails cadastrados pela tela de cadastro, sem limite nesta aplicação.
-- Correção: mensagem genérica no cadastro e limite de taxa no provedor de autenticação.
+- Correção: mensagem genérica no cadastro ("Se o e-mail for novo, enviamos a confirmação") e limite de taxa no provedor de autenticação.
 
 **SEG-N3 · baixo · (novo) · `src/services/email.ts:29`**
 - Problema: no modo simulado, o e-mail da pessoa vai para o log do servidor (`para=${to}`).
@@ -87,12 +78,12 @@
 - Por que importa: falha de WCAG 2.4.2 (nível A) em uma página, e `DESIGN.md:76-77` exige título próprio em cada página.
 - Correção: `export const metadata: Metadata = { title: "Minha conta" };`.
 
-**A11Y-03 · médio · (reincidente, parcial) · `src/components/ui/Field.tsx:33, 79`; `src/components/builder/SaveBuildButton.tsx:94-104`**
+**A11Y-03 · médio · (reincidente, parcial) · `src/components/ui/Field.tsx:33, 79`; `src/components/builder/SaveBuildButton.tsx:101-115`**
 - Problema: a dica e o erro só são ligados ao campo pelo contexto do `Field`, e só o `MoneyInput` consome esse contexto. O campo "Nome da montagem" é um `<input>` comum: o erro de limite de caracteres não é lido ao focar.
 - Por que importa: o leitor de tela não anuncia a causa do erro nesse campo (WCAG 1.3.1 e 3.3.1).
 - Correção: expor um hook (`useFieldProps`) que o `<input>` comum também use, ou ligar `aria-describedby` direto no `SaveBuildButton`.
 
-**A11Y-11 · baixo · (reincidente, parcial) · `src/components/ProductCard.tsx:41`; `src/components/StoreBadge.tsx:43, 65`**
+**A11Y-11 · baixo · (reincidente, parcial) · `src/components/ProductCard.tsx:43`; `src/components/StoreBadge.tsx:48, 70`**
 - Problema: nos cards, os motivos de confiança existem só no `title` (dica de mouse, que não aparece no toque) e num texto para leitor de tela. A página da peça e o resumo do Montador já mostram a lista visível.
 - Por que importa: no celular, quem toca não vê por que a loja é confiável na listagem.
 - Correção: mostrar o motivo principal visível no card, ou só o rótulo e o link para a peça.
@@ -117,7 +108,7 @@
 - Por que importa: o nome acessível do campo vira um parágrafo inteiro, e a ajuda não fica separada como descrição.
 - Correção: `<label>` só com "Número de parcelas" e a ajuda num elemento ligado por `aria-describedby`.
 
-**A11Y-N5 · baixo · (regressão) · `src/components/ProductCard.tsx:23-54`**
+**A11Y-N5 · baixo · (regressão) · `src/components/ProductCard.tsx:25-56`**
 - Problema: o card inteiro é um link, e o nome acessível junta categoria, "em N lojas", nome, preço, loja e os motivos de confiança (o texto sr-only de `StoreBadge`).
 - Por que importa: o link fica longo demais para quem usa leitor de tela, e o destino fica depois de muito texto.
 - Correção: nome do link igual ao nome da peça, com o restante em `aria-describedby` ou fora do link.
@@ -139,20 +130,15 @@
 - Por que importa: a busca mostra memória RAM para quem procura memória de vídeo.
 - Correção: dar prioridade ao alias mais longo (`memória de vídeo`, `placa de vídeo`) antes de casar palavras isoladas.
 
-**CON-09 · baixo · (reincidente, parcial) · `src/app/auth/actions.ts:64-65`**
-- Problema: "Conta criada! Você já pode entrar." aparece sempre, mesmo quando o Supabase exige confirmação por e-mail, como o comentário da linha 64 admite.
-- Por que importa: a pessoa tenta entrar, não consegue e não sabe que falta confirmar o e-mail.
-- Correção: usar o retorno de `signUp` (`data.session`) para escolher a mensagem.
-
 **CON-N1 · médio · (regressão) · `docs/diagramas/arquitetura.md:50, 97, 131-133, 167, 171-172, 211`; `docs/diagramas/fluxo-montador.md:77-81`; `docs/diagramas/fluxo-pagamento.md:22, 111`; `docs/diagramas/fluxo-dados.md:234-235`; `docs/diagramas/jornada-usuario.md:117`; `docs/diagramas/README.md:50-56`**
 - Problema: os diagramas ainda dizem que a V2 não está ligada ou não existe: "/montar usa PART_SPECS do mock", "autoBuild segue guloso", "BuildResultView ainda não passa as peças" (aba Misturar escondida), "pacote G ainda não existe". A onda 2 ligou tudo isso (`src/app/montar/page.tsx:36-41`, `BuilderForm.tsx:145`, `BuildResultView.tsx:173`, `saved_builds`). Dois trechos estão errados de forma perigosa: `arquitetura.md:167` diz que `/api/check-alerts` responde 500 (é 503, `route.ts:93-108`), e `arquitetura.md:211` diz que sem `CRON_SECRET` a rota fica aberta (não fica, `route.ts:90-97`).
 - Por que importa: o próximo agente lê os diagramas como estado do sistema, reabre trabalho pronto ou acredita numa falha de segurança que não existe.
 - Correção: revisar os seis arquivos numa passagem só, com o estado pós-onda 2 e o `arquivo:linha` de cada afirmação.
 
-**CON-N2 · médio · (regressão) · `docs/superpowers/specs/2026-11-04-montador-de-pc-design.md:26`; `README.md:28`; `src/models/builder-types.ts:17-18`**
-- Problema: "loja confiável" aparece como "oficial e nota ≥ 4,5" nos três documentos. O código (`storeTrust`, `src/services/builder/trust.ts:48-83`) também exige Reclame Aqui ≥ 6 quando informado e exclui loja bloqueada.
+**CON-N2 · médio · (regressão) · `docs/superpowers/specs/2026-11-04-montador-de-pc-design.md:26`; `README.md:28`; `src/models/builder-types.ts:17-18`; `src/services/builder/trust.ts:53-101`**
+- Problema: "loja confiável" aparece como "oficial e nota ≥ 4,5" nos três documentos. O código (`isTrustedStore` e `storeTrust`, `trust.ts:53-101`) também exige Reclame Aqui ≥ 6 quando informado e exclui loja bloqueada.
 - Por que importa: a régua de confiança é o diferencial anti-golpe, e a documentação diz menos do que o código faz.
-- Correção: atualizar as três definições com as regras de `storeTrust`.
+- Correção: atualizar as três definições com as regras de `isTrustedStore`.
 
 **CON-N3 · médio · (novo) · `README.md:17, 88-100`; `docs/diagramas/arquitetura.md:34`**
 - Problema: o README promete "Alertas de preço por e-mail", mas não diz que nada no repositório chama `/api/check-alerts` (só o `coleta.yml` é agendado), nem como configurar o agendador, `CRON_SECRET` ou `RESEND_API_KEY`. O diagrama admite que o agendador "não está no repositório".
@@ -169,10 +155,10 @@
 - Por que importa: o sistema visual que o AGENTS.md manda seguir não descreve o que está no código.
 - Correção: atualizar o DESIGN.md (nome do componente, escala real, lista de componentes) e remover o token duplicado.
 
-**CON-N6 · baixo · (regressão) · `src/components/builder/PerformancePanel.tsx:25-27, 55`; `src/components/builder/PaymentPlanner.tsx:11`; `src/services/builder/payments.ts:23`**
-- Problema: o TODO(V2-D) de `PerformancePanel` pede para trocar o link por `/metodologia`, que já está em `URL_METODOLOGIA` (linha 29). O TODO da linha 55, sobre `references`, já foi cumprido pelo pacote F (`BuilderForm.tsx:267`). Os TODOs de cupom apontam para o pacote E, dado como concluído.
-- Por que importa: um TODO cumprido polui a lista de pendências, e um TODO sem pacote vivo fica esquecido.
-- Correção: apagar os TODOs cumpridos e reapontar o de cupom para um pacote posterior.
+**CON-N6 · baixo · (regressão) · `src/components/builder/PaymentPlanner.tsx:11`; `src/services/builder/payments.ts:23`**
+- Problema: os dois TODOs de cupom apontam para o pacote E, dado como concluído. O cupom não tem campo na tela (ver LOG-N5). Os TODOs de metodologia e de `references` em `PerformancePanel.tsx` já foram cumpridos e saíram do arquivo nesta frente de trabalho.
+- Por que importa: um TODO sem pacote vivo fica esquecido e polui a lista de pendências.
+- Correção: reapontar os dois TODOs para um pacote posterior, ou apagá-los junto com o módulo de cupons.
 
 **CON-N7 · baixo · (regressão) · `supabase/schema-builder.sql:1-4`**
 - Problema: o cabeçalho diz "scaffold V1 — ainda NÃO usadas pelo app". O app já lê `part_specs` e `reference_builds` e grava `saved_builds`.
@@ -211,18 +197,13 @@
 - Por que importa: alertas além do 5.000º nunca disparam, sem erro nem log. Com o volume atual o problema não aparece.
 - Correção: guardar um cursor entre execuções (por exemplo ordenar por `last_checked_at` nulo primeiro e atualizar o campo) ou processar até acabar, limitado por tempo.
 
-**DAD-03 · médio · (reincidente, parcial) · `src/services/references.ts:95, 102-105, 115`**
-- Problema: com Supabase configurado, erro em `reference_builds` ou tabela vazia devolve `REFERENCE_BUILDS` (mock). `specs.ts` (linhas 180-183) e `installments.ts` (linhas 47-51) devolvem vazio, como o AGENTS.md manda (linhas 41-43). O cabeçalho de `references.ts` (linhas 2-3) diz o contrário.
-- Por que importa: a regra "dado ilustrativo nunca vira fato no modo real" é violada. Índices de exemplo aparecem em "PCs parecidos" e no gráfico como se fossem da base.
-- Correção: `getReferenceBuilds` devolve lista vazia em erro e em tabela vazia, e a tela trata isso com a nota que `estimatePerformance` já tem (`NOTA_SEM_REFERENCIAS`).
-
-**DAD-02 · alto · (reincidente) · `src/services/products.ts:163-174, 180-209, 258-262`**
-- Problema: as consultas não usam `.range`, e o PostgREST devolve no máximo 1.000 linhas por padrão (o próprio coletor cita isso, `scripts/collect-prices.mjs:49, 155-156`). O histórico (`getPriceHistory`) ordena por `recorded_at` de forma ascendente e recebe as primeiras 1.000 linhas. Quando o histórico de uma peça passa de 1.000 linhas (coleta diária, várias lojas), o gráfico corta os pontos mais recentes e mostra uma data antiga como se fosse a última.
+**DAD-02 · alto · (reincidente) · `src/services/products.ts:167-178, 184-213, 271-274`**
+- Problema: as consultas não usam `.range`, e o PostgREST devolve no máximo 1.000 linhas por padrão (o próprio coletor cita isso, `scripts/collect-prices.mjs:49, 155-156`). O histórico (`getPriceHistory`) já passa a usar só ofertas honestas (S-17, feito), mas continua ordenando por `recorded_at` de forma ascendente e recebendo as primeiras 1.000 linhas. Quando o histórico de uma peça passa de 1.000 linhas (coleta diária, várias lojas), o gráfico corta os pontos mais recentes e mostra uma data antiga como se fosse a última.
 - Por que importa: o diferencial "histórico de preço real" some em silêncio, sem aviso na tela. Subi a gravidade em relação à onda 1 (médio) por causa disso.
 - Correção: paginar `getPriceHistory` (ou ordenar de forma decrescente com limite e inverter), avisar quando a resposta vier cortada, e paginar catálogo e busca.
 
-**LOG-N2 · baixo · (regressão) · `src/lib/format.ts:29-31, 47-52`; `src/app/peca/[slug]/page.tsx:56-58`; `src/components/ProductCard.tsx:5, 17-18`; `src/services/builder/auto-build.ts:133-146, 153-155`**
-- Problema: o caso "só sobrou oferta suspeita" é inalcançável. Uma oferta só é suspeita se existe loja confiável em estoque com preço (`src/services/builder/suspicious.ts:53-55`), e essa loja nunca é marcada, então `getBestOffer` e `escolherOferta` sempre têm uma oferta limpa. O ramo, o aviso `offerWarning` do herói e os comentários que o descrevem estão mortos. O próprio `auto-build.ts:154` admite que o caso nunca ocorre.
+**LOG-N2 · baixo · (regressão) · `src/lib/format.ts:29-31, 47-52`; `src/app/peca/[slug]/page.tsx:57-58`; `src/components/ProductCard.tsx:5-7, 20`; `src/services/builder/auto-build.ts:133-146, 153-155`**
+- Problema: o caso "só sobrou oferta suspeita" é inalcançável. Uma oferta só é suspeita se existe loja confiável em estoque com preço (`src/services/builder/suspicious.ts:53-55`), e essa loja nunca é marcada, então `getBestOffer` e `escolherOferta` sempre têm uma oferta limpa. O ramo, o aviso `offerWarning` do herói, o aviso de `ProductCard` e os comentários que os descrevem estão mortos. O próprio `auto-build.ts:154` admite que o caso nunca ocorre.
 - Por que importa: o comentário diz que a pessoa é avisada de algo que o código nunca faz, e quem mexer na regra vai acreditar que o aviso funciona.
 - Correção: remover o ramo e os comentários, ou manter só como caso de teste com `check` e dizer isso no comentário.
 
@@ -241,11 +222,6 @@
 - Por que importa: código morto dá a impressão de recurso pronto.
 - Correção: tirar do caminho de build até o pacote E3 ser feito, ou apagar e reabrir depois.
 
-**LOG-N6 · baixo · (regressão) · `src/lib/money.ts:27-28`**
-- Problema: entradas ambíguas são aceitas em silêncio: `"6.000.50"` vira 6000,5 e `"1.50"` vira 1,5 (verificado com a sonda). A regra "ponto com dois dígitos é decimal" só cobre o caso simples.
-- Por que importa: é o caso do LOG-01 em outra forma. Um teto digitado errado gera outro valor, sem aviso.
-- Correção: recusar com mensagem quando houver mais de um ponto e a última parte tiver dois dígitos.
-
 **LOG-N7 · baixo · (regressão) · `src/services/builder/auto-build.ts:659`**
 - Problema: `perfGainPct: ganhoPct(...) ?? 0` usa 0 para "não informado" e para "0% de ganho" ao mesmo tempo.
 - Por que importa: quem consome o campo não distingue troca sem efeito de dado ausente.
@@ -261,8 +237,8 @@
 - Por que importa: a validação em código é a única defesa. Uma escrita direta ou um bug da coleta entra no banco e chega à tela.
 - Correção: migração com as constraints restantes e um teste de inserção inválida.
 
-**TST-01 · baixo · (reincidente, parcial) · `src/services/builder/payments.test.ts:75-78, 215`**
-- Problema: há teste para `price_installment` zero (linha 78) e para `count: 0` numa tabela de juros (linha 215). Não há teste para `installment_count` zero ou negativo numa oferta (`parcelasDaOferta`, `payments.ts:64-69`).
+**TST-01 · baixo · (reincidente, parcial) · `src/services/builder/payments.test.ts:75-78, 215, 252, 538`**
+- Problema: há teste para `price_installment` zero e para `count: 0` em tabela de juros (ambos cobertos). Não há teste para `installment_count` zero ou negativo numa oferta (`parcelasDaOferta`, `payments.ts:64-69`).
 - Por que importa: a regra "contagem zero vira um" não está protegida no caminho das ofertas.
 - Correção: casos com `installment_count: 0` e `-1` em `buildPaymentSummary`.
 
@@ -271,15 +247,15 @@
 - Por que importa: pode falhar de forma intermitente em máquina lenta ou sob carga. Na minha execução levou 114 ms para quatro montagens de 150 peças, então hoje passa com folga.
 - Correção: mover para um benchmark fora de `npm test`, ou manter só o aviso sem limite duro.
 
-**TST-N2 · baixo · (regressão) · `tests/e2e/montar.spec.ts:158-168, 19, 40-41, 166`; `tests/e2e/navegacao.spec.ts:29`**
-- Problema: o e2e de R-01 só verifica "Preço bom demais?" se a oferta de R$ 1.399,90 aparecer (linha 168). Como hoje ela nunca aparece, o teste não prova que a oferta foi excluída de propósito. Há seletores frágeis: XPath `following-sibling` (linha 19), CSS `ul > li` (linha 41) e `a[href^="/peca/"]` (navegacao, linha 29).
-- Por que importa: a regra anti-golpe fica protegida por um teste que passa por ausência.
-- Correção: asserção fixa de que a oferta de marketplace não é a melhor oferta, e seletores por `getByRole`.
+**TST-N2 · baixo · (regressão) · `tests/e2e/montar.spec.ts:28, 42, 75, 264`; `tests/e2e/navegacao.spec.ts:30`; `tests/e2e/peca.spec.ts:20`**
+- Problema: a asserção condicional do R-01 foi corrigida (agora a oferta de R$ 1.399,90 tem de sumir, e o teste confere). Continuam os seletores frágeis: XPath `following-sibling` e `..` (`montar.spec.ts:28, 42`; `peca.spec.ts:20`), CSS `ul > li` (`montar.spec.ts:75, 264`) e `a[href^="/peca/"]` (`navegacao.spec.ts:30`).
+- Por que importa: qualquer mudança de marcação quebra o e2e sem que a regra de negócio tenha mudado.
+- Correção: seletores por `getByRole` ou `getByTestId`, e um `data-testid` nos blocos de resultado.
 
 ## Desempenho (PERF)
 
-**PERF-01 · médio · (reincidente, parcial) · `src/app/montar/page.tsx:36-41, 70-78`; `src/components/builder/BuilderForm.tsx:95-112`; `src/app/peca/[slug]/page.tsx`**
-- Problema: o catálogo, as specs, as referências e as tabelas de juros entram como props do `BuilderForm` (componente cliente) e vão para o navegador. A onda 2 acrescentou specs, referências e juros a esse payload. O algoritmo (`BuilderForm.tsx:37-39, 144`) e o resultado com Recharts já são carregados sob demanda, o que foi feito. Recharts continua no bundle de `/peca` (`src/components/PriceHistoryChart.tsx:11`).
+**PERF-01 · médio · (reincidente, parcial) · `src/app/montar/page.tsx:36-41, 70-78`; `src/components/builder/BuilderForm.tsx:95-112`; `src/components/PriceHistoryChart.tsx:11`**
+- Problema: o catálogo, as specs, as referências e as tabelas de juros entram como props do `BuilderForm` (componente cliente) e vão para o navegador. A onda 2 acrescentou specs, referências e juros a esse payload. O algoritmo (`BuilderForm.tsx:37-39, 144`) e o resultado com Recharts já são carregados sob demanda, o que foi feito. Recharts continua no bundle de `/peca` (`PriceHistoryChart.tsx:11`).
 - Por que importa: o HTML de `/montar` carrega o catálogo inteiro antes de a pessoa montar qualquer coisa.
 - Correção: enviar só o necessário (ids, nomes e preços usados no resultado) e calcular no servidor, ou medir o payload com o catálogo real.
 
@@ -293,18 +269,18 @@
 - Por que importa: latência extra em toda navegação e chamada duplicada ao serviço de autenticação.
 - Correção: uma verificação por requisição, repassada por header ou por cache da requisição.
 
-**PERF-04 · médio · (reincidente) · `src/app/busca/page.tsx:26`; `src/services/products.ts:163-209`**
+**PERF-04 · médio · (reincidente) · `src/app/busca/page.tsx:26`; `src/services/products.ts:167-213`**
 - Problema: "Todas as peças" e a busca carregam o catálogo inteiro, sem `limit` nem `range`.
 - Por que importa: com centenas de peças, como prevê o plano, a página fica pesada.
 - Correção: paginação no servidor (`limit` e `offset`) e controle de página na tela.
 
 **PERF-05 · médio · (reincidente, parcial) · `scripts/collect-prices.mjs:46, 95-105, 269-273, 291`; `.github/workflows/coleta.yml:41`**
-- Problema: a espera fixa foi trocada por `waitForFunction` (feito). Continuam a coleta sequencial, a pausa de 4 s entre páginas (`PAUSA_MS`) e a falta de parada quando uma loja quebra (TODO em `:269-272`). O `coleta-resultado.json` só é gravado no fim (`:291`). Estimativa: com seletor quebrado, cada oferta leva cerca de 10 s (espera de 5,5 s, pausa de 4 s, carregamento), e em 120 min cabem ~650 ofertas; com seletores saudáveis (6 a 8 s por oferta), ~900 a 1.200.
+- Problema: a espera fixa foi trocada por `waitForFunction` (feito). Continuam a coleta sequencial, a pausa de 4 s entre páginas (`PAUSA_MS`) e a falta de parada quando uma loja quebra (TODO em `:269-272`). O `coleta-resultado.json` só é gravado no fim (`:291`). Estimativa: com seletor quebrado, cada oferta leva cerca de 10 s (espera de 5,5 s, pausa de 4 s, carregamento), e em 120 min cabem cerca de 650 ofertas; com seletores saudáveis (6 a 8 s por oferta), cerca de 900 a 1.200.
 - Por que importa: o GitHub mata o job antes de gravar o resultado, e então a issue "Seletor quebrado" nunca abre. O monitor fica mudo justo quando precisa dele.
 - Correção: gravar o resultado parcial a cada loja e interromper uma loja depois de N falhas seguidas, como o TODO já descreve.
 
 **PERF-07 · baixo · (reincidente, parcial) · `src/components/builder/BuildResultView.tsx:179`; `src/components/builder/BuilderForm.tsx:142-150`**
-- Problema: `BuildResultView` já é `memo` (feito). `autoBuild` roda de forma síncrona na thread principal dentro de `startTransition`, sem Worker, e a pendência não sinaliza trabalho assíncrono. Medido: 114 ms para quatro montagens de 150 peças no teste sintético.
+- Problema: `BuildResultView` já é `memo` (feito). `autoBuild` roda de forma síncrona na thread principal dentro de `startTransition`, sem Worker, e a pendência não sinaliza trabalho assíncrono. Medido: 114 ms para quatro montagens sintéticas de 150 peças, no teste.
 - Por que importa: cada montagem trava a interface pelo tempo do algoritmo, e em catálogo real o tempo pode ser maior.
 - Correção: mover `autoBuild` para um Worker se passar de 200 ms em catálogo real.
 
@@ -318,8 +294,8 @@
 - Por que importa: o custo de cada visita à home cresce com o tráfego.
 - Correção: materializar o ranking (tabela atualizada por job), usar `revalidate` na home e definir retenção para `product_views`.
 
-**PERF-N2 · baixo · (regressão) · `src/services/builder/auto-build.ts:84-99`; `src/services/products.ts:38-58`**
-- Problema: o cache de confiança por loja usa `JSON.stringify` do objeto inteiro. A chave por objeto nunca acerta para ofertas do banco, porque `normalizeOffer` cria um objeto de loja novo para cada oferta (`products.ts:56`). Cada oferta paga a serialização.
+**PERF-N2 · baixo · (regressão) · `src/services/builder/auto-build.ts:84-99`; `src/services/products.ts:42-62`**
+- Problema: o cache de confiança por loja usa `JSON.stringify` do objeto inteiro. A chave por objeto nunca acerta para ofertas do banco, porque `normalizeOffer` cria um objeto de loja novo para cada oferta (`products.ts:60`). Cada oferta paga a serialização.
 - Por que importa: o custo é pequeno (dezenas de µs por oferta), mas o cache não faz o que o comentário diz.
 - Correção: cache por `store.id` com os campos que a regra lê, ou normalizar cada loja uma vez por catálogo.
 
@@ -342,21 +318,21 @@
 | SEG-01 | RESOLVIDO | `route.ts:90-101` (503 sem segredo, comparação em tempo constante, erro genérico em `:185`) |
 | SEG-02 | PARCIAL | ver SEG-02 |
 | SEG-03 | RESOLVIDO | `email.ts:46-64, 78-100` (escape e link http/https) |
-| SEG-04 | RESOLVIDO | `Button.tsx:76-92`; `peca/[slug]/page.tsx:149`; `BuildSummary.tsx:70-78` |
-| SEG-05 | RESOLVIDO | `products.ts:138-149` (termo limpo). O aviso de erro na busca não existe: ver DAD-03 |
+| SEG-04 | RESOLVIDO | `Button.tsx:76-92`; `peca/[slug]/page.tsx:135, 173` (safeHref antes do link) |
+| SEG-05 | RESOLVIDO | `products.ts:147-153` (termo limpo). O aviso de erro na busca não existe: ver DAD-03 |
 | SEG-06 | ABERTO | ver SEG-06 |
-| SEG-07 | PARCIAL | ver SEG-07 |
+| SEG-07 | RESOLVIDO | `next.config.ts:16-25` (HSTS, `object-src`, `frame-ancestors`, nosniff). CSP sem `script-src` por decisão documentada (`next.config.ts:14-15`) |
 | SEG-08 | ABERTO | ver SEG-08 |
 | SEG-09 | ABERTO | ver SEG-09 |
 | SEG-10 | RESOLVIDO | `saved-builds.ts:20, 209-216`; `schema-alerts.sql:21-27` |
-| SEG-11 | RESOLVIDO | `account/actions.ts:59-71` |
+| SEG-11 | RESOLVIDO | `account/actions.ts:86-99` (erro do delete verificado) |
 | A11Y-01 | RESOLVIDO | `layout.tsx:24-36` (link de pular, `main` com id) |
 | A11Y-02 | PARCIAL | ver A11Y-02 |
 | A11Y-03 | PARCIAL | ver A11Y-03 |
 | A11Y-04 | RESOLVIDO | `BuildResultView.tsx:111-127`; `BuilderForm.tsx:242` |
-| A11Y-05 | RESOLVIDO | `PerformanceChart.tsx:68`; `PriceHistoryChart.tsx:35, 83-123`; `PerformancePanel.tsx:120-150` |
+| A11Y-05 | RESOLVIDO | `PerformanceChart.tsx:70`; `PriceHistoryChart.tsx:35, 83-123`; `PerformancePanel.tsx:118-148` |
 | A11Y-06 | RESOLVIDO | `Toggle.tsx:28, 38` |
-| A11Y-07 | RESOLVIDO | `PaymentPlanner.tsx:152-161`; `PerformancePanel.tsx:124-135, 155-170`; `PriceHistoryChart.tsx:99-110` |
+| A11Y-07 | RESOLVIDO | `PaymentPlanner.tsx:152-161`; `PerformancePanel.tsx:122-131, 153-162`; `PriceHistoryChart.tsx:99-110` |
 | A11Y-08 | RESOLVIDO | `Button.tsx:89` |
 | A11Y-09 | RESOLVIDO | `NavLinks.tsx:29` |
 | A11Y-10 | RESOLVIDO | `conta/page.tsx:60, 71, 184, 211, 284` |
@@ -370,31 +346,31 @@
 | CON-06 | RESOLVIDO | `AGENTS.md:48` (convenção de identificadores documentada) |
 | CON-07 | PARCIAL | ver CON-07 |
 | CON-08 | RESOLVIDO | `Field.tsx:53-55` (`focus-visible`, anel `brand` de 2 px) |
-| CON-09 | PARCIAL | ver CON-09 |
+| CON-09 | RESOLVIDO | `auth/actions.ts:65`; `entrar/page.tsx` (mensagem condicional, "Se chegar um e-mail de confirmação") |
 | CON-10 | RESOLVIDO | `chart-colors.ts:8-18`; `PriceHistoryChart.tsx:12`; `PerformanceChart.tsx:14` |
 | DAD-01 | PARCIAL | ver DAD-01 |
 | DAD-02 | ABERTO | ver DAD-02 (severidade subiu para alto) |
-| DAD-03 | PARCIAL | ver DAD-03 (specs e juros cumprem a regra; referências não) |
+| DAD-03 | RESOLVIDO | `references.ts:107, 116` (lista do mock só em demonstração; erro e tabela vazia devolvem `[]`) |
 | DAD-04 | PARCIAL | lotes e concorrência em `route.ts:34-38, 163-175`; falta o cursor entre execuções, ver LOG-N1 |
-| DAD-05 | RESOLVIDO | `conta/page.tsx:105-106, 264-288`; `account/actions.ts:78-93` |
-| LOG-01 | RESOLVIDO | `money.ts:13-34`; `money.test.ts:15` (resíduo em LOG-N6) |
+| DAD-05 | RESOLVIDO | `conta/page.tsx:105-106, 264-288`; `account/actions.ts:105-120` |
+| LOG-01 | RESOLVIDO | `money.ts:24-57` (ambiguidade vira NaN; "6000.50" = 6000,5); `money.test.ts:18` |
 | LOG-02 | RESOLVIDO | `compatibility.ts:30-51` e `auto-build.ts:168`; `specs.ts:83-111` (regras incompletas, LOG-N3) |
 | LOG-03 | RESOLVIDO | `specs.ts:44-53, 122`; `auto-build.ts:168` |
 | LOG-04 | RESOLVIDO | `auto-build.ts:164-180, 643-650` |
 | LOG-05 | RESOLVIDO | `auto-build.ts:669` |
 | LOG-06 | RESOLVIDO | `auto-build.ts:495-498, 528-545` |
 | LOG-07 | RESOLVIDO | `auto-build.ts:236-324` (planejador exato, uma ordenação por categoria); teste de tempo em `auto-build.test.ts:539-550` |
-| LOG-08 | RESOLVIDO | `money.ts:41-48`; `montar/page.tsx:24-28`; `share.ts:68-70`; `saved-builds.ts:145` |
+| LOG-08 | RESOLVIDO | `money.ts` (`moneyError`); `montar/page.tsx:24-28`; `share.ts:68-70`; `saved-builds.ts:145` |
 | LOG-09 | RESOLVIDO | `montar/page.tsx:36-41, 70-78` |
 | LOG-10 | RESOLVIDO | `payments.ts:55-61, 269` |
 | LOG-11 | RESOLVIDO | `payments.ts:129-164`; `PaymentPlanner.tsx:109-114` |
 | LOG-12 | RESOLVIDO | `payments.ts:35-36, 72-85, 187`; `installments.ts:34`; `schema-payments.sql:15, 23` |
-| LOG-13 | RESOLVIDO | `products.ts:232-242, 270-275`; `coupons.ts:34-42, 56` |
-| LOG-14 | RESOLVIDO | `references.ts:34-37, 68-73`; `performance.ts:66-73` |
+| LOG-13 | RESOLVIDO | `products.ts:236-246, 287`; `coupons.ts:34-42, 56` |
+| LOG-14 | RESOLVIDO | `references.ts:44-46, 77-82`; `performance.ts:66-73` |
 | LOG-15 | RESOLVIDO | `performance.ts:130-132, 274-279` |
 | LOG-16 | RESOLVIDO | `specs.ts:126-127`; `performance.ts:242-250` |
-| LOG-17 | RESOLVIDO | `StoreBadge.tsx:18-22, 36`; `format.ts:59-63`; `trust.ts:98-101` |
-| LOG-18 | RESOLVIDO | `format.ts:34-40`; `trust.ts:113-117`; `route.ts:219` |
+| LOG-17 | RESOLVIDO | `StoreBadge.tsx:18-22, 41`; `format.ts:59-63`; `trust.ts:112-116` |
+| LOG-18 | RESOLVIDO | `format.ts:34-40`; `trust.ts:118-131`; `route.ts:219` |
 | PERF-01 | PARCIAL | ver PERF-01 |
 | PERF-02 | ABERTO | ver PERF-02 |
 | PERF-03 | ABERTO | ver PERF-03 |
@@ -406,17 +382,18 @@
 | TST-01 | PARCIAL | ver TST-01 |
 | TST-02 | RESOLVIDO | `performance.test.ts:223-257` |
 | TST-03 | RESOLVIDO | `auto-build.test.ts:316, 359, 539-550` |
-| TST-04 | RESOLVIDO | `money.test.ts:15` |
+| TST-04 | RESOLVIDO | `money.test.ts:18` |
 
-Portão 1 (R-01 a R-19): 18 resolvidos e 1 parcial. O parcial é o R-14: o e2e de oferta suspeita é condicional (`montar.spec.ts:168`), e não há e2e para `/peca/rtx-4060` nem para o parcelado em faixas. R-01 está resolvido na prática, porque a oferta suspeita nunca é escolhida (`auto-build.ts:136-146`, `format.ts:34-40`), mas o ramo de aviso ficou morto (LOG-N2).
+Portão 1 (R-01 a R-19): 19 resolvidos. R-14 fechou com `tests/e2e/peca.spec.ts` (herói sem a oferta suspeita e lista com o aviso) e com o e2e de filtro desligado, agora sem condição (`montar.spec.ts`). R-01 está resolvido na prática, porque a oferta suspeita não é escolhida (`auto-build.ts:136-146`, `format.ts:34-40`), mas o ramo de aviso ficou morto (LOG-N2).
 
 ## Resumo numérico
 
-- Achados desta onda: **58** (21 regressões, 23 reincidentes, 14 novos).
-- Por área: Segurança 9 · Acessibilidade 8 · Consistência 16 · Lógica, dados e testes 14 · Desempenho 11.
-- Por severidade: bloqueador 0 · alto 1 · médio 21 · baixo 36.
-- Ids da onda 1 (68): RESOLVIDO 44 · PARCIAL 15 · ABERTO 9.
+- Achados desta onda: **53** (20 regressões, 20 reincidentes, 13 novos).
+- Por área: Segurança 7 · Acessibilidade 8 · Consistência 15 · Lógica, dados e testes 12 · Desempenho 11.
+- Por severidade: bloqueador 0 · alto 1 · médio 19 · baixo 33.
+- Ids da onda 1 (68): RESOLVIDO 47 · PARCIAL 12 · ABERTO 9.
+- Portão 1 (R-01 a R-19): 19 resolvidos.
 
 ## Ids antigos RESOLVIDOS
 
-SEG-01, SEG-03, SEG-04, SEG-05, SEG-10, SEG-11, A11Y-01, A11Y-04, A11Y-05, A11Y-06, A11Y-07, A11Y-08, A11Y-09, A11Y-10, A11Y-12, CON-01, CON-02, CON-03, CON-06, CON-08, CON-10, LOG-01, LOG-02, LOG-03, LOG-04, LOG-05, LOG-06, LOG-07, LOG-08, LOG-09, LOG-10, LOG-11, LOG-12, LOG-13, LOG-14, LOG-15, LOG-16, LOG-17, LOG-18, DAD-05, PERF-06, TST-02, TST-03, TST-04.
+SEG-01, SEG-03, SEG-04, SEG-05, SEG-07, SEG-10, SEG-11, A11Y-01, A11Y-04, A11Y-05, A11Y-06, A11Y-07, A11Y-08, A11Y-09, A11Y-10, A11Y-12, CON-01, CON-02, CON-03, CON-06, CON-08, CON-09, CON-10, DAD-03, DAD-05, LOG-01, LOG-02, LOG-03, LOG-04, LOG-05, LOG-06, LOG-07, LOG-08, LOG-09, LOG-10, LOG-11, LOG-12, LOG-13, LOG-14, LOG-15, LOG-16, LOG-17, LOG-18, PERF-06, TST-02, TST-03, TST-04.
