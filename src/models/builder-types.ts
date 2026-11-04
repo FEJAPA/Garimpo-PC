@@ -133,15 +133,39 @@ export type PaymentSummary = {
    * juros) ou MAIOR entre as lojas quando há tabela (cada loja limita a sua, V2-E).
    */
   maxInstallments: number;
-  /** Quanto se economiza pagando tudo no Pix. */
+  /** Quanto se economiza pagando tudo no Pix (V2-E: em relação ao parcelado mais barato com n > 1). */
   pixSavings: number;
+  /** V2 (pacote E): o plano parcelado mais barato com mais de 1 parcela, base de `pixSavings`. */
+  bestInstallment?: { count: number; total: number };
   stores: StorePayment[];
 };
 
 export type InstallmentPlan = {
   count: number;
+  /** Parcela "de manchete" (primeira faixa). Ver `schedule` para o valor real de cada faixa. */
   monthly: number;
   total: number;
+  /**
+   * V2 (pacote E): faixas de parcelas quando as lojas têm prazos diferentes, ex.:
+   * [{ count: 10, monthly: 586.17 }, { count: 2, monthly: 551.49 }]. A soma de count × monthly = total.
+   */
+  schedule?: { count: number; monthly: number }[];
+};
+
+/** Contexto opcional da montagem (V2): dados vindos do banco, com fallback para o mock. */
+export type BuildContext = {
+  references?: ReferenceBuild[];
+  installmentTables?: Record<string, InstallmentRate[]>;
+};
+
+/** Uma montagem salva pela pessoa (V2, pacote G). */
+export type SavedBuild = {
+  id: string;
+  name: string;
+  prefs: BuildPreferences;
+  parts: { productId: string; offerId: string; price: number }[];
+  totalPix: number;
+  createdAt: string;
 };
 
 export type BuildSuccess = {
@@ -156,6 +180,10 @@ export type BuildSuccess = {
   leftover: number;
   /** Explicações em linguagem simples (uso da folga, peça fora da fatia, etc.). */
   notes: string[];
+  /** V2 (pacote B): trocas feitas com sobras/folga. */
+  upgrades?: { category: Category; from: string; to: string; priceDelta: number; perfGainPct: number }[];
+  /** V2 (pacote B): peças do catálogo ignoradas por especificação ausente ou inválida. */
+  ignored?: { count: number; slugs: string[] };
   performance: PerformanceEstimate;
   payment: PaymentSummary;
 };

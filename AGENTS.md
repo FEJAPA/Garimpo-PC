@@ -38,6 +38,13 @@ npm run dev         # servidor local
 - Invariantes do Montador que nenhum pacote pode quebrar: `total ≤ teto` sempre; com
   “só lojas confiáveis” nenhuma peça vem de loja não confiável; peças sempre compatíveis entre si.
 - Moeda em reais com `formatBRL`. Datas ISO no banco.
+- **Dado ilustrativo nunca vira fato no modo real.** Com Supabase configurado, um serviço com
+  fallback devolve o mock SÓ quando o banco não está configurado; em erro ou tabela vazia devolve
+  vazio/`null` e a tela avisa. Seeds com valores inventados (`seed-stores.sql`, `seed-payments.sql`,
+  `seed-builder.sql`, `seed-references.sql`) são só para demonstração e dizem isso no cabeçalho.
+- Oferta suspeita (≥ 25% abaixo da mediana das lojas confiáveis) ou de loja bloqueada nunca é
+  recomendada em silêncio: o Montador prefere a não suspeita e, se usar, avisa; "melhor preço" e
+  alertas seguem a mesma regra (`src/lib/format.ts`, `src/services/builder/trust.ts`).
 - Não editar arquivos gerados (`.next/`, `next-env.d.ts`).
 - Branch de trabalho: nunca commitar direto na `main`.
 

@@ -8,24 +8,37 @@ próxima invocação lê este arquivo e continua da última onda limpa.
 - Poder: Comandante Fable · features-chave L1 Opus/high · pequenas L1 Sonnet/xhigh · sub-agentes Sonnet/xhigh · porcos-trufeiros Haiku/max · gerentes 2× Opus/high (um tranquilo, um rigoroso) · revisor Fable/xhigh · correções finais Opus/xhigh
 - Sequência pedida pelo usuário: Onda 1 (A, C, D, E, H, Diagramas, Trufas) → Portão 1 (gerentes) → Onda 2 (B, F, G + correções) → Portão 2 → Revisor Fable → Correções Opus → gráficos de usabilidade + diagramas → revisão final → relatório.
 
-## Onda 1 — Executar (em andamento, iniciada 2026-11-04 16:10 UTC)
+## Onda 1 — Executar (CONCLUÍDA 2026-11-04 ~16:40 UTC)
 
 | Agente | Modelo | Status | Diff confirmado |
 |---|---|---|---|
-| Pacote-A Specs | opus/high | rodando | — |
-| Pacote-C Confiança | opus/high | rodando | — |
-| Pacote-D Benchmarks | opus/high | rodando | — |
-| Pacote-E Pagamentos | opus/high | rodando | — |
-| Pacote-H Qualidade | sonnet/xhigh | rodando | — |
-| Documentação-Diagramas | sonnet/xhigh | rodando | — |
-| Porcos-Trufeiros | haiku/max | rodando | — |
+| Pacote-A Specs | opus/high | COMPLETE | sim (2ab7376) |
+| Pacote-C Confiança | opus/high | COMPLETE | sim (42bb925) |
+| Pacote-D Benchmarks | opus/high | COMPLETE | sim (commits wip + chore) |
+| Pacote-E Pagamentos | opus/high | PARTIAL (sem sub-agentes) | sim (ca6066d) |
+| Pacote-H Qualidade | sonnet/xhigh | COMPLETE | sim (64cb9f0) |
+| Documentação-Diagramas | sonnet/xhigh | PARTIAL (sem sub-agentes) | sim (f6499ea) |
+| Porcos-Trufeiros | haiku/max | PARTIAL (sem sub-agentes) | onda1-trufas.md, 68 achados |
 
-Arquivos reservados ao Comandante nesta onda: src/models/builder-types.ts, src/models/types.ts,
-README.md, src/app/montar/page.tsx, src/components/builder/BuilderForm.tsx, BuildResultView.tsx,
-BuildSummary.tsx (vão para o Pacote F na onda 2).
+Desvio registrado: a ferramenta Agent não existe dentro dos sub-agentes deste ambiente, então a
+Camada 2 não pôde ser criada; todos os L1 fizeram o trabalho sozinhos. Compensação: nas ondas
+seguintes o Comandante lança mais agentes diretos, com posse de arquivos mais fina.
+
+## Portão 1 (CONCLUÍDO)
+- Gerente Tranquilo: APROVADA COM CORREÇÕES (portao1-tranquilo.md) — 27 corrigir / 35 adiar / 6 descartar.
+- Gerente Rigoroso: APROVADA COM CORREÇÕES (portao1-rigoroso.md) — build PASS, e2e PASS (11+1), R-01..R-19.
+- Fantasmas: nenhum. Lacunas declaradas: C3 (Candidate.suspicious não preenchido), A (nota de peças ignoradas; ligação na página).
+
+## Onda 2 — Executar (B, F, G + correções) — iniciada 2026-11-04 ~16:50 UTC
+Agentes diretos: Pacote-B (opus/high), Pacote-F (opus/high), Pacote-G (opus/high), Correções-Pagamentos (opus/high),
+Correções-Desempenho (sonnet/xhigh), Correções-Confiança-A11y (sonnet/xhigh), Correções-Dados-Scripts (sonnet/xhigh).
+Fundação feita pelo Comandante: BuildContext, SavedBuild, InstallmentPlan.schedule, PaymentSummary.bestInstallment,
+BuildSuccess.upgrades/ignored em builder-types.ts; src/lib/chart-colors.ts; regra de dados ilustrativos no AGENTS.md.
 
 ## Flags abertas
-(nenhuma ainda)
+- R-14 (e2e para filtro desligado, preço suspeito, faixas do parcelado): depois de F e B.
+- A4 (categoria cooler): fora da V2 desta sessão.
+- DAD-01 (constraints no banco), SEG-07 (headers), PERF-02/03/04: adiados (pós-V2).
 
 ## Decisões
 - Fundação de tipos feita pelo Comandante (campos opcionais) para não serializar a onda 1.
