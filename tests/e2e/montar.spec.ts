@@ -94,13 +94,20 @@ test.describe("Montador de PC", () => {
     });
   });
 
-  test("parcelado abre no maior número sem acréscimo e mostra as faixas quando uma loja para antes (S-03)", async ({
+  test("parcelado abre no maior número sem acréscimo e a manchete fecha com o total (S-03, S-04)", async ({
     page,
   }) => {
     // Filtro "Só lojas confiáveis" ligado (padrão). No demo, 6000/7000 sai com peças da
-    // Pichau, da KaBuM! e da Terabyte; todas as ofertas anunciam "10x", e a Terabyte
-    // não parcela além de 10x. Então: 1x a 10x pelo preço a prazo; 11x e 12x com acréscimo
-    // (juros da KaBuM!) e em faixas, porque a Terabyte termina na 10ª parcela.
+    // Pichau, da KaBuM! e da Terabyte, e todas essas ofertas anunciam "10x". Então: 1x a
+    // 10x pelo preço a prazo anunciado (S-03); 11x e 12x com acréscimo (juros da tabela).
+    //
+    // Faixas ("10x de … + 2x de …") NÃO aparecem no demo, em nenhum orçamento ou filtro:
+    // para a lista de peças e "Como pagar" dizerem a mesma coisa (S-03), a tabela de cada
+    // loja vai até o que as ofertas dela anunciam, e cada uma das quatro lojas tem oferta
+    // "12x" (src/models/installment-tables.ts). Todas parcelam até 12x, então o plano tem
+    // sempre uma faixa só. As faixas ficam com os testes de unidade
+    // (src/services/builder/payments.test.ts, "mistura de lojas: faixas decrescentes…").
+    // Aqui travamos o outro lado: com prazos iguais, nada de "+ Nx de" inventado.
     await montar(page, 6000, 7000);
     await expect(page.getByText("Total no Pix").first()).toBeVisible();
     // "ou R$ X parcelado" do cabeçalho: o parcelado mais barato (S-09).
@@ -143,16 +150,17 @@ test.describe("Montador de PC", () => {
     expect(diferencaPadrao).toBeGreaterThanOrEqual(-0.005);
     expect(diferencaPadrao).toBeLessThan(1);
 
-    // 12x: a Terabyte para em 10x, então aparecem duas faixas ("10x de … + 2x de …").
+    // 12x (o máximo): com acréscimo, e todas as lojas vão até 12x, então é uma faixa só.
     await seletor.selectOption("12");
     await expect(seletor.locator("option:checked")).toHaveText(new RegExp(String.raw`^12x · \+${REAIS}$`));
-    await expect(blocoDoParcelado(page).getByText(new RegExp(String.raw`^\+\s*2x de\s+${REAIS}$`))).toBeVisible();
-    const emFaixas = await lerParcelado(page);
-    expect(emFaixas.faixas.map((f) => f.count)).toEqual([10, 2]);
-    expect(emFaixas.total).toBeGreaterThan(padrao.total);
-    const somaDasFaixas = emFaixas.faixas.reduce((s, f) => s + f.count * f.monthly, 0);
-    expect(emFaixas.total - somaDasFaixas).toBeGreaterThanOrEqual(-0.005);
-    expect(emFaixas.total - somaDasFaixas).toBeLessThan(1);
+    await expect(blocoDoParcelado(page)).toHaveText(new RegExp(String.raw`^\s*12x de\s+${REAIS}`), { useInnerText: true });
+    await expect(blocoDoParcelado(page).getByText(/^\+\s*\d+x de/)).toHaveCount(0);
+    const maximo = await lerParcelado(page);
+    expect(maximo.faixas.map((f) => f.count)).toEqual([12]);
+    expect(maximo.total).toBeGreaterThan(padrao.total);
+    const diferencaMaximo = maximo.total - 12 * maximo.faixas[0].monthly;
+    expect(diferencaMaximo).toBeGreaterThanOrEqual(-0.005);
+    expect(diferencaMaximo).toBeLessThan(1);
   });
 
   test("avisa quando o orçamento é pequeno demais para montar", async ({ page }) => {

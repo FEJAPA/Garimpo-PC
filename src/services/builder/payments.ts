@@ -27,6 +27,9 @@
 //
 // A mistura Pix + parcelado fica em mixed-plan.ts.
 // TODO(V2-E): cupons e cashback por loja (ver coupons.ts).
+// TODO(V2-E): parcelas anunciadas por OFERTA no carrinho da loja. Hoje vale o
+// menor número anunciado entre as ofertas da loja, que é o lado seguro (nunca
+// promete menos juros do que a loja cobra).
 
 import type {
   BuildPart,

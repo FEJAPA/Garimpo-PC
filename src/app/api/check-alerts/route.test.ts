@@ -4,6 +4,8 @@
 // - SEG-02: e-mail simulado (sem RESEND_API_KEY) NÃO marca o alerta como avisado.
 // - DAD-05: e-mail enviado de verdade desliga o alerta e grava notified_at.
 // - R-01: oferta "boa demais" não dispara alerta.
+// - LOG-N1: todos os alertas pendentes são avaliados, mesmo depois do 5.000º.
+// - SEG-02 (produção): sem RESEND_API_KEY a rota responde 503 e não marca nada.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MOCK_PRODUCTS } from "@/models/mock-data";
@@ -34,7 +36,8 @@ const SEGREDO = "segredo-de-teste";
 const RTX = MOCK_PRODUCTS.find((p) => p.slug === "rtx-4060")!;
 
 /**
- * Cliente admin falso: price_alerts devolve `alertas` no select e anota os
+ * Cliente admin falso: price_alerts devolve `alertas` no select (respeitando
+ * `gt("id")` e `limit`, como a paginação por id da rota usa) e anota os
  * updates; auth.admin.getUserById devolve um e-mail.
  */
 function adminFalso(alertas: unknown[], opts: { erroUpdate?: boolean } = {}) {
@@ -61,10 +64,17 @@ function adminFalso(alertas: unknown[], opts: { erroUpdate?: boolean } = {}) {
         };
       }
       b.then = (ok: (v: unknown) => unknown, erro: (e: unknown) => unknown) => {
+        let linhas = tabela === "price_alerts" ? (alertas as { id: string }[]) : [];
+        // Como no banco: primeiro o filtro (gt), depois o limite, em qualquer ordem de chamada.
+        for (const [filtro, coluna, valor] of c.filtros) {
+          if (filtro === "gt" && coluna === "id") linhas = linhas.filter((l) => l.id > String(valor));
+        }
+        const limite = c.filtros.find((f) => f[0] === "limit");
+        if (limite) linhas = linhas.slice(0, Number(limite[1]));
         const resposta =
           c.verbo === "update"
             ? { data: null, error: opts.erroUpdate ? { message: "falhou" } : null }
-            : { data: tabela === "price_alerts" ? alertas : [], error: null };
+            : { data: linhas, error: null };
         return Promise.resolve(resposta).then(ok, erro);
       };
       return b;
@@ -180,5 +190,75 @@ describe("check-alerts: marcar como avisado só com e-mail de verdade", () => {
     const leitura = consultas.find((c) => c.tabela === "price_alerts" && c.verbo === "select");
     expect(leitura?.filtros).toContainEqual(["eq", "is_active", true]);
     expect(leitura?.filtros).toContainEqual(["is", "notified_at", null]);
+  });
+});
+
+describe("check-alerts: avalia todos os pendentes (LOG-N1)", () => {
+  it("o alerta 5.100º também é avaliado (sem teto fixo de lotes)", async () => {
+    vi.stubEnv("CRON_SECRET", SEGREDO);
+    // 5.100 alertas pendentes; só o último tem alvo que já foi atingido.
+    const alertas = Array.from({ length: 5100 }, (_, i) => ({
+      ...alertaDaRtx(i === 5099 ? 5000 : 1),
+      id: `a${String(i + 1).padStart(5, "0")}`,
+      user_id: i === 5099 ? "u-ultimo" : "u1",
+    }));
+    const consultas = adminFalso(alertas);
+    envio.sendEmail.mockResolvedValue({ ok: true, simulated: false } satisfies SendEmailResult);
+
+    const res = await chamar(`Bearer ${SEGREDO}`);
+    expect(await res.json()).toMatchObject({ verificados: 5100, emails_enviados: 1 });
+    expect(envio.sendEmail).toHaveBeenCalledTimes(1);
+    expect(envio.sendEmail.mock.calls[0][0]).toBe("u-ultimo@exemplo.com");
+    expect(updates(consultas)[0].filtros).toContainEqual(["eq", "id", "a05100"]);
+  });
+});
+
+describe("check-alerts: produção sem RESEND_API_KEY (SEG-02)", () => {
+  beforeEach(() => {
+    vi.stubEnv("CRON_SECRET", SEGREDO);
+  });
+
+  it("em produção, sem a chave, responde 503 e não envia nem marca nada", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", undefined);
+    const consultas = adminFalso([alertaDaRtx(2000)]);
+    const res = await chamar(`Bearer ${SEGREDO}`);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ error: "RESEND_API_KEY ausente" });
+    expect(envio.sendEmail).not.toHaveBeenCalled();
+    expect(updates(consultas)).toHaveLength(0);
+  });
+
+  it("em produção, um envio simulado também vira 503 sem marcar o alerta", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "re_teste");
+    const consultas = adminFalso([alertaDaRtx(2000)]);
+    envio.sendEmail.mockResolvedValue({ ok: true, simulated: true } satisfies SendEmailResult);
+    const res = await chamar(`Bearer ${SEGREDO}`);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ error: "RESEND_API_KEY ausente" });
+    expect(updates(consultas)).toHaveLength(0);
+  });
+
+  it("em produção, com a chave, envia e responde 200", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "re_teste");
+    adminFalso([alertaDaRtx(2000)]);
+    envio.sendEmail.mockResolvedValue({ ok: true, simulated: false } satisfies SendEmailResult);
+    const res = await chamar(`Bearer ${SEGREDO}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ emails_enviados: 1 });
+  });
+
+  it("em desenvolvimento, sem a chave, segue simulando (200 e log)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("RESEND_API_KEY", undefined);
+    const consultas = adminFalso([alertaDaRtx(2000)]);
+    envio.sendEmail.mockResolvedValue({ ok: true, simulated: true } satisfies SendEmailResult);
+    const res = await chamar(`Bearer ${SEGREDO}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ simulados: 1, emails_enviados: 0 });
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("simulado"));
+    expect(updates(consultas)).toHaveLength(0);
   });
 });

@@ -12,11 +12,18 @@
 // - SEG-01: sem CRON_SECRET configurado → 503; token errado → 401 (comparação em
 //   tempo constante); erros do banco não vazam para quem chamou.
 // - SEG-02: e-mail simulado (sem RESEND_API_KEY) NÃO marca o alerta como avisado.
+//   Em produção, sem a chave a rota responde 503 ("RESEND_API_KEY ausente"): o
+//   agendador precisa ver a falha, senão acharia que deu certo e nenhum e-mail sairia.
 // - R-01: o "menor preço" é o de getBestOffer (ignora preço inválido, loja
 //   bloqueada e oferta suspeita), o mesmo do "Melhor preço" do site.
 // - G2: alertas com saved_build_id comparam o total atual da montagem com o alvo.
 // - DAD-04: os alertas são lidos em lotes (paginação por id) e processados com
 //   concorrência limitada, para não estourar o tempo da função.
+// - LOG-N1: sem teto fixo de lotes. Antes, cada execução recomeçava do menor id e
+//   parava no 5.000º, então os alertas depois dele nunca eram avaliados. Agora
+//   cada execução percorre TODOS os pendentes.
+//   TODO(V2-G): se o volume crescer a ponto de estourar o tempo da função, trocar
+//   por um cursor salvo entre execuções (ex.: coluna last_checked_at, nulos primeiro).
 // - DAD-05: ao avisar, o alerta é desligado (is_active = false) e ganha
 //   notified_at; a página /conta mostra "avisado em DD/MM" e oferece "Reativar".
 // - F-20: as travas acima têm teste em route.test.ts (cliente admin e e-mail falsos).
@@ -25,16 +32,14 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminSupabase } from "@/models/supabase-admin";
-import { buildAlertEmail, priceAlertEmail, sendEmail } from "@/services/email";
+import { buildAlertEmail, isEmailConfigured, priceAlertEmail, sendEmail } from "@/services/email";
 import { normalizeProduct } from "@/services/products";
 import { currentBuildTotal, fromSavedBuildRow, type SavedBuildRow } from "@/services/saved-builds";
 import { formatBRL, getBestOffer } from "@/lib/format";
 import type { ProductWithOffers } from "@/models/types";
 
-/** Alertas lidos por consulta. */
+/** Alertas lidos por consulta (o cursor `gt(id)` avança lote a lote até acabar). */
 const LOTE = 100;
-/** Teto de lotes por execução (5.000 alertas); o resto fica para a próxima. */
-const MAX_LOTES = 50;
 /** Quantos alertas são processados ao mesmo tempo (e-mail + consulta de usuário). */
 const CONCORRENCIA = 5;
 
@@ -101,6 +106,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
 
+  // SEG-02: em produção, "simular" o envio é falha: nada sairia e o agendador veria 200.
+  const producao = process.env.NODE_ENV === "production";
+  if (producao && !isEmailConfigured()) {
+    return NextResponse.json({ error: "RESEND_API_KEY ausente" }, { status: 503 });
+  }
+
   const adminOuNulo = getAdminSupabase();
   if (!adminOuNulo) {
     return NextResponse.json(
@@ -113,6 +124,8 @@ export async function GET(request: Request) {
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const contagem: Contagem = { verificados: 0, emails_enviados: 0, simulados: 0, falhas: 0 };
+  /** Virou true se, em produção, algum envio saiu "simulado" (a chave sumiu no meio do caminho). */
+  let semEnvioDeVerdade = false;
   // Uma pessoa com vários alertas não gera várias consultas de e-mail.
   const emails = new Map<string, Promise<string | null>>();
   const emailDe = (userId: string) => {
@@ -136,6 +149,10 @@ export async function GET(request: Request) {
     }
     if (envio.simulated) {
       // SEG-02: sem RESEND_API_KEY nada foi enviado; o alerta continua pendente.
+      if (producao) {
+        semEnvioDeVerdade = true;
+        return;
+      }
       console.log(`[check-alerts] e-mail simulado para o alerta ${alerta.id}: não marcado como avisado`);
       contagem.simulados++;
       return;
@@ -162,7 +179,7 @@ export async function GET(request: Request) {
   let colunas = COLUNAS_V2;
 
   let ultimoId: string | null = null;
-  for (let lote = 0; lote < MAX_LOTES; lote++) {
+  for (;;) {
     const ler = (cols: string) => {
       let consulta = admin
         .from("price_alerts")
@@ -187,7 +204,13 @@ export async function GET(request: Request) {
     }
     const alertas = (data ?? []) as unknown as AlertaRow[];
     if (alertas.length === 0) break;
-    ultimoId = alertas[alertas.length - 1].id;
+    const novoUltimo = alertas[alertas.length - 1].id;
+    // Trava contra laço infinito: o cursor sempre precisa andar para a frente.
+    if (ultimoId !== null && !(novoUltimo > ultimoId)) {
+      console.error("[check-alerts] o cursor de alertas não avançou; parando para não repetir o lote.");
+      break;
+    }
+    ultimoId = novoUltimo;
     contagem.verificados += alertas.length;
 
     const pecasDasMontagens = await produtosDasMontagens(admin, alertas);
@@ -226,8 +249,11 @@ export async function GET(request: Request) {
       );
     });
 
-    if (alertas.length < LOTE) break;
+    if (semEnvioDeVerdade || alertas.length < LOTE) break;
   }
 
+  if (semEnvioDeVerdade) {
+    return NextResponse.json({ error: "RESEND_API_KEY ausente", ...contagem }, { status: 503 });
+  }
   return NextResponse.json(contagem);
 }

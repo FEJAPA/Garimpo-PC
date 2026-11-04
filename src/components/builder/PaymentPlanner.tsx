@@ -5,26 +5,27 @@
 // As contas ficam em services/builder/payments.ts e mixed-plan.ts; aqui só tela.
 //
 // Premissa mostrada na tela: "a prazo" é o preço parcelado que a loja anuncia
-// (maior que o Pix). "Sem acréscimo" = paga só esse preço a prazo; "+R$ X" =
-// juros da loja acima dele.
+// (maior que o Pix), e ele vale até o número de parcelas do anúncio (S-03).
+// "Sem acréscimo" = paga só esse preço a prazo; "+R$ X" = juros da loja acima dele.
 //
 // TODO(V2-E): campo de cupom (lógica pronta em services/builder/coupons.ts).
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { CreditCard, QrCode, Split } from "lucide-react";
-import type { BuildPart, InstallmentRate, PaymentSummary } from "@/models/builder-types";
+import type { BuildPart, PaymentSummary } from "@/models/builder-types";
 import {
   defaultInstallmentCount,
   installmentBands,
   installmentOptions,
   installmentPlan,
+  interestTablesOf,
   storeInstallment,
   storeNoExtraUpTo,
   type ScheduleBand,
 } from "@/services/builder/payments";
-import { mixedPlan } from "@/services/builder/mixed-plan";
+import { mixedPlan, mixedPlanPrompt } from "@/services/builder/mixed-plan";
 import { formatBRL } from "@/lib/format";
-import { MAX_MONEY, parseMoney } from "@/lib/money";
+import { MAX_MONEY, formatMoneyPreview, parseMoney } from "@/lib/money";
 import { Card } from "@/components/ui/Card";
 import { Callout } from "@/components/ui/Callout";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -32,13 +33,27 @@ import { Field, INPUT_CLASSES, MoneyInput } from "@/components/ui/Field";
 
 type Metodo = "pix" | "parcelado" | "misturar";
 
-/** Erro do campo de dinheiro (vazio é permitido e conta como zero). */
+/** Erro do campo de dinheiro. Vazio não é erro: `mixedPlanPrompt` pede o que falta. */
 function erroDoValor(texto: string): string | null {
   if (texto.trim() === "") return null;
   const n = parseMoney(texto);
   if (!Number.isFinite(n)) return "Digite um valor em reais, ex.: 1.500 ou 1.500,50";
   if (n > MAX_MONEY) return `Valor acima do permitido (${formatBRL(MAX_MONEY)}).`;
   return null;
+}
+
+/**
+ * Dica do campo com o valor entendido na frente (F-14), igual ao formulário do
+ * Montador: "= R$ 3.000,50 · Vai para o Pix…".
+ */
+function comPrevia(texto: string, dica: string): ReactNode {
+  const previa = formatMoneyPreview(texto);
+  if (!previa) return dica;
+  return (
+    <>
+      <span className="tnum font-medium text-ink-muted">{previa}</span> · {dica}
+    </>
+  );
 }
 
 /** Percentual em pt-BR, ex.: 0.06 -> "6%", 0.055 -> "5,5%". */
@@ -55,7 +70,7 @@ export function PaymentPlanner({
   parts?: BuildPart[];
 }) {
   const [metodo, setMetodo] = useState<Metodo>("pix");
-  // Abre no maior número de parcelas SEM acréscimo (ou no máximo, se todas têm).
+  // Abre no maior número de parcelas SEM acréscimo (ou no mais barato, se todas têm).
   const [parcelas, setParcelas] = useState(() => defaultInstallmentCount(payment));
   // Montagem nova (outro resumo): volta para o padrão em vez de manter a escolha antiga.
   const [resumoBase, setResumoBase] = useState(payment);
@@ -139,9 +154,9 @@ export function PaymentPlanner({
                 ))}
               </select>
               <span className="max-w-64 text-xs font-normal text-ink-faint">
-                {comTabela
-                  ? "Acréscimo sobre o preço a prazo. Cada loja parcela até o máximo dela; se uma termina antes, as últimas parcelas ficam menores."
-                  : "Limitado pela loja que parcela em menos vezes."}
+                {/* S-04b: com ou sem tabela, cada loja limita só as parcelas dela. */}
+                {comTabela && "Acréscimo sobre o preço a prazo. "}
+                Cada loja parcela até o máximo dela; se uma termina antes, as últimas parcelas ficam menores.
               </span>
             </label>
           </div>
@@ -192,7 +207,8 @@ export function PaymentPlanner({
           </tbody>
         </table>
         <p className="-mt-2 text-xs text-ink-faint">
-          A prazo é o preço parcelado que a loja anuncia (maior que o Pix). Juros acima dele aparecem como acréscimo.
+          A prazo é o preço parcelado que a loja anuncia (maior que o Pix). Ele vale até o número de parcelas do
+          anúncio; juros acima dele aparecem como acréscimo.
         </p>
       </Card>
     </section>
@@ -237,17 +253,18 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
   const [porMes, setPorMes] = useState("");
 
   // As tabelas de juros já vêm no resumo; remontamos o mapa por loja.
-  const tabelas: Record<string, InstallmentRate[]> = {};
-  for (const s of payment.stores) if (s.interestTable) tabelas[s.store.id] = s.interestTable;
+  const tabelas = interestTablesOf(payment);
 
-  const preenchido = aVista.trim() !== "" || porMes.trim() !== "";
+  // F-11: só calcula com os DOIS campos preenchidos (0 vale). Com "cabe por mês"
+  // vazio, o plano diria "falta R$ X por mês" sem a pessoa ter dito quanto cabe.
+  const falta = mixedPlanPrompt(aVista, porMes);
   const erroAVista = erroDoValor(aVista);
   const erroPorMes = erroDoValor(porMes);
   const temErro = erroAVista !== null || erroPorMes !== null;
   const cash = parseMoney(aVista);
   const monthly = parseMoney(porMes);
   const plano =
-    preenchido && !temErro
+    falta === null && !temErro
       ? mixedPlan(parts, { cash: Number.isFinite(cash) ? cash : 0, monthly: Number.isFinite(monthly) ? monthly : 0 }, tabelas)
       : null;
 
@@ -257,7 +274,7 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
         <Field
           label="Tenho à vista (R$)"
           htmlFor={`${id}-avista`}
-          hint="Vai para o Pix, começando pelas peças que mais encarecem no cartão."
+          hint={comPrevia(aVista, "Vai para o Pix, começando pelas peças que mais encarecem no cartão.")}
           error={erroAVista}
         >
           <MoneyInput id={`${id}-avista`} value={aVista} onChange={setAVista} invalid={erroAVista !== null} placeholder="0" />
@@ -265,7 +282,7 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
         <Field
           label="Cabe por mês (R$)"
           htmlFor={`${id}-pormes`}
-          hint="O resto vai para o cartão, no menor número de parcelas que cabe."
+          hint={comPrevia(porMes, "O resto vai para o cartão, no menor número de parcelas que cabe.")}
           error={erroPorMes}
         >
           <MoneyInput id={`${id}-pormes`} value={porMes} onChange={setPorMes} invalid={erroPorMes !== null} placeholder="0" />
@@ -273,9 +290,7 @@ function Misturar({ parts, payment }: { parts: BuildPart[]; payment: PaymentSumm
       </div>
 
       {!plano ? (
-        !temErro && (
-          <Callout>Diga quanto você tem à vista e quanto cabe por mês para ver a melhor divisão.</Callout>
-        )
+        !temErro && falta && <Callout>{falta}</Callout>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2">

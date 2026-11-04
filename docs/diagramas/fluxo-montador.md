@@ -246,7 +246,8 @@ correção (F-02), ele ficava com B, a "próxima mais barata".
 
 ## 6. Passo 5 em detalhe: `upgradePass` (sobras e folga)
 
-Aqui a folga entre alvo e teto pode ser usada. A **ordem** das categorias segue o perfil de uso:
+Aqui a folga entre alvo e teto pode ser usada. A **ordem** das categorias segue o perfil de uso
+(`upgradeOrder` em `scoring.ts`):
 
 | Perfil (`prefs.usage`) | Ordem da subida | Por quê |
 |---|---|---|
@@ -423,6 +424,7 @@ desempenho (`perf`).
 | `suspiciousPrice` e `flagSuspiciousOffers` | `suspicious.ts` | Oferta 25% ou mais abaixo da mediana das lojas confiáveis |
 | `makePlanner` e `cheapestCompatibleBuild` | `auto-build.ts` | A montagem compatível mais barata, exata, e "ainda dá para completar?" |
 | `categoryShares` e `partUtility` | `scoring.ts` | Fatias do alvo (slider e perfil) e utilidade de cada peça |
+| `upgradeOrder` | `scoring.ts` | Ordem da subida com a folga por perfil: jogos placa de vídeo e processador, criação processador e placa de vídeo, trabalho só processador |
 | `isCompatible`, `hasRequiredSpec` e `requiredWattage` | `compatibility.ts` | Regras de compatibilidade e ficha mínima |
 | `greedyPass` | `auto-build.ts` | Passo guloso por fatias, com o par processador + placa-mãe |
 | `downgradeToCap` | `auto-build.ts` | Rebaixa até caber no teto, pela alternativa de maior utilidade que faz caber |

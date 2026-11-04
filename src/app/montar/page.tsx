@@ -50,7 +50,8 @@ export default async function MontarPage(props: PageProps<"/montar">) {
 
       {!usingRealData() && (
         <Callout tone="warn" className="mt-5">
-          <strong>Modo de demonstração.</strong> Peças, preços, juros e índices de desempenho são de exemplo.
+          <strong>Modo de demonstração.</strong> Peças, preços, lojas e reputação (nota, Reclame Aqui), juros e índices
+          de desempenho são de exemplo.
         </Callout>
       )}
 
@@ -62,8 +63,10 @@ export default async function MontarPage(props: PageProps<"/montar">) {
       )}
 
       {products.length === 0 ? (
-        <Callout tone="bad" className="mt-5" title="Catálogo vazio">
-          O banco de dados não tem peças. Rode os scripts da pasta <code>supabase/</code> (ver README).
+        // F-17(a): lista vazia pode ser banco fora do ar OU tabela vazia; o texto não chuta qual.
+        <Callout tone="bad" className="mt-5" title="Catálogo indisponível">
+          Não conseguimos ler o catálogo agora, ou ele ainda está vazio. Se você administra o site, rode os scripts
+          da pasta <code>supabase/</code>.
         </Callout>
       ) : (
         <div className="mt-6">

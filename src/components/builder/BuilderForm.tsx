@@ -8,8 +8,11 @@
 // montagem e o resultado (com o gráfico) são carregados sob demanda (PERF-01).
 //
 // ?b=<código> (link de compartilhamento): restaura as escolhas e monta sozinho.
+// Depois de cada montagem pedida pela pessoa, a URL vira /montar?b=<código> da
+// montagem na tela (history.replaceState, sem navegar): recarregar a página ou
+// voltar do "Entre para salvar a montagem" remonta a mesma coisa.
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Cpu, Wrench } from "lucide-react";
 import type { ProductWithOffers } from "@/models/types";
@@ -23,8 +26,8 @@ import type {
 } from "@/models/builder-types";
 import { DEFAULT_BUDGET, normalizeBudget } from "@/services/builder/budget";
 import { formatBRL } from "@/lib/format";
-import { moneyError, parseMoney } from "@/lib/money";
-import { decodeBuild, type SharedBuild } from "@/lib/share";
+import { formatMoneyPreview, moneyError, parseMoney } from "@/lib/money";
+import { decodeBuild, encodeBuild, type SharedBuild } from "@/lib/share";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Callout } from "@/components/ui/Callout";
@@ -44,9 +47,11 @@ const USOS: SegmentedOption<UsageProfile>[] = [
   { value: "criacao", label: "Criação", hint: "Processador, memória e placa de vídeo equilibrados para editar vídeo, foto e 3D." },
 ];
 
+// A resolução não muda as peças escolhidas: só destaca a coluna da tabela de
+// FPS (T-4). A dica não pode prometer uma placa de vídeo mais forte.
 const RESOLUCOES: SegmentedOption<Resolution>[] = [
-  { value: "1080p", label: "Full HD", hint: "1920 × 1080, o monitor mais comum." },
-  { value: "1440p", label: "Quad HD", hint: "2560 × 1440: imagem mais nítida, pede placa de vídeo mais forte." },
+  { value: "1080p", label: "Full HD", hint: "1920 × 1080, o monitor mais comum. Destaca a coluna da sua resolução na tabela de FPS." },
+  { value: "1440p", label: "Quad HD", hint: "2560 × 1440, imagem mais nítida. Destaca a coluna da sua resolução na tabela de FPS." },
 ];
 
 function dicaDe<T extends string>(opcoes: SegmentedOption<T>[], valor: T): string | undefined {
@@ -66,6 +71,37 @@ function paraTexto(valor: number): string {
   return Number.isInteger(valor) ? String(valor) : valor.toFixed(2).replace(".", ",");
 }
 
+/**
+ * Dica do campo de dinheiro com o valor entendido na frente (F-14):
+ * "= R$ 6.000,50 · O valor que você tem em mente." Assim quem digita "6000.5"
+ * vê na hora como o site leu.
+ */
+function comPrevia(texto: string, dica: string): ReactNode {
+  const previa = formatMoneyPreview(texto);
+  if (!previa) return dica;
+  return (
+    <>
+      <span className="tnum font-medium text-ink-muted">{previa}</span> · {dica}
+    </>
+  );
+}
+
+/**
+ * Slug "bem-comportado" (minúsculas, números e hífen, até 60). Só esse é repetido
+ * na tela (F-10): o link é de quem o enviou, e um texto livre ali viraria uma
+ * frase "oficial" do site escrita por outra pessoa.
+ */
+const SLUG_SEGURO = /^[a-z0-9-]{1,60}$/;
+
+/** Código do link da montagem na tela (mesmo formato de "Copiar link"). */
+function codigoDaMontagem(prefs: BuildPreferences, result: BuildResult): string | null {
+  if (!result.ok) return null;
+  return encodeBuild(
+    prefs,
+    result.parts.map((p) => ({ slug: p.product.slug, storeId: p.offer.store_id })),
+  );
+}
+
 /** Notas sobre as peças do link que não existem mais (ou mudaram) na montagem de hoje. */
 function notasDoLink(shared: SharedBuild, products: ProductWithOffers[], result: BuildResult): string[] {
   const notas: string[] = [];
@@ -73,7 +109,11 @@ function notasDoLink(shared: SharedBuild, products: ProductWithOffers[], result:
   for (const peca of shared.parts) {
     const produto = products.find((p) => p.slug === peca.slug);
     if (!produto) {
-      notas.push(`A peça “${peca.slug}” do link não está mais no catálogo.`);
+      notas.push(
+        SLUG_SEGURO.test(peca.slug)
+          ? `A peça “${peca.slug}” do link não está mais no catálogo.`
+          : "Uma peça do link não está mais no catálogo.",
+      );
     } else if (!produto.offers.some((o) => o.store_id === peca.storeId && o.in_stock)) {
       notas.push(`${produto.name} não está mais à venda na loja do link.`);
     } else if (result.ok && !escolhidas.has(peca.slug)) {
@@ -143,6 +183,11 @@ export function BuilderForm({
       // Import tardio: o algoritmo só entra no navegador quando a pessoa monta.
       const { autoBuild } = await import("@/services/builder/auto-build");
       const result = autoBuild(products, specs, prefs, { references, installmentTables });
+      // Montagem pedida pela pessoa: a URL passa a apontar para ela (só troca o
+      // endereço, sem navegar nem remontar). A montagem automática do link não
+      // mexe na URL, que já é o próprio link.
+      const codigo = focar ? codigoDaMontagem(prefs, result) : null;
+      if (codigo) window.history.replaceState(null, "", `${window.location.pathname}?b=${codigo}`);
       startTransition(() => {
         setEntrada({ result, prefs, focar, notasDoLink: link ? notasDoLink(link, products, result) : undefined });
         setVersao((v) => v + 1);
@@ -173,20 +218,21 @@ export function BuilderForm({
       {/* Painel de entradas */}
       <Card className="lg:sticky lg:top-24">
         <form onSubmit={montar} className="flex flex-col gap-5" aria-describedby="montador-ajuda" noValidate>
-          <Field label="Quero gastar" htmlFor="alvo" hint="O valor que você tem em mente." error={alvoErro}>
+          <Field label="Quero gastar" htmlFor="alvo" hint={comPrevia(alvoTexto, "O valor que você tem em mente.")} error={alvoErro}>
             <MoneyInput id="alvo" value={alvoTexto} onChange={setAlvoTexto} placeholder="6.000" />
           </Field>
 
           <Field
             label="No máximo (teto)"
             htmlFor="teto"
-            hint={
+            hint={comPrevia(
+              tetoTexto,
               tetoMenor
                 ? "Teto menor que o alvo: vamos considerar o teto igual ao alvo (sem folga)."
                 : folga > 0
                   ? `Folga de ${formatBRL(folga)}, usada só se destravar uma peça bem melhor.`
-                  : "Sem folga: a montagem fica dentro do valor que você quer gastar."
-            }
+                  : "Sem folga: a montagem fica dentro do valor que você quer gastar.",
+            )}
             error={tetoErro}
           >
             <MoneyInput id="teto" value={tetoTexto} onChange={setTetoTexto} placeholder="7.000" />
@@ -248,8 +294,9 @@ export function BuilderForm({
         {entrada?.notasDoLink && entrada.notasDoLink.length > 0 && (
           <Callout tone="info" title="Montagem compartilhada, com os preços de hoje">
             <ul className="list-disc space-y-1 pl-4">
-              {entrada.notasDoLink.map((n) => (
-                <li key={n}>{n}</li>
+              {entrada.notasDoLink.map((n, i) => (
+                // Índice na chave: duas peças estranhas do link dão a mesma frase.
+                <li key={`${i}-${n}`}>{n}</li>
               ))}
             </ul>
           </Callout>
@@ -315,7 +362,7 @@ function EstadoVazio() {
         </li>
         <li className="flex gap-3">
           <span className="tnum font-display font-semibold text-brand">3</span>
-          Se a folga destravar uma placa de vídeo bem melhor, usamos; senão, ficamos no valor que você quer gastar.
+          Se a folga destravar uma peça bem melhor (placa de vídeo ou processador, conforme o uso), usamos; senão, ficamos no valor que você quer gastar.
         </li>
         <li className="flex gap-3">
           <span className="tnum font-display font-semibold text-brand">4</span>

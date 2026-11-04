@@ -71,7 +71,9 @@ export default async function HomePage() {
         </div>
 
         <Card padding="lg" className="shadow-float">
-          <form action="/montar" method="get" className="flex flex-col gap-4">
+          {/* F-01: sem validação nativa e com step="any". Com step={100} o navegador
+              recusava 6550 com uma mensagem própria; o /montar já lê e valida o valor. */}
+          <form action="/montar" method="get" className="flex flex-col gap-4" noValidate>
             <div>
               <h2 className="font-display text-xl font-semibold tracking-tight text-ink">Quanto você pode gastar?</h2>
               <p className="mt-1 text-sm text-ink-muted">Comece com o valor que quer gastar e o máximo que aceita.</p>
@@ -84,7 +86,7 @@ export default async function HomePage() {
                   name="alvo"
                   type="number"
                   min={0}
-                  step={100}
+                  step="any"
                   defaultValue={DEFAULT_BUDGET.target}
                   className="tnum h-11 w-full rounded-control border border-line-strong bg-surface-2 pl-10 pr-3 font-normal text-ink outline-none transition-[border-color,box-shadow] duration-150 hover:border-ink-faint focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />
@@ -98,7 +100,7 @@ export default async function HomePage() {
                   name="teto"
                   type="number"
                   min={0}
-                  step={100}
+                  step="any"
                   defaultValue={DEFAULT_BUDGET.hardCap}
                   className="tnum h-11 w-full rounded-control border border-line-strong bg-surface-2 pl-10 pr-3 font-normal text-ink outline-none transition-[border-color,box-shadow] duration-150 hover:border-ink-faint focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />

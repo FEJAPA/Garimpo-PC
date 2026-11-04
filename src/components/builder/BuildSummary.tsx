@@ -1,11 +1,21 @@
-// Lista das peças escolhidas, com loja (e por que ela é confiável), preço Pix e
-// parcelado e link para a loja. Oferta "boa demais" (R-01) ganha um aviso.
+// Lista das peças escolhidas, com loja, preço Pix e parcelado e link para a
+// loja. Oferta "boa demais" (R-01) ganha um aviso.
+//
+// Confiança (T-5): a linha visível "Por que não marcamos como confiável: …" só
+// aparece para loja NÃO confiável, que é quando o motivo ajuda a decidir. Para
+// loja confiável, o selo basta; os motivos ficam no `title` e no texto para
+// leitores de tela do StoreBadge (repetir a mesma frase em 7 peças virava ruído).
+//
+// "ou Nx de R$ X" vem de offerInstallment (F-12), a mesma conta da página da
+// peça, do CSV e de "Como pagar". Com o resumo de pagamento (`payment`), o
+// número de parcelas respeita a tabela de juros da loja.
 
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import type { BuildPart } from "@/models/builder-types";
+import type { BuildPart, PaymentSummary } from "@/models/builder-types";
 import { categoryLabel } from "@/models/categories";
 import { formatBRL } from "@/lib/format";
+import { offerInstallment } from "@/services/builder/payments";
 import { storeTrust } from "@/services/builder/trust";
 import { StoreBadge } from "@/components/StoreBadge";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -14,7 +24,14 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 
-export function BuildSummary({ parts }: { parts: BuildPart[] }) {
+export function BuildSummary({
+  parts,
+  payment,
+}: {
+  parts: BuildPart[];
+  /** Resumo de pagamento da montagem: traz a tabela de juros de cada loja. */
+  payment?: PaymentSummary;
+}) {
   return (
     <section>
       <SectionTitle title="Peças" description="Uma de cada categoria, todas compatíveis entre si." />
@@ -23,12 +40,9 @@ export function BuildSummary({ parts }: { parts: BuildPart[] }) {
           {parts.map((part, i) => {
             const { offer, product } = part;
             const trust = storeTrust(offer.store);
-            const motivos = trust.reasons.join(" · ");
             const link = safeHref(offer.url);
-            const parcelado =
-              offer.price_installment && offer.price_installment > 0 && offer.installment_count && offer.installment_count > 0
-                ? { count: offer.installment_count, valor: offer.price_installment / offer.installment_count }
-                : null;
+            const tabela = payment?.stores.find((s) => s.store.id === offer.store.id)?.interestTable;
+            const parcelado = offerInstallment(offer, tabela);
             return (
               <li key={product.id} className={`flex flex-col gap-3 p-4 ${i > 0 ? "border-t border-line" : ""}`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -42,12 +56,14 @@ export function BuildSummary({ parts }: { parts: BuildPart[] }) {
                         {product.name}
                       </Link>
                       <div className="mt-1">
-                        <StoreBadge store={offer.store} announceReasons={false} />
+                        {/* Loja confiável: motivos só no title/leitor de tela. Não confiável: lista visível abaixo. */}
+                        <StoreBadge store={offer.store} announceReasons={trust.trusted} />
                       </div>
-                      <p className="mt-1 text-xs text-ink-faint" title={motivos}>
-                        {trust.trusted ? "Por que confiável: " : "Por que não marcamos como confiável: "}
-                        {motivos}
-                      </p>
+                      {!trust.trusted && (
+                        <p className="mt-1 text-xs text-ink-muted">
+                          Por que não marcamos como confiável: {trust.reasons.join(" · ")}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -56,7 +72,7 @@ export function BuildSummary({ parts }: { parts: BuildPart[] }) {
                       <p className="tnum text-lg font-semibold text-ink">{formatBRL(offer.price_pix)}</p>
                       {parcelado ? (
                         <p className="tnum text-xs text-ink-faint">
-                          ou {parcelado.count}x de {formatBRL(parcelado.valor)}
+                          ou {parcelado.count}x de {formatBRL(parcelado.monthly)}
                         </p>
                       ) : (
                         <p className="text-xs text-ink-faint">só à vista</p>

@@ -4,7 +4,9 @@
 //
 // Acessibilidade (A11Y-03): a dica e o erro ganham um id, e o campo dentro do
 // Field recebe `aria-describedby` apontando para eles (via contexto), então o
-// leitor de tela lê a causa do erro ao focar o campo.
+// leitor de tela lê a causa do erro ao focar o campo. O erro usa
+// aria-live="polite" e não role="alert" (S-20): ele é recalculado a cada tecla,
+// e apagar o campo para redigitar não pode interromper a leitura com um alerta.
 
 import { createContext, useContext, type InputHTMLAttributes, type ReactNode } from "react";
 
@@ -38,7 +40,7 @@ export function Field({
       </label>
       <FieldContext.Provider value={{ describedBy, invalid: Boolean(error) }}>{children}</FieldContext.Provider>
       {error ? (
-        <p id={ids.error} className="text-xs text-bad" role="alert">
+        <p id={ids.error} className="text-xs text-bad" aria-live="polite">
           {error}
         </p>
       ) : hint ? (

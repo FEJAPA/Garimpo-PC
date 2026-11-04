@@ -11,6 +11,8 @@
 // - LOG-13: o histórico agrupa por dia no fuso de Brasília, não em UTC.
 // - S-17: o histórico só junta ofertas honestas (sem loja bloqueada nem preço
 //   "bom demais"), a mesma régua do "melhor preço" do herói da /peca.
+// - DAD-02: o histórico é lido em páginas de 1.000 linhas (o teto do PostgREST),
+//   do mais novo para o mais antigo, para o gráfico nunca perder os dias recentes.
 
 import { getSupabase, isSupabaseConfigured } from "@/models/supabase";
 import { MOCK_PRODUCTS, MOCK_HISTORY } from "@/models/mock-data";
@@ -231,7 +233,47 @@ export async function getProductBySlug(slug: string): Promise<ProductWithOffers 
   return peca;
 }
 
-// --- Histórico (LOG-13) --------------------------------------------------------
+// --- Histórico (LOG-13, DAD-02) -------------------------------------------------
+
+/** O PostgREST devolve no máximo 1.000 linhas por resposta; acima disso corta sem avisar. */
+const PAGINA_HISTORICO = 1000;
+/** Teto de páginas por peça (50.000 pontos). Passando disso, só os pontos mais ANTIGOS ficam de fora. */
+const MAX_PAGINAS_HISTORICO = 50;
+
+type PontoBruto = { recorded_at: string; price_pix: number | string };
+
+/**
+ * Lê o histórico das ofertas no banco, página por página. A ordem é do mais
+ * novo para o mais antigo (com `id` para desempatar e as páginas não se
+ * misturarem): se um dia o teto de páginas for atingido, quem fica de fora são
+ * os pontos velhos, nunca os de hoje. Em erro devolve null.
+ */
+async function historicoDoBanco(offerIds: string[]): Promise<PontoBruto[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const pontos: PontoBruto[] = [];
+  for (let pagina = 0; pagina < MAX_PAGINAS_HISTORICO; pagina++) {
+    const de = pagina * PAGINA_HISTORICO;
+    const { data, error } = await supabase
+      .from("price_history")
+      .select("recorded_at, price_pix, offer_id")
+      .in("offer_id", offerIds)
+      .order("recorded_at", { ascending: false })
+      .order("id")
+      .range(de, de + PAGINA_HISTORICO - 1);
+    if (error) {
+      console.error("Erro ao buscar histórico no Supabase:", error.message);
+      return null;
+    }
+    const linhas = (data ?? []) as PricePoint[];
+    pontos.push(...linhas);
+    if (linhas.length < PAGINA_HISTORICO) return pontos;
+  }
+  console.warn(
+    `Histórico com mais de ${PAGINA_HISTORICO * MAX_PAGINAS_HISTORICO} pontos: os mais antigos ficaram de fora do gráfico.`,
+  );
+  return pontos;
+}
 
 const DIA_SAO_PAULO = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Sao_Paulo",
@@ -264,22 +306,14 @@ export async function getPriceHistory(
     .filter((o) => !suspeitas.has(o.id))
     .map((o) => o.id);
   if (offerIds.length === 0) return [];
-  let points: { recorded_at: string; price_pix: number }[] = [];
 
-  const supabase = getSupabase();
-  if (!supabase) {
+  let points: PontoBruto[];
+  if (!isSupabaseConfigured()) {
     points = offerIds.flatMap((id) => MOCK_HISTORY[id] ?? []);
   } else {
-    const { data, error } = await supabase
-      .from("price_history")
-      .select("recorded_at, price_pix, offer_id")
-      .in("offer_id", offerIds)
-      .order("recorded_at");
-    if (error) {
-      console.error("Erro ao buscar histórico no Supabase:", error.message);
-      return [];
-    }
-    points = (data as PricePoint[]) ?? [];
+    const doBanco = await historicoDoBanco(offerIds);
+    if (!doBanco) return [];
+    points = doBanco;
   }
 
   // Agrupa por dia (fuso de Brasília), guardando o menor preço observado naquele dia.

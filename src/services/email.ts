@@ -4,7 +4,8 @@
 //
 // V2 (pacote G):
 // - SEG-02: o envio simulado devolve `simulated: true`, para a rota de alertas NÃO
-//   marcar o alerta como avisado (senão ele nunca mais seria verificado).
+//   marcar o alerta como avisado (senão ele nunca mais seria verificado). Em
+//   produção, a rota responde 503 sem a chave (ver isEmailConfigured).
 // - SEG-03: tudo o que entra no HTML é escapado, e o link só vale se for http(s).
 // - CON-01: cores do DESIGN.md (ouro), sem emoji.
 
@@ -13,6 +14,14 @@ import { Resend } from "resend";
 export type SendEmailResult =
   | { ok: true; simulated: boolean }
   | { ok: false; simulated: false; error: string };
+
+/**
+ * Diz se o envio de verdade está configurado (RESEND_API_KEY). A rota de alertas
+ * usa isto para, em produção, falhar alto em vez de "simular" em silêncio (SEG-02).
+ */
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
 
 /** Remetente: o configurado em EMAIL_FROM ou o de testes do Resend. */
 function remetente(): string {
