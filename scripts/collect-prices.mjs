@@ -43,6 +43,11 @@ function loadEnv() {
 loadEnv();
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// Orçamento de tempo (PERF-05): a coleta para antes do limite do workflow (120 min) e
+// ainda grava coleta-resultado.json, para a issue de "seletor quebrado" poder abrir.
+// Ajuste com --max-minutos=NN.
+const LIMITE_MINUTOS =
+  Number((process.argv.find((a) => a.startsWith("--max-minutos=")) ?? "").split("=")[1]) || 100;
 const PAUSA_MS = 4000; // pausa entre páginas, para não sobrecarregar a loja
 const TIMEOUT_PRECO_MS = 5000; // quanto esperamos o preço aparecer na página (PERF-05)
 const ESPERA_CURTA_MS = 500; // folga extra se o preço não apareceu a tempo; o leitor tenta mesmo assim
@@ -229,7 +234,13 @@ async function main() {
     else d.falhas++;
     d.detalhes.push({ produto, motivo });
   };
+  let interrompida = false;
   for (const [i, oferta] of alvos.entries()) {
+    if (Date.now() - inicio.getTime() > LIMITE_MINUTOS * 60_000) {
+      console.warn(`⏱️  Tempo esgotado (${LIMITE_MINUTOS} min): ${alvos.length - i} ofertas ficaram para a próxima rodada.`);
+      interrompida = true;
+      break;
+    }
     const nome = oferta.product?.name ?? oferta.id;
     const page = await ctx.newPage();
     try {
@@ -283,6 +294,8 @@ async function main() {
     iniciadoEm: inicio.toISOString(),
     finalizadoEm: new Date().toISOString(),
     simulacao: DRY_RUN,
+    interrompida, // true quando o orçamento de tempo acabou antes de percorrer todas as ofertas
+    limiteDeMinutos: LIMITE_MINUTOS,
     limiteDeFalha: LIMITE_FALHA,
     total: { ofertas: alvos.length, sucessos: ok, falhas, falhasGravacao },
     lojas,

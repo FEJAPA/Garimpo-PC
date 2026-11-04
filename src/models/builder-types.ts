@@ -87,8 +87,9 @@ export type ReferenceBuild = {
   fps: Record<GameProfile, Record<Resolution, number>>;
   /** Memória da referência em GB (V2, pacote D). */
   ramGb?: number;
-  /** Fonte dos benchmarks e data da medição (V2, pacote D). */
+  /** Fonte dos benchmarks (V2, pacote D). */
   source?: string;
+  /** Mês de referência das fontes consultadas (AAAA-MM); nada foi medido pela GarimpoPC. */
   measuredAt?: string;
 };
 

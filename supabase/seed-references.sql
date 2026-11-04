@@ -1,6 +1,6 @@
 -- Seed dos computadores de referência (V2, pacote D).
 -- Mesmo conteúdo de src/models/reference-builds.ts (a lista do código é a reserva
--- quando o Supabase não está configurado ou a tabela está vazia). Esta é a ÚNICA fonte
+-- quando o Supabase não está configurado (com o banco configurado, tabela vazia ou erro deixam a tela sem referências, por desenho)). Esta é a ÚNICA fonte
 -- de reference_builds no SQL: supabase/seed-builder.sql não grava mais essa tabela
 -- (rodá-lo depois deste voltaria os valores antigos).
 --
