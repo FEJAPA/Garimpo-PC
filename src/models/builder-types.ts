@@ -126,7 +126,8 @@ export type StorePayment = {
   interestTable?: InstallmentRate[];
   /**
    * Menor número de parcelas anunciado pelas ofertas desta loja (rodada final, S-03): até ele
-   * vale o preço a prazo da oferta; a tabela de juros só decide acima disso.
+   * vale o preço a prazo da oferta; a tabela de juros só decide acima disso. 0 = alguma oferta
+   * da loja só tem preço Pix, então a tabela vale desde 1x.
    */
   offersInstallmentCount?: number;
 };
@@ -135,8 +136,8 @@ export type PaymentSummary = {
   pixTotal: number;
   installmentTotal: number;
   /**
-   * Máximo de parcelas selecionável: menor máximo entre as lojas (V1, sem tabela de
-   * juros) ou MAIOR entre as lojas quando há tabela (cada loja limita a sua, V2-E).
+   * Máximo de parcelas selecionável: o MAIOR máximo entre as lojas usadas (cada loja
+   * parcela até o seu; se uma termina antes, as últimas parcelas ficam menores).
    */
   maxInstallments: number;
   /** Quanto se economiza pagando tudo no Pix (V2-E: em relação ao parcelado mais barato com n > 1). */
