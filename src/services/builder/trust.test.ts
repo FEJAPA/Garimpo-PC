@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { isTrustedStore, validOffers, cheapestOffer, storeTrust, trustLevel } from "./trust";
 import type { OfferWithStore, ProductWithOffers, Store } from "@/models/types";
 
@@ -230,5 +230,47 @@ describe("trustLevel: uma régua só para selo, rótulo e cor (V2, LOG-17)", () 
     for (const s of [oficial, notaBaixa, oficialNotaBaixa, { ...oficial, blocked: true }]) {
       expect(trustLevel(s) === "trusted").toBe(isTrustedStore(s));
     }
+  });
+});
+
+describe("isTrustedStore barato (V2, S-14)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Lojas variadas, inclusive nos limites (4,5 e 6) e com números em texto.
+  const base: Store = { id: "v", name: "Loja V", rating: 4.8, rating_count: 1000, is_official: true, url: null };
+  const variacoes: Partial<Record<keyof Store, unknown>>[] = [];
+  for (const blocked of [undefined, false, true]) {
+    for (const is_official of [true, false]) {
+      for (const rating of [4.8, 4.5, 4.49, "4.5", "4.2", "abc", null, 0]) {
+        for (const reclame_aqui_score of [undefined, null, "", "abc", 5.99, 6, "5.1", 8.2]) {
+          variacoes.push({ blocked, is_official, rating, reclame_aqui_score, years_active: 5 });
+        }
+      }
+    }
+  }
+  const lojas = variacoes.map((v) => ({ ...base, ...v }) as unknown as Store);
+
+  it("dá o mesmo resultado que storeTrust(store).trusted em todas as variações", () => {
+    expect(lojas.length).toBeGreaterThan(300);
+    for (const s of lojas) {
+      expect(isTrustedStore(s), JSON.stringify(s)).toBe(storeTrust(s).trusted);
+    }
+    // O conjunto tem os dois lados (não passa por acaso).
+    expect(lojas.some((s) => isTrustedStore(s))).toBe(true);
+    expect(lojas.some((s) => !isTrustedStore(s))).toBe(true);
+  });
+
+  it("não monta os textos dos motivos (sem toLocaleString)", () => {
+    const formata = vi.spyOn(Number.prototype, "toLocaleString");
+    for (const s of lojas) isTrustedStore(s);
+    expect(formata).not.toHaveBeenCalled();
+  });
+
+  it("trustLevel também não monta textos", () => {
+    const formata = vi.spyOn(Number.prototype, "toLocaleString");
+    for (const s of lojas) trustLevel(s);
+    expect(formata).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,16 @@
 // Computadores de referência para a estimativa de desempenho (V2, pacote D).
-// Se o Supabase estiver configurado e a tabela reference_builds tiver dados,
-// usa o banco; senão (ou em erro), usa a lista local REFERENCE_BUILDS. Mesmo
-// padrão de src/services/products.ts.
+//
+// Regra do AGENTS.md ("dado ilustrativo nunca vira fato no modo real"), a mesma de
+// src/services/specs.ts e src/services/installments.ts:
+//   - SEM Supabase configurado (modo de demonstração) -> REFERENCE_BUILDS, a lista local;
+//   - COM Supabase, erro de consulta ou tabela vazia -> [] (a tela avisa que não há
+//     referências e não mostra comparações nem FPS: ver NOTA_SEM_REFERENCIAS e
+//     SEM_REFERENCIA em src/services/builder/performance.ts). Nunca devolvemos a lista
+//     local por cima de peças reais: os preços dela são ilustrativos.
+//
+// Linhas inválidas (score ou fps ruins) são descartadas e contadas no log (ver
+// mapReferenceRow). Se nenhuma sobrar, o resultado também é [].
+// Atenção: supabase/seed-references.sql grava a mesma lista local e é só demonstração.
 
 import { getSupabase } from "@/models/supabase";
 import { REFERENCE_BUILDS } from "@/models/reference-builds";
@@ -89,7 +98,10 @@ export function mapReferenceRow(row: ReferenceBuildRow): ReferenceBuild {
   return ref;
 }
 
-/** Referências ordenadas por score (crescente). Nunca devolve lista vazia. */
+/**
+ * Referências ordenadas por score (crescente). Sem Supabase: a lista local. Com
+ * Supabase: só o que o banco tem de válido; erro ou nada válido = [] (a tela avisa).
+ */
 export async function getReferenceBuilds(): Promise<ReferenceBuild[]> {
   const supabase = getSupabase();
   if (!supabase) return REFERENCE_BUILDS;
@@ -101,7 +113,7 @@ export async function getReferenceBuilds(): Promise<ReferenceBuild[]> {
 
   if (error) {
     console.error("Erro ao buscar referências no Supabase:", error.message);
-    return REFERENCE_BUILDS;
+    return [];
   }
 
   const refs: ReferenceBuild[] = [];
@@ -112,6 +124,8 @@ export async function getReferenceBuilds(): Promise<ReferenceBuild[]> {
       console.error("Referência ignorada:", (e as Error).message);
     }
   }
-  if (refs.length === 0) return REFERENCE_BUILDS;
+  if (refs.length === 0) {
+    console.error("Nenhuma referência válida em reference_builds: a tela fica sem comparações de desempenho.");
+  }
   return refs.sort((a, b) => a.score - b.score);
 }

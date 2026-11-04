@@ -1,4 +1,9 @@
-// Página de login / cadastro. O login é OPCIONAL: só é preciso para alertas de preço.
+// Página de login / cadastro. O login é OPCIONAL: só é preciso para salvar
+// montagens e para os alertas de preço.
+//
+// S-15 / F-10: `?erro=` e `?mensagem=` trazem só CÓDIGOS (ver src/app/auth/actions.ts),
+// traduzidos pelos mapas abaixo. Código desconhecido não mostra nada: um link
+// com texto inventado na URL nunca vira uma caixa de aviso "oficial".
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -13,6 +18,30 @@ export const metadata: Metadata = {
   title: "Entrar",
 };
 
+/** Erros das actions de login/cadastro, por código. */
+const ERROS: Record<string, string> = {
+  credenciais: "E-mail ou senha incorretos.",
+  "email-nao-confirmado": "Confirme seu e-mail pelo link que enviamos antes de entrar.",
+  "ja-cadastrado": "Este e-mail já está cadastrado. Use “Entrar”.",
+  "senha-curta": "A senha deve ter pelo menos 6 caracteres.",
+  "email-invalido": "Digite um e-mail válido.",
+  generico: "Não foi possível concluir. Tente novamente.",
+};
+
+/** Mensagens de sucesso, por código. */
+const MENSAGENS: Record<string, string> = {
+  "conta-criada": "Conta criada! Se chegar um e-mail de confirmação, clique no link dele. Depois é só entrar.",
+};
+
+/**
+ * Texto do mapa para o código da URL, ou null. Código desconhecido, repetido na
+ * URL (vira lista) ou herdado do objeto (ex.: "constructor") não mostra nada.
+ */
+function traduzir(mapa: Record<string, string>, codigo: unknown): string | null {
+  if (typeof codigo !== "string" || !Object.hasOwn(mapa, codigo)) return null;
+  return mapa[codigo];
+}
+
 /**
  * Para onde voltar depois de entrar (?next=/peca/rtx-4060). Só caminhos internos:
  * qualquer outra coisa vira null, para ninguém usar o login para mandar a pessoa
@@ -26,8 +55,8 @@ function destinoSeguro(valor: unknown): string | null {
 
 export default async function EntrarPage(props: PageProps<"/entrar">) {
   const params = await props.searchParams;
-  const erro = typeof params.erro === "string" ? params.erro : null;
-  const mensagem = typeof params.mensagem === "string" ? params.mensagem : null;
+  const erro = traduzir(ERROS, params.erro);
+  const mensagem = traduzir(MENSAGENS, params.mensagem);
   const destino = destinoSeguro(params.next);
 
   return (
@@ -39,7 +68,7 @@ export default async function EntrarPage(props: PageProps<"/entrar">) {
 
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">Entrar no GarimpoPC</h1>
       <p className="mt-2 text-sm text-ink-muted">
-        Crie uma conta para receber alertas quando o preço de uma peça cair.
+        Crie uma conta para salvar montagens e receber alertas quando o preço cair.
       </p>
 
       {!isSupabaseConfigured() && (

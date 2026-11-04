@@ -3,6 +3,8 @@
 //
 // O preço vem de getBestOffer: ignora preço zero, loja bloqueada e oferta "boa
 // demais" (suspeita). Se só sobrar oferta suspeita, ela aparece COM aviso.
+// Por isso o rótulo é "melhor preço" (S-22, a mesma palavra do herói da /peca):
+// pode existir uma oferta mais barata, a suspeita, que foi pulada de propósito.
 
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
@@ -33,7 +35,7 @@ export function ProductCard({ product }: { product: ProductWithOffers }) {
       <div className="mt-auto pt-6">
         {melhor ? (
           <>
-            <p className="text-xs text-ink-faint">{aviso ? "oferta mais barata no Pix" : "menor preço no Pix"}</p>
+            <p className="text-xs text-ink-faint">{aviso ? "oferta mais barata no Pix" : "melhor preço no Pix"}</p>
             <p className="font-display text-2xl font-semibold tracking-tight text-ink">
               {formatBRL(melhor.price_pix)}
             </p>

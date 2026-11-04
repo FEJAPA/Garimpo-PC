@@ -64,10 +64,12 @@ export function PerformanceChart({
 
   return (
     <div className="w-full">
-      {/* Só o desenho é "imagem": a legenda fica de fora para continuar legível por leitores de tela. */}
+      {/* Só o desenho é "imagem": a legenda fica de fora para continuar legível por leitores de tela.
+          accessibilityLayer desligado no BarChart: o gráfico é uma imagem (role="img") e não
+          pode ter algo focável dentro; quem usa teclado lê os mesmos dados na tabela abaixo. */}
       <div role="img" aria-label={resumo}>
         <ResponsiveContainer width="100%" height={altura}>
-          <BarChart data={linhas} layout="vertical" margin={{ top: 4, right: 48, left: 4, bottom: 4 }} barCategoryGap={8}>
+          <BarChart accessibilityLayer={false} data={linhas} layout="vertical" margin={{ top: 4, right: 48, left: 4, bottom: 4 }} barCategoryGap={8}>
             <CartesianGrid stroke={CHART_COLORS.grade} horizontal={false} />
             <XAxis
               type="number"

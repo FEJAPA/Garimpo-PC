@@ -101,18 +101,25 @@ describe("getReferenceBuilds", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it("sem Supabase configurado devolve a lista local", async () => {
+  // Regra do AGENTS.md: o mock (ilustrativo) só aparece SEM banco configurado. Com
+  // Supabase, erro ou tabela vazia devolvem [] e a tela avisa (NOTA_SEM_REFERENCIAS).
+  it("sem Supabase configurado devolve a lista local (modo de demonstração)", async () => {
     expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
   });
 
-  it("com erro no banco devolve a lista local", async () => {
+  it("com erro no banco devolve [] (nunca o mock)", async () => {
     supabaseFalso.atual = clienteQueResponde({ data: null, error: { message: "falhou" } });
-    expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+    expect(await getReferenceBuilds()).toEqual([]);
   });
 
-  it("com tabela vazia devolve a lista local", async () => {
+  it("com tabela vazia devolve [] (nunca o mock)", async () => {
     supabaseFalso.atual = clienteQueResponde({ data: [], error: null });
-    expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+    expect(await getReferenceBuilds()).toEqual([]);
+  });
+
+  it("com data nulo e sem erro devolve []", async () => {
+    supabaseFalso.atual = clienteQueResponde({ data: null, error: null });
+    expect(await getReferenceBuilds()).toEqual([]);
   });
 
   it("com dados lê reference_builds, mapeia e ordena por score", async () => {
@@ -131,9 +138,9 @@ describe("getReferenceBuilds", () => {
     expect(refs[0].approxPrice).toBe(5800);
   });
 
-  it("descarta linhas com fps inválido e cai na lista local se nada sobrar", async () => {
+  it("descarta linhas com fps inválido e devolve [] se nada sobrar", async () => {
     supabaseFalso.atual = clienteQueResponde({ data: [{ ...linha, fps: { esports: {} } }], error: null });
-    expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+    expect(await getReferenceBuilds()).toEqual([]);
   });
 
   it("descarta linhas com score zero e mantém as boas", async () => {
@@ -147,9 +154,9 @@ describe("getReferenceBuilds", () => {
     expect((await getReferenceBuilds()).map((r) => r.id)).toEqual(["boa"]);
   });
 
-  it("se só sobrar score inválido, cai na lista local", async () => {
+  it("se só sobrar score inválido, devolve [] (nunca o mock)", async () => {
     supabaseFalso.atual = clienteQueResponde({ data: [{ ...linha, score: -1 }], error: null });
-    expect(await getReferenceBuilds()).toBe(REFERENCE_BUILDS);
+    expect(await getReferenceBuilds()).toEqual([]);
   });
 });
 

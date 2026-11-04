@@ -9,10 +9,14 @@
 //   viram Number() e `blocked` vira Boolean() antes de qualquer regra de confiança.
 // - SEG-05: o termo de busca é limpo antes de entrar no filtro .or() do PostgREST.
 // - LOG-13: o histórico agrupa por dia no fuso de Brasília, não em UTC.
+// - S-17: o histórico só junta ofertas honestas (sem loja bloqueada nem preço
+//   "bom demais"), a mesma régua do "melhor preço" do herói da /peca.
 
 import { getSupabase, isSupabaseConfigured } from "@/models/supabase";
 import { MOCK_PRODUCTS, MOCK_HISTORY } from "@/models/mock-data";
 import { categoriesMatching, categoryLabel } from "@/models/categories";
+import { validOffers } from "@/services/builder/trust";
+import { flagSuspiciousOffers } from "@/services/builder/suspicious";
 import type { OfferWithStore, ProductWithOffers, PricePoint, Store } from "@/models/types";
 
 // Alias em português para deixar o código da busca mais legível.
@@ -242,13 +246,21 @@ export function dayInSaoPaulo(iso: string): string {
 }
 
 /**
- * Histórico de preços de uma peça, juntando os pontos de todas as ofertas,
+ * Histórico de preços de uma peça, juntando os pontos das ofertas honestas,
  * agrupados por data (usamos o MENOR preço do dia entre as lojas).
  */
 export async function getPriceHistory(
   product: ProductWithOffers
 ): Promise<{ date: string; price: number }[]> {
-  const offerIds = product.offers.map((o) => o.id);
+  // S-17: só entram ofertas de hoje em estoque, de loja não bloqueada e que não
+  // são "boas demais" (suspeitas). Senão o gráfico mostraria como "menor preço"
+  // o valor de uma loja que o próprio site manda conferir (ex.: R$ 1.399,90 na
+  // RTX 4060 do exemplo), enquanto o herói diz que o melhor preço é outro.
+  const suspeitas = flagSuspiciousOffers(product);
+  const offerIds = validOffers(product, false)
+    .filter((o) => !suspeitas.has(o.id))
+    .map((o) => o.id);
+  if (offerIds.length === 0) return [];
   let points: { recorded_at: string; price_pix: number }[] = [];
 
   const supabase = getSupabase();

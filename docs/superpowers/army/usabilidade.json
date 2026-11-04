@@ -859,7 +859,7 @@
         "wcag": "1.4.10 Reflow",
         "nivel": "AA",
         "status": "atende",
-        "evidencia": "Layouts em grid/coluna única no celular; o e2e “não tem rolagem horizontal no celular” cobre /montar (tests/e2e/montar.spec.ts:66). As outras páginas foram avaliadas só por leitura do CSS (grids responsivos); a tabela de FPS e a de pagamento usam colunas ocultas no celular (hidden sm:table-cell)."
+        "evidencia": "Layouts em grid/coluna única no celular; o e2e “não tem rolagem horizontal no celular” cobre /montar (tests/e2e/montar.spec.ts:66). As outras páginas foram avaliadas só por leitura do CSS (grids responsivos); a tabela “Pagamento por loja” oculta a coluna Itens no celular (hidden sm:table-cell)."
       },
       {
         "wcag": "1.4.11 Contraste não textual",
@@ -1195,7 +1195,7 @@
     },
     {
       "tela": "conta",
-      "trecho": "Avisar quando a montagem custar até  + botão “Criar alerta” (também quando o alerta já existe)",
+      "trecho": "Avisar quando a montagem custar até + botão “Criar alerta” (também quando o alerta já existe)",
       "problema": "ambíguo",
       "onde": "src/components/builder/SaveBuildButton.tsx:164-172; src/app/account/actions.ts:193-195",
       "sugestao": "Quando já existe alerta a ação o atualiza: rótulo “Atualizar alerta”."
@@ -1274,7 +1274,7 @@
     },
     {
       "aspecto": "Desempenho esperado",
-      "v1": "7 PCs de referência ilustrativos, gráfico e FPS em 2 resoluções, sem fonte nem data",
+      "v1": "6 PCs de referência ilustrativos, gráfico e FPS em 2 resoluções, sem fonte nem data",
       "v2": "12 PCs de referência, “PCs parecidos com o seu”, tabela equivalente, FPS com a resolução escolhida em destaque, aviso de memória/upscaling, fontes e mês e link de metodologia",
       "impacto": "alto",
       "evidencia": "montar-desktop.png × w2-montar-desktop.png; PerformancePanel.tsx:66-218"

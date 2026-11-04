@@ -2,6 +2,7 @@
 // "PCs parecidos com o seu" (V2, pacote D), gráfico de comparáveis e a tabela de
 // FPS (a versão textual do gráfico).
 
+import Link from "next/link";
 import { Info } from "lucide-react";
 import type { PerformanceEstimate, ReferenceBuild, Resolution } from "@/models/builder-types";
 import {
@@ -21,11 +22,7 @@ const PERFIS = ["esports", "aaa-medio", "aaa-pesado"] as const;
 const RESOLUCOES = ["1080p", "1440p"] as const;
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-/**
- * Nota de metodologia (docs/METODOLOGIA-DESEMPENHO.md). O app ainda não tem uma página
- * para ela, então o link vai para o arquivo no repositório.
- * TODO(V2-D): trocar por uma página interna (ex.: /metodologia) que renderize o documento.
- */
+/** Página interna que mostra docs/METODOLOGIA-DESEMPENHO.md (src/app/metodologia/page.tsx). */
 const URL_METODOLOGIA = "/metodologia";
 
 /** "2026-10" → "out/2026"; formato inesperado volta como veio. */
@@ -52,7 +49,8 @@ export function PerformancePanel({
   /** Resolução-alvo escolhida pela pessoa (BuildPreferences.resolution): destaca a coluna na tabela de FPS. */
   resolution?: Resolution;
 }) {
-  // TODO(V2-D): a página /montar ainda não passa `references` do servidor (pacote F).
+  // Sem referências válidas (banco configurado mas vazio ou com erro), a estimativa volta
+  // SEM_REFERENCIA: o painel mostra só o índice e o aviso, sem comparações nem FPS.
   const semBase = estimate.closest.id === SEM_REFERENCIA.id;
   const parecidos = semBase ? [] : closestReferences(estimate.score, references, 3);
   const idsParecidos = new Set(parecidos.map((r) => r.id));
@@ -207,14 +205,12 @@ export function PerformancePanel({
             <p className="border-t border-line pt-3 text-xs text-ink-faint">
               Base: estimativa · fontes consultadas em {formatarMes(FONTES_CONSULTADAS_EM)}
               {mesDasFontes && ` (dados de ${formatarMes(mesDasFontes)})`} ·{" "}
-              <a
+              <Link
                 href={URL_METODOLOGIA}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="font-medium text-ink-muted underline underline-offset-2 hover:text-ink"
               >
-                ver metodologia<span className="sr-only"> (abre em nova aba)</span>
-              </a>
+                ver metodologia
+              </Link>
             </p>
           </>
         )}

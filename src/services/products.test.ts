@@ -28,17 +28,25 @@ vi.mock("@/models/supabase", () => ({
 /**
  * Cliente mínimo: `from(tabela)` devolve um construtor encadeável (select, eq,
  * in, order, or, maybeSingle...) que, ao ser aguardado, resolve com a resposta
- * configurada para aquela tabela. Guarda os filtros `in` para conferirmos.
+ * configurada para aquela tabela. Guarda os filtros `in` para conferirmos e,
+ * como o banco, aplica `in(coluna, valores)` às linhas da resposta.
  */
 function clienteFalso(respostas: Record<string, { data: unknown; error: { message: string } | null }>) {
   const chamadas: { tabela: string; metodo: string; args: unknown[] }[] = [];
   const client = {
     from(tabela: string) {
-      const resposta = respostas[tabela] ?? { data: [], error: null };
+      let resposta = respostas[tabela] ?? { data: [], error: null };
       const builder: Record<string, unknown> = {};
       for (const metodo of ["select", "eq", "in", "order", "or", "limit"]) {
         builder[metodo] = (...args: unknown[]) => {
           chamadas.push({ tabela, metodo, args });
+          if (metodo === "in" && Array.isArray(resposta.data)) {
+            const [coluna, valores] = args as [string, unknown[]];
+            resposta = {
+              ...resposta,
+              data: (resposta.data as Record<string, unknown>[]).filter((linha) => valores.includes(linha[coluna])),
+            };
+          }
           return builder;
         };
       }
@@ -209,5 +217,68 @@ describe("dayInSaoPaulo (LOG-13)", () => {
     const hist = await getPriceHistory(MOCK_PRODUCTS[0]);
     expect(hist.length).toBeGreaterThan(0);
     expect(hist.at(-1)!.date).toBe("2026-06-15");
+  });
+});
+
+describe("getPriceHistory honesto (V2, S-17)", () => {
+  // A RTX 4060 do mock tem uma oferta "boa demais" (Promo Center a R$ 1.399,90).
+  const rtx = MOCK_PRODUCTS.find((p) => p.slug === "rtx-4060")!;
+  const SUSPEITA = "o-4060-promocenter";
+
+  /** Menor preço de cada dia só das ofertas honestas (Kabum e Pichau), direto do mock. */
+  function minimoHonesto(): Map<string, number> {
+    const m = new Map<string, number>();
+    for (const id of ["o-4060-kabum", "o-4060-pichau"]) {
+      for (const p of MOCK_HISTORY[id]) {
+        const dia = dayInSaoPaulo(p.recorded_at);
+        m.set(dia, Math.min(m.get(dia) ?? Infinity, p.price_pix));
+      }
+    }
+    return m;
+  }
+
+  it("no mock, o preço suspeito (R$ 1.399,90) não entra no menor preço do dia", async () => {
+    expect(rtx.offers.some((o) => o.id === SUSPEITA && o.price_pix === 1399.9)).toBe(true);
+    MOCK_HISTORY[SUSPEITA] = [{ recorded_at: "2026-06-15T12:00:00Z", price_pix: 1399.9 }];
+    try {
+      const hist = await getPriceHistory(rtx);
+      expect(hist.some((p) => p.price === 1399.9)).toBe(false);
+      expect(hist.at(-1)).toEqual({ date: "2026-06-15", price: minimoHonesto().get("2026-06-15") });
+    } finally {
+      delete MOCK_HISTORY[SUSPEITA];
+    }
+  });
+
+  it("com Supabase, só pede o histórico das ofertas honestas (sem suspeita nem loja bloqueada)", async () => {
+    const bloqueada: Store = { ...rtx.offers[0].store, id: "golpe", name: "Loja do Golpe", blocked: true };
+    const peca: ProductWithOffers = {
+      ...rtx,
+      offers: [
+        ...rtx.offers,
+        { ...rtx.offers[0], id: "o-4060-golpe", store_id: "golpe", price_pix: 999, store: bloqueada },
+      ],
+    };
+    const ponto = (offer_id: string, price_pix: number) => ({ offer_id, recorded_at: "2026-06-15T12:00:00Z", price_pix });
+    const { client, chamadas } = clienteFalso({
+      price_history: {
+        data: [ponto("o-4060-kabum", 1899.9), ponto("o-4060-pichau", 1929.9), ponto(SUSPEITA, 1399.9), ponto("o-4060-golpe", 999)],
+        error: null,
+      },
+    });
+    fake.client = client;
+
+    const hist = await getPriceHistory(peca);
+    const filtro = chamadas.find((c) => c.tabela === "price_history" && c.metodo === "in");
+    expect(filtro?.args[0]).toBe("offer_id");
+    expect(filtro?.args[1]).toEqual(["o-4060-kabum", "o-4060-pichau"]);
+    expect(hist).toEqual([{ date: "2026-06-15", price: 1899.9 }]);
+  });
+
+  it("sem nenhuma oferta honesta, devolve vazio sem consultar o banco", async () => {
+    const { client, chamadas } = clienteFalso({});
+    fake.client = client;
+    const semOfertas: ProductWithOffers = { ...rtx, offers: rtx.offers.map((o) => ({ ...o, in_stock: false })) };
+    expect(await getPriceHistory(semOfertas)).toEqual([]);
+    expect(chamadas.some((c) => c.tabela === "price_history")).toBe(false);
   });
 });

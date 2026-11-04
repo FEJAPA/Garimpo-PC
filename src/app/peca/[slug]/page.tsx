@@ -6,10 +6,15 @@
 //
 // O herói "Melhor preço agora" usa getBestOffer: pula preço zero, loja bloqueada e
 // oferta suspeita. Loja bloqueada aparece na lista com o selo "Bloqueada" e SEM o
-// botão "Ver na loja".
+// botão "Ver na loja". O botão também some se a URL não for http/https (safeHref) ou se
+// a peça estiver sem estoque.
+//
+// "ou Nx de R$ X" segue a mesma leitura do Montador ("Como pagar"): preço a prazo
+// válido e parcelas entre 1 e MAX_INSTALLMENTS. Dado ruim (zero, negativo) não aparece.
 
 import { cache } from "react";
 import type { Metadata } from "next";
+import type { Offer } from "@/models/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, ShieldAlert, ShieldCheck } from "lucide-react";
@@ -17,6 +22,7 @@ import { getProductBySlug, getPriceHistory, usingRealData } from "@/services/pro
 import { registerView } from "@/services/popularity";
 import { storeTrust } from "@/services/builder/trust";
 import { flagSuspiciousOffers } from "@/services/builder/suspicious";
+import { MAX_INSTALLMENTS, validInstallmentPrice } from "@/services/builder/payments";
 import { categoryLabel } from "@/models/categories";
 import { formatBRL, getBestOffer, offerWarning } from "@/lib/format";
 import { StoreBadge } from "@/components/StoreBadge";
@@ -31,6 +37,21 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 // A busca da peça roda duas vezes por visita (título e página); `cache` faz o banco
 // ser consultado uma vez só.
 const carregarPeca = cache(getProductBySlug);
+
+/**
+ * Parcelado que a oferta anuncia, ou null se o dado não serve. Antes, a tela testava
+ * `price_installment && installment_count` e o React escrevia "0" quando um deles era 0
+ * (S-13); e um "99x" do banco aparecia cru, enquanto o Montador limita a 24x (LOG-12).
+ * TODO(V2-E): trocar por offerInstallment(oferta) de src/services/builder/payments.ts
+ * (F-12: uma regra só para a peça, a lista do Montador, "Como pagar" e o CSV).
+ */
+function parceladoDaOferta(oferta: Offer): { count: number; monthly: number; total: number } | null {
+  const total = validInstallmentPrice(oferta);
+  const parcelas = Math.floor(Number(oferta.installment_count));
+  if (total === null || !Number.isFinite(parcelas) || parcelas < 1) return null;
+  const count = Math.min(parcelas, MAX_INSTALLMENTS);
+  return { count, monthly: total / count, total };
+}
 
 export async function generateMetadata(props: PageProps<"/peca/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
@@ -109,6 +130,9 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
               const confianca = storeTrust(oferta.store);
               const suspeita = suspeitas.get(oferta.id);
               const bloqueada = Boolean(oferta.store.blocked);
+              const parcelado = parceladoDaOferta(oferta);
+              // Uma guarda só: link seguro (http/https), em estoque e de loja não bloqueada.
+              const linkDaLoja = oferta.in_stock && !bloqueada ? safeHref(oferta.url) : null;
               const IconeConfianca = confianca.trusted ? ShieldCheck : ShieldAlert;
               return (
                 <li key={oferta.id} className={`flex flex-col gap-3 p-4 ${i > 0 ? "border-t border-line" : ""}`}>
@@ -139,15 +163,14 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
                       <div className="text-right">
                         <p className="text-xs text-ink-faint">à vista / Pix</p>
                         <p className="tnum text-xl font-semibold text-ink">{formatBRL(oferta.price_pix)}</p>
-                        {oferta.price_installment && oferta.installment_count && (
+                        {parcelado && (
                           <p className="tnum text-xs text-ink-faint">
-                            ou {oferta.installment_count}x de {formatBRL(oferta.price_installment / oferta.installment_count)} (
-                            {formatBRL(oferta.price_installment)})
+                            ou {parcelado.count}x de {formatBRL(parcelado.monthly)} ({formatBRL(parcelado.total)})
                           </p>
                         )}
                       </div>
-                      {oferta.url && safeHref(oferta.url) && oferta.in_stock && !bloqueada && (
-                        <ButtonLink href={oferta.url} external size="sm">
+                      {linkDaLoja && (
+                        <ButtonLink href={linkDaLoja} external size="sm">
                           Ver na loja
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                         </ButtonLink>

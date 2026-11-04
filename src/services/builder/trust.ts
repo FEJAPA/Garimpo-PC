@@ -36,25 +36,45 @@ function lerNumero(valor: unknown): number | null {
 }
 
 /**
- * Avalia se a loja é confiável e explica o porquê.
+ * A decisão "confiável ou não", sem montar texto nenhum (V2, S-14).
  *
  * Regras: bloqueada → nunca; senão precisa ser oficial E ter nota >= 4,5; se o
  * Reclame Aqui for informado e ficar abaixo de 6, deixa de ser confiável. Sem
  * Reclame Aqui informado, vale a regra da V1 (oficial + nota).
  *
+ * Por que separada: `getBestOffer` e `flagSuspiciousOffers` perguntam isto 2 a
+ * 3 vezes por oferta em /busca, /peca e nos alertas. Montar os motivos (com
+ * `toLocaleString`) só para devolver um sim/não custava ~37 µs por chamada.
+ * `storeTrust` usa esta mesma função, então as duas nunca discordam.
+ *
+ * Nota e Reclame Aqui podem chegar como texto; passam por `Number()` (ver
+ * `lerNumero`) para a regra nunca ser pulada em silêncio.
+ */
+export function isTrustedStore(store: Store): boolean {
+  if (store.blocked) return false;
+  // Nota ilegível vale 0: nunca é confiável.
+  const nota = lerNumero(store.rating) ?? 0;
+  if (!store.is_official || nota < TRUSTED_MIN_RATING) return false;
+  const ra = lerNumero(store.reclame_aqui_score);
+  return !(ra !== null && ra < RECLAME_AQUI_MIN);
+}
+
+/**
+ * Avalia se a loja é confiável e explica o porquê em linguagem simples.
+ * A decisão vem de `isTrustedStore`; aqui só se escrevem os motivos.
+ *
  * Nota, avaliações, Reclame Aqui e anos podem chegar como texto; todos passam
- * por `Number()` (ver `lerNumero`) para a regra nunca ser pulada em silêncio.
+ * por `Number()` (ver `lerNumero`).
  */
 export function storeTrust(store: Store): StoreTrust {
   if (store.blocked) {
     return { trusted: false, reasons: ["Loja bloqueada por denúncias"] };
   }
 
-  // Nota ilegível vale 0: nunca é confiável.
+  const trusted = isTrustedStore(store);
   const nota = lerNumero(store.rating) ?? 0;
   const avaliacoes = lerNumero(store.rating_count) ?? 0;
   const reasons: string[] = [];
-  let trusted = store.is_official && nota >= TRUSTED_MIN_RATING;
 
   reasons.push(store.is_official ? "Loja oficial" : "Não é loja oficial");
 
@@ -67,7 +87,6 @@ export function storeTrust(store: Store): StoreTrust {
   const ra = lerNumero(store.reclame_aqui_score);
   if (ra !== null) {
     if (ra < RECLAME_AQUI_MIN) {
-      trusted = false;
       reasons.push(`Reclame Aqui baixo (${umaCasa(ra)})`);
     } else if (ra >= RECLAME_AQUI_GOOD) {
       reasons.push(`Reclame Aqui ${umaCasa(ra)}`);
@@ -82,22 +101,17 @@ export function storeTrust(store: Store): StoreTrust {
   return { trusted, reasons };
 }
 
-/** Confiável = storeTrust(store).trusted (oficial, nota >= 4,5, sem bloqueio nem Reclame Aqui baixo). */
-export function isTrustedStore(store: Store): boolean {
-  return storeTrust(store).trusted;
-}
-
 /** Os três estados de confiança que a tela mostra (selo, rótulo e cor). */
 export type TrustLevel = "trusted" | "unverified" | "blocked";
 
 /**
  * Estado de confiança para a tela, vindo da MESMA régua do filtro do Montador
- * (`storeTrust`). Selo, rótulo e cor usam isto, nunca a nota sozinha: uma loja
+ * (`isTrustedStore`, que `storeTrust` também usa). Selo, rótulo e cor usam isto, nunca a nota sozinha: uma loja
  * não oficial com nota 4,7 é "unverified", não "confiável".
  */
 export function trustLevel(store: Store): TrustLevel {
   if (store.blocked) return "blocked";
-  return storeTrust(store).trusted ? "trusted" : "unverified";
+  return isTrustedStore(store) ? "trusted" : "unverified";
 }
 
 /** Preço Pix utilizável: número finito e maior que zero (V2, A2). */

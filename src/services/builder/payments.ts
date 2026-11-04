@@ -5,17 +5,23 @@
 // no Pix). Por isso:
 //
 // - Preço a prazo da loja = soma dos `price_installment` das ofertas (oferta sem
-//   preço parcelado válido entra pelo preço do Pix e não parcela).
+//   preço parcelado válido entra pelo preço do Pix e não parcela). Preço a prazo
+//   abaixo do Pix é dado ruim: vale o Pix (S-06), para o cartão nunca parecer
+//   mais barato que o Pix.
 // - V1 (sem tabela de juros): o preço a prazo vale para qualquer número de
 //   parcelas até o máximo que a loja oferece.
-// - V2 (pacote E, com tabela `InstallmentRate[]`): total em n parcelas =
-//   max(preço a prazo, pixTotal × fator(n)). A tabela só pode ENCARECER o
-//   parcelado (juros acima do preço a prazo), nunca baratear abaixo do que a
-//   própria oferta anuncia. "Sem acréscimo até Nx" = mesmo preço a prazo da
-//   oferta até Nx. A loja parcela até o maior número da tabela.
-// - Cada loja é um pagamento separado: se você escolhe 12x e uma loja só parcela
-//   em 6x, ela fica em 6x e as outras seguem até 12x. Por isso o plano tem
-//   FAIXAS (ex.: "6x de R$ 195 + 6x de R$ 140").
+// - V2 (pacote E, com tabela `InstallmentRate[]`):
+//   - até o número de parcelas que as ofertas da loja ANUNCIAM (o menor entre
+//     elas, `offersInstallmentCount`), vale o preço a prazo anunciado (S-03): se
+//     a peça diz "ou 10x de R$ 195", a loja cobra isso em 10x;
+//   - acima disso, total em n parcelas = max(preço a prazo, pixTotal × fator(n)).
+//     A tabela só pode ENCARECER o parcelado, nunca baratear abaixo do preço a
+//     prazo;
+//   - a loja parcela até o maior número da tabela.
+// - Cada loja é um pagamento separado e limita só as parcelas dela (S-04): se
+//   você escolhe 12x e uma loja só parcela em 6x (ou só aceita Pix), ela fica em
+//   6x (ou 1x) e as outras seguem até 12x. Por isso o plano tem FAIXAS (ex.:
+//   "6x de R$ 195 + 6x de R$ 140").
 // - Centavos: o resto da divisão vai na 1ª parcela de cada loja, para a soma
 //   das parcelas fechar exatamente o total.
 //
@@ -58,6 +64,14 @@ function parcelasPedidas(count: number): number {
 export function validInstallmentPrice(offer: Pick<Offer, "price_installment">): number | null {
   const v = offer.price_installment;
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/**
+ * Preço a prazo usado nas contas (S-06): o anunciado, mas nunca abaixo do Pix.
+ * Sem preço parcelado válido, é o próprio Pix.
+ */
+function precoAPrazo(offer: Pick<Offer, "price_pix" | "price_installment">): number {
+  return Math.max(offer.price_pix, validInstallmentPrice(offer) ?? offer.price_pix);
 }
 
 /** Parcelas que a oferta anuncia, entre 1 e 24 (LOG-12). Sem preço parcelado válido = 1. */
@@ -120,9 +134,14 @@ function maximoDaLoja(loja: StorePayment): number {
   return Math.min(MAX_INSTALLMENTS, Math.max(1, loja.installmentCount));
 }
 
-/** Total da loja em `n` parcelas (n já limitado ao máximo dela). */
+/**
+ * Total da loja em `n` parcelas (n já limitado ao máximo dela).
+ * Até o que as ofertas anunciam vale o preço a prazo delas (S-03); acima, a
+ * tabela decide, sem nunca ficar abaixo do preço a prazo.
+ */
 function totalDaLoja(loja: StorePayment, n: number): number {
   if (!temTabela(loja)) return loja.installmentTotal;
+  if (n <= (loja.offersInstallmentCount ?? 0)) return loja.installmentTotal;
   return round2(Math.max(loja.installmentTotal, loja.pixTotal * rateFor(loja.interestTable, n)));
 }
 
@@ -246,12 +265,45 @@ export function installmentOptions(summary: PaymentSummary): InstallmentOption[]
   });
 }
 
-/** Onde o seletor abre: no maior número de parcelas sem acréscimo; se todas têm, no máximo. */
+/**
+ * Onde o seletor abre: no maior número de parcelas sem acréscimo. Se todas têm
+ * acréscimo, no parcelado mais barato (S-05), e não no máximo, que costuma ser
+ * o mais caro.
+ */
 export function defaultInstallmentCount(summary: PaymentSummary): number {
   const opcoes = installmentOptions(summary);
   const semAcrescimo = opcoes.filter((o) => o.extra === 0);
   if (semAcrescimo.length > 0) return semAcrescimo[semAcrescimo.length - 1].count;
-  return opcoes[opcoes.length - 1]?.count ?? 1;
+  return summary.bestInstallment?.count ?? opcoes[opcoes.length - 1]?.count ?? 1;
+}
+
+/** Tabelas de juros por id de loja, remontadas a partir do resumo (para o modo Misturar, a lista e o CSV). */
+export function interestTablesOf(summary: PaymentSummary): Record<string, InstallmentRate[]> {
+  const tabelas: Record<string, InstallmentRate[]> = {};
+  for (const s of summary.stores) if (s.interestTable && s.interestTable.length > 0) tabelas[s.store.id] = s.interestTable;
+  return tabelas;
+}
+
+/**
+ * O parcelado que UMA oferta anuncia, para "ou 10x de R$ 209,99" (F-12/F-13).
+ * É a mesma conta de "Como pagar" para essa oferta sozinha, para a lista de
+ * peças, a página da peça e o CSV nunca dizerem outra coisa:
+ * - sem preço a prazo válido: null (só à vista);
+ * - parcelas: as anunciadas, entre 1 e 24; sem número informado, 1x;
+ * - com tabela de juros da loja: no máximo o maior número da tabela;
+ * - total: o preço a prazo, nunca abaixo do Pix (S-06);
+ * - `monthly`: a parcela "cheia", sem o resto dos centavos (que a loja soma na 1ª).
+ */
+export function offerInstallment(
+  offer: Pick<Offer, "price_pix" | "price_installment" | "installment_count">,
+  table?: InstallmentRate[]
+): { count: number; monthly: number; total: number } | null {
+  if (validInstallmentPrice(offer) === null) return null;
+  const tabela = tabelaValida(table);
+  const maximo = tabela.length > 0 ? tabela[tabela.length - 1].count : MAX_INSTALLMENTS;
+  const count = Math.min(parcelasDaOferta(offer), maximo);
+  const total = round2(precoAPrazo(offer));
+  return { count, monthly: dividir(total, count).base / 100, total };
 }
 
 /**
@@ -266,8 +318,10 @@ export function buildPaymentSummary(
 
   for (const part of parts) {
     const { offer } = part;
-    const parcelado = validInstallmentPrice(offer) ?? offer.price_pix;
     const parcelas = parcelasDaOferta(offer);
+    // Oferta só com preço do Pix não anuncia parcelas (0): numa loja com tabela,
+    // a tabela vale desde 1x para o carrinho dessa loja.
+    const anunciadas = validInstallmentPrice(offer) === null ? 0 : parcelas;
 
     const atual = porLoja.get(offer.store.id) ?? {
       store: offer.store,
@@ -275,22 +329,22 @@ export function buildPaymentSummary(
       pixTotal: 0,
       installmentTotal: 0,
       installmentCount: Number.POSITIVE_INFINITY,
+      offersInstallmentCount: Number.POSITIVE_INFINITY,
     };
     atual.items += 1;
     atual.pixTotal = round2(atual.pixTotal + offer.price_pix);
-    atual.installmentTotal = round2(atual.installmentTotal + parcelado);
+    atual.installmentTotal = round2(atual.installmentTotal + precoAPrazo(offer));
     // Na mesma loja, o carrinho inteiro respeita o menor máximo entre os itens.
     atual.installmentCount = Math.min(atual.installmentCount, parcelas);
+    atual.offersInstallmentCount = Math.min(atual.offersInstallmentCount ?? 0, anunciadas);
     porLoja.set(offer.store.id, atual);
   }
 
   // Lojas com tabela de juros: a tabela manda no máximo de parcelas. O preço a
   // prazo (installmentTotal) continua o das ofertas: é o piso do parcelado.
-  let algumaTabela = false;
   for (const loja of porLoja.values()) {
     const tabela = tabelaValida(tables?.[loja.store.id]);
     if (tabela.length === 0) continue;
-    algumaTabela = true;
     loja.interestTable = tabela;
     loja.installmentCount = maximoDaLoja(loja);
   }
@@ -298,13 +352,10 @@ export function buildPaymentSummary(
   const stores = [...porLoja.values()].sort((a, b) => b.pixTotal - a.pixTotal);
   const pixTotal = round2(stores.reduce((s, l) => s + l.pixTotal, 0));
   const installmentTotal = round2(stores.reduce((s, l) => s + l.installmentTotal, 0));
-  // V1: o carrinho todo segue a loja que parcela em menos vezes.
-  // V2 (com tabela): cada loja limita a sua, então o máximo geral é o MAIOR.
-  const maxInstallments = stores.length
-    ? algumaTabela
-      ? Math.max(...stores.map(maximoDaLoja))
-      : Math.min(...stores.map((l) => l.installmentCount))
-    : 1;
+  // S-04: cada loja limita só as parcelas dela (as faixas cuidam de quem termina
+  // antes), então o máximo geral é o MAIOR entre as lojas, com ou sem tabela.
+  // Uma loja só no Pix não derruba mais o carrinho inteiro para 1x.
+  const maxInstallments = stores.length ? Math.max(...stores.map(maximoDaLoja)) : 1;
 
   const resumo: PaymentSummary = { pixTotal, installmentTotal, maxInstallments, pixSavings: 0, stores };
 
@@ -315,6 +366,7 @@ export function buildPaymentSummary(
   const candidatas = opcoes.length > 1 ? opcoes.slice(1) : opcoes;
   const melhor = candidatas.reduce((a, b) => (centavos(b.total) <= centavos(a.total) ? b : a));
   resumo.bestInstallment = { count: melhor.count, total: melhor.total };
-  resumo.pixSavings = round2(melhor.total - pixTotal);
+  // Com o preço a prazo nunca abaixo do Pix (S-06), isto já é ≥ 0; o max é a garantia.
+  resumo.pixSavings = Math.max(0, round2(melhor.total - pixTotal));
   return resumo;
 }

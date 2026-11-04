@@ -21,6 +21,11 @@ const TOM_POR_NIVEL: Record<TrustLevel, BadgeTone> = {
   blocked: "bad",
 };
 
+/** Nota com uma casa e vírgula ("4,8"), igual aos motivos ao lado ("Nota 4,8"). S-21. */
+function notaBR(nota: number): string {
+  return nota.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
 export function StoreBadge({
   store,
   showLabel = false,
@@ -35,7 +40,7 @@ export function StoreBadge({
   const trust = storeTrust(store);
   const nivel = trustLevel(store);
   const resumo = `${trust.trusted ? "Loja confiável" : "Loja não marcada como confiável"}: ${trust.reasons.join("; ")}`;
-  // A nota pode chegar como texto do banco; Number() evita quebrar o toFixed.
+  // A nota pode chegar como texto do banco; Number() evita quebrar a formatação.
   const nota = Number(store.rating);
   const avaliacoes = Number(store.rating_count);
 
@@ -59,7 +64,7 @@ export function StoreBadge({
         title={Number.isFinite(avaliacoes) ? `${avaliacoes.toLocaleString("pt-BR")} avaliações` : undefined}
       >
         <Star className="h-3 w-3 fill-current" aria-hidden />
-        <span className="tnum">{Number.isFinite(nota) ? nota.toFixed(1) : "–"}</span>
+        <span className="tnum">{Number.isFinite(nota) ? notaBR(nota) : "–"}</span>
         {showLabel && !store.blocked && <span className="opacity-80">· {trustLabel(store)}</span>}
       </Badge>
       {announceReasons && <span className="sr-only">{resumo}</span>}

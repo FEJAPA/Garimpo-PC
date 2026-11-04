@@ -7,6 +7,11 @@
 // ex.: "/montar" ou "/peca/rtx-4060"). Depois de entrar, voltamos para lá, mas só
 // se for um caminho INTERNO; qualquer outra coisa vai para /conta (evita o
 // "redirecionamento aberto", em que um link nosso levaria a um site de golpe).
+//
+// S-15 / F-10: a volta para /entrar leva só CÓDIGOS na URL (?erro=credenciais,
+// ?mensagem=conta-criada), e a página traduz por um mapa fixo. Se a URL levasse
+// texto, qualquer pessoa poderia mandar um link nosso com "Sua conta foi
+// bloqueada, ligue para 0800..." numa caixa com cara de aviso oficial.
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -43,7 +48,7 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/entrar?erro=${encodeURIComponent(traduzErro(error.message))}${comNext(next)}`);
+    redirect(`/entrar?erro=${traduzErro(error)}${comNext(next)}`);
   }
   revalidatePath("/", "layout");
   redirect(next ?? "/conta");
@@ -59,10 +64,10 @@ export async function signup(formData: FormData) {
   const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    redirect(`/entrar?erro=${encodeURIComponent(traduzErro(error.message))}${comNext(next)}`);
+    redirect(`/entrar?erro=${traduzErro(error)}${comNext(next)}`);
   }
-  // Dependendo da config do Supabase, pode exigir confirmação por e-mail.
-  redirect("/entrar?mensagem=" + encodeURIComponent("Conta criada! Você já pode entrar.") + comNext(next));
+  // Dependendo da config do Supabase, pode exigir confirmação por e-mail (a página explica).
+  redirect(`/entrar?mensagem=conta-criada${comNext(next)}`);
 }
 
 /** Sair da conta. */
@@ -73,11 +78,28 @@ export async function logout() {
   redirect("/");
 }
 
-// Traduz algumas mensagens de erro comuns do Supabase para português.
-function traduzErro(msg: string): string {
-  if (msg.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
-  if (msg.includes("already registered")) return "Este e-mail já está cadastrado.";
-  if (msg.includes("Password should be")) return "A senha deve ter pelo menos 6 caracteres.";
-  if (msg.includes("valid email")) return "Digite um e-mail válido.";
-  return "Não foi possível concluir. Tente novamente.";
+/**
+ * Código do erro para a URL de /entrar (a página traduz). Olha primeiro o
+ * `code` do Supabase (estável) e depois o texto da mensagem (versões antigas).
+ * Qualquer outra coisa vira "generico": o texto do Supabase nunca vai para a URL.
+ */
+function traduzErro(error: { message?: string; code?: string }):
+  | "credenciais"
+  | "email-nao-confirmado"
+  | "ja-cadastrado"
+  | "senha-curta"
+  | "email-invalido"
+  | "generico" {
+  const code = error.code ?? "";
+  const msg = error.message ?? "";
+  if (code === "invalid_credentials" || msg.includes("Invalid login credentials")) return "credenciais";
+  if (code === "email_not_confirmed" || msg.includes("Email not confirmed")) return "email-nao-confirmado";
+  if (code === "user_already_exists" || code === "email_exists" || msg.includes("already registered")) {
+    return "ja-cadastrado";
+  }
+  if (code === "weak_password" || msg.includes("Password should be")) return "senha-curta";
+  if (code === "email_address_invalid" || /valid email|validate email|invalid format/i.test(msg)) {
+    return "email-invalido";
+  }
+  return "generico";
 }

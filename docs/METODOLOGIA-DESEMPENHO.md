@@ -22,14 +22,12 @@ Comparamos a sua montagem com 12 computadores de referência, do "equivalente a 
 De onde vêm os números:
 
 - Parte dos índices das peças vem do catálogo de exemplo do app, que se declara **ilustrativo
-  (V1)**. Eles serão trocados por dados de verdade (ver `docs/COLETA-SPECS.md`).
+  (V1)**. Eles serão trocados por dados de verdade.
 - O resto foi derivado de agregados públicos: **checkfps.io** e as hierarquias de desempenho
-  do **Tom's Hardware**. O próprio checkfps.io diz que *estima* os FPS com um modelo próprio e
+  do **Tom's Hardware**. O próprio checkfps.io diz que estima os FPS com um modelo próprio e
   que a margem de erro típica é de ±10–15% frente a testes reais.
 - **Mês de referência das fontes: maio/2026.** É o mês que o checkfps.io informa para a última
   atualização do banco de dados dele (30/05/2026). Consultamos as fontes em **novembro/2026**.
-  O campo `measuredAt` no código guarda esse mês de referência; apesar do nome, não é data de
-  medição.
 - Os preços dos computadores de referência são uma ordem de grandeza do preço no Brasil, não
   uma cotação.
 
@@ -69,10 +67,3 @@ números **não contam esse ganho**. A nota na tela lista só o que a placa esco
   nem otimização de cada título.
 - Não estimamos 4K nem ray tracing.
 - Se não houver computadores de referência disponíveis, a tela avisa e não mostra FPS.
-
-## 7. Onde isso está no código
-
-- Conta: `src/services/builder/performance.ts` (com testes ao lado).
-- Referências: `src/models/reference-builds.ts` e `supabase/seed-references.sql` (o mesmo
-  conteúdo; um teste confere que não divergem).
-- Telas: `src/components/builder/PerformancePanel.tsx` e `PerformanceChart.tsx`.

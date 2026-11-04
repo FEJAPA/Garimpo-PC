@@ -1,9 +1,15 @@
 // Testes e2e do Montador de PC (/montar): o caminho feliz, o caso sem solução,
 // a ausência de rolagem horizontal no celular, o perfil de uso e a resolução,
-// a aba "Misturar" do pagamento e o link de compartilhamento (?b=).
+// a aba "Misturar" do pagamento, o parcelado (onde o seletor abre e as faixas
+// quando as lojas param em prazos diferentes), o filtro de lojas desligado e o
+// link de compartilhamento (?b=).
 //
 // A montagem roda no navegador (BuilderForm), então basta abrir a página,
 // clicar em "Montar meu PC" e esperar o resultado aparecer.
+//
+// Regra destes testes (S-16): nada de `if` conferindo só "quando acontecer". Cada
+// teste afirma o que TEM de aparecer (ou não) no cenário do modo de demonstração;
+// se o cenário mudar, o teste quebra e alguém olha, em vez de passar por acaso.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
@@ -13,10 +19,38 @@ function lerReais(texto: string): number {
   return Number(limpo);
 }
 
+/** Valor em reais, com ou sem espaço (comum ou não separável) depois do "R$". */
+const REAIS = String.raw`R\$\s*[\d.]+,\d{2}`;
+
 /** Valor mostrado logo abaixo do rótulo "Total no Pix" do cabeçalho do resultado. */
 function totalNoPix(page: Page): Locator {
   // "Total no Pix" aparece também no plano de pagamento; o primeiro é o do cabeçalho.
   return page.getByText("Total no Pix").first().locator("xpath=following-sibling::p[1]");
+}
+
+/** Lista de peças do resultado (um <li> por peça). */
+function listaDePecas(page: Page): Locator {
+  return page.locator("section", { has: page.getByRole("heading", { name: "Peças", exact: true }) });
+}
+
+/**
+ * Bloco do modo "Parcelado" com a manchete ("10x de R$ 761,52", ou faixas
+ * "10x de R$ … + 2x de R$ …") e o "Total parcelado". Lido com `innerText`, como a
+ * pessoa vê (cada parágrafo numa linha).
+ */
+function blocoDoParcelado(page: Page): Locator {
+  return page.getByText(/^Total parcelado/).locator("xpath=..");
+}
+
+/** Faixas "Nx de R$ X" da manchete, na ordem, e o "Total parcelado". */
+async function lerParcelado(page: Page) {
+  const texto = await blocoDoParcelado(page).innerText();
+  const faixas = [...texto.matchAll(new RegExp(String.raw`(\d+)x de\s+(${REAIS})`, "g"))].map((m) => ({
+    count: Number(m[1]),
+    monthly: lerReais(m[2]),
+  }));
+  const total = lerReais(texto.match(new RegExp(String.raw`Total parcelado\s+(${REAIS})`))?.[1] ?? "");
+  return { faixas, total };
 }
 
 async function montar(page: Page, alvo: number, teto: number) {
@@ -48,12 +82,77 @@ test.describe("Montador de PC", () => {
 
     await parcelado.click();
     await expect(parcelado).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByText(/^\d+x de$/)).toBeVisible();
+    await expect(blocoDoParcelado(page)).toHaveText(new RegExp(String.raw`^\s*\d+x de\s+${REAIS}`), {
+      useInnerText: true,
+    });
     await expect(page.getByLabel("Número de parcelas")).toBeVisible();
 
-    // Mudar o número de parcelas atualiza o texto "Nx de".
+    // Mudar o número de parcelas atualiza a manchete "Nx de R$ …".
     await page.getByLabel("Número de parcelas").selectOption("1");
-    await expect(page.getByText(/^1x de$/)).toBeVisible();
+    await expect(blocoDoParcelado(page)).toHaveText(new RegExp(String.raw`^\s*1x de\s+${REAIS}`), {
+      useInnerText: true,
+    });
+  });
+
+  test("parcelado abre no maior número sem acréscimo e mostra as faixas quando uma loja para antes (S-03)", async ({
+    page,
+  }) => {
+    // Filtro "Só lojas confiáveis" ligado (padrão). No demo, 6000/7000 sai com peças da
+    // Pichau, da KaBuM! e da Terabyte; todas as ofertas anunciam "10x", e a Terabyte
+    // não parcela além de 10x. Então: 1x a 10x pelo preço a prazo; 11x e 12x com acréscimo
+    // (juros da KaBuM!) e em faixas, porque a Terabyte termina na 10ª parcela.
+    await montar(page, 6000, 7000);
+    await expect(page.getByText("Total no Pix").first()).toBeVisible();
+    // "ou R$ X parcelado" do cabeçalho: o parcelado mais barato (S-09).
+    const cabecalhoParcelado = page.getByText(new RegExp(String.raw`^ou ${REAIS} parcelado$`));
+    await expect(cabecalhoParcelado).toBeVisible();
+    const parceladoDoCabecalho = lerReais((await cabecalhoParcelado.textContent()) ?? "");
+
+    await page.getByRole("button", { name: "Parcelado" }).click();
+    const seletor = page.getByLabel("Número de parcelas");
+    await expect(seletor).toBeVisible();
+
+    // Opções: "Nx · sem acréscimo" ou "Nx · +R$ X", com value numérico, de 1x ao máximo.
+    const opcoes = await seletor
+      .locator("option")
+      .evaluateAll((os) => os.map((o) => ({ value: (o as HTMLOptionElement).value, texto: o.textContent ?? "" })));
+    expect(opcoes.map((o) => o.value)).toEqual(opcoes.map((_, i) => String(i + 1)));
+    for (const o of opcoes) {
+      expect(o.texto).toMatch(new RegExp(String.raw`^${o.value}x · (sem acréscimo|\+${REAIS})$`));
+    }
+    const semAcrescimo = opcoes.filter((o) => o.texto.endsWith("sem acréscimo")).map((o) => Number(o.value));
+    const maiorSemAcrescimo = Math.max(...semAcrescimo);
+    // A oferta diz "10x" e é isso que vale (S-03), não o "até 6x" da tabela da Terabyte.
+    expect(maiorSemAcrescimo).toBe(10);
+    // O máximo é o da loja que parcela em mais vezes (S-04), não o da que parcela em menos.
+    expect(opcoes).toHaveLength(12);
+
+    // Abre no maior número de parcelas sem acréscimo.
+    await expect(seletor).toHaveValue(String(maiorSemAcrescimo));
+    await expect(seletor.locator("option:checked")).toHaveText(new RegExp(`^${maiorSemAcrescimo}x · sem acréscimo$`));
+
+    // Manchete "10x de R$ …" (uma faixa só) que fecha com o total, e o total é o preço a prazo.
+    await expect(blocoDoParcelado(page)).toHaveText(new RegExp(String.raw`^\s*${maiorSemAcrescimo}x de\s+${REAIS}`), {
+      useInnerText: true,
+    });
+    const padrao = await lerParcelado(page);
+    expect(padrao.faixas.map((f) => f.count)).toEqual([maiorSemAcrescimo]);
+    expect(padrao.total).toBe(parceladoDoCabecalho);
+    // O resto dos centavos vai na 1ª parcela: a manchete fica no máximo alguns centavos abaixo.
+    const diferencaPadrao = padrao.total - padrao.faixas[0].count * padrao.faixas[0].monthly;
+    expect(diferencaPadrao).toBeGreaterThanOrEqual(-0.005);
+    expect(diferencaPadrao).toBeLessThan(1);
+
+    // 12x: a Terabyte para em 10x, então aparecem duas faixas ("10x de … + 2x de …").
+    await seletor.selectOption("12");
+    await expect(seletor.locator("option:checked")).toHaveText(new RegExp(String.raw`^12x · \+${REAIS}$`));
+    await expect(blocoDoParcelado(page).getByText(new RegExp(String.raw`^\+\s*2x de\s+${REAIS}$`))).toBeVisible();
+    const emFaixas = await lerParcelado(page);
+    expect(emFaixas.faixas.map((f) => f.count)).toEqual([10, 2]);
+    expect(emFaixas.total).toBeGreaterThan(padrao.total);
+    const somaDasFaixas = emFaixas.faixas.reduce((s, f) => s + f.count * f.monthly, 0);
+    expect(emFaixas.total - somaDasFaixas).toBeGreaterThanOrEqual(-0.005);
+    expect(emFaixas.total - somaDasFaixas).toBeLessThan(1);
   });
 
   test("avisa quando o orçamento é pequeno demais para montar", async ({ page }) => {
@@ -153,7 +252,7 @@ test.describe("Montador de PC", () => {
     await expect(page.getByText("Total no Pix")).toHaveCount(0);
   });
 
-  test("com o filtro de lojas desligado, não recomenda em silêncio a oferta 'boa demais' (R-01)", async ({ page }) => {
+  test("com o filtro de lojas desligado, não recomenda a oferta 'boa demais' (R-01, S-16)", async ({ page }) => {
     await page.goto("/montar?alvo=6000&teto=7000");
     const filtro = page.getByRole("switch", { name: "Só lojas confiáveis" });
     await filtro.click();
@@ -161,12 +260,12 @@ test.describe("Montador de PC", () => {
     await page.getByRole("button", { name: "Montar meu PC" }).click();
     await expect(page.getByText("Total no Pix").first()).toBeVisible();
 
-    // A oferta do marketplace a R$ 1.399,90 (27% abaixo das confiáveis) ou fica de fora
-    // ou aparece com o aviso "Preço bom demais?" na própria peça.
-    const pecas = page.locator("section", { has: page.getByRole("heading", { name: "Peças", exact: true }) });
-    const temOfertaSuspeita = (await pecas.getByText(/1\.399,90/).count()) > 0;
-    if (temOfertaSuspeita) await expect(pecas.getByText("Preço bom demais?")).toBeVisible();
-    // Cada peça explica por que a loja é (ou não) confiável.
-    await expect(pecas.getByText(/^Por que (não marcamos como )?confiável:/)).toHaveCount(7);
+    const pecas = listaDePecas(page);
+    await expect(pecas.locator("ul > li")).toHaveCount(7);
+    // A RTX 4060 do marketplace a R$ 1.399,90 (~26% abaixo das lojas confiáveis) é
+    // "boa demais": o Montador prefere a oferta não suspeita, então esse preço não entra.
+    await expect(pecas.getByText(/1\.399,90/)).toHaveCount(0);
+    // Cada peça mostra o selo da loja (nome, nota e por que é ou não confiável, na dica).
+    await expect(pecas.getByTitle(/^Loja (confiável|não marcada como confiável):/)).toHaveCount(7);
   });
 });

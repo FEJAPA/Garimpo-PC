@@ -1,7 +1,10 @@
 // Página /metodologia: mostra docs/METODOLOGIA-DESEMPENHO.md dentro do site, para a
 // pessoa entender de onde vêm o Índice GarimpoPC e os FPS estimados. O arquivo é lido
 // no servidor (ver `outputFileTracingIncludes` em next.config.ts) e convertido com um
-// renderizador mínimo de Markdown (títulos, listas, parágrafos, negrito, código, links).
+// renderizador mínimo de Markdown (títulos, listas, parágrafos, negrito, itálico, código,
+// links). O .md é texto PÚBLICO: nada de caminhos de arquivo ou nomes de campos do código
+// nele (os apontamentos para desenvolvedores ficam nos comentários de performance.ts e
+// reference-builds.ts).
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -17,10 +20,13 @@ export const metadata: Metadata = {
 
 const ARQUIVO = path.join(process.cwd(), "docs", "METODOLOGIA-DESEMPENHO.md");
 
-/** Negrito, código e links dentro de uma linha. */
+/**
+ * Negrito, itálico, código e links dentro de uma linha. O itálico (`*assim*`) não pode
+ * começar nem terminar com espaço: "2 * 3" continua sendo texto, e `**` é negrito.
+ */
 function inline(texto: string): ReactNode[] {
   const partes: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  const re = /(\*\*[^*]+\*\*|\*(?!\s)[^*]+(?<!\s)\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let ultimo = 0;
   let m: RegExpExecArray | null;
   let k = 0;
@@ -28,6 +34,7 @@ function inline(texto: string): ReactNode[] {
     if (m.index > ultimo) partes.push(texto.slice(ultimo, m.index));
     const t = m[0];
     if (t.startsWith("**")) partes.push(<strong key={k++}>{t.slice(2, -2)}</strong>);
+    else if (t.startsWith("*")) partes.push(<em key={k++}>{t.slice(1, -1)}</em>);
     else if (t.startsWith("`")) partes.push(<code key={k++} className="rounded bg-surface-2 px-1 py-0.5 text-[0.9em]">{t.slice(1, -1)}</code>);
     else {
       const [, rotulo, url] = /\[([^\]]+)\]\(([^)]+)\)/.exec(t) ?? [];
@@ -87,8 +94,10 @@ export default async function MetodologiaPage() {
   let md = "";
   try {
     md = await fs.readFile(ARQUIVO, "utf8");
-  } catch {
-    md = "## Documento indisponível\n\nO arquivo docs/METODOLOGIA-DESEMPENHO.md não foi encontrado nesta instalação.";
+  } catch (e) {
+    // O caminho vai só para o log (quem cuida do site); a pessoa vê um aviso simples.
+    console.error(`Não foi possível ler ${ARQUIVO}:`, (e as Error).message);
+    md = "## Explicação indisponível\n\nNão conseguimos carregar a explicação da metodologia agora. Tente de novo mais tarde.";
   }
   const conteudo = blocos(md);
 
