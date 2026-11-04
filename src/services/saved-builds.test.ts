@@ -16,6 +16,7 @@ import {
 } from "./saved-builds";
 import type { BuildPart, BuildPreferences, BuildSuccess } from "@/models/builder-types";
 import type { OfferWithStore, ProductWithOffers, Store } from "@/models/types";
+import { MOCK_PRODUCTS } from "@/models/mock-data";
 
 const loja = (id: string, extra: Partial<Store> = {}): Store => ({
   id,
@@ -268,6 +269,12 @@ describe("currentBuildTotal", () => {
     const semEstoque = produto("p-cpu", "ryzen-5-7600", [oferta("o-cpu-kabum", "p-cpu", kabum, 1100, false)]);
     expect(currentBuildTotal(partes, [gpu, semEstoque])).toEqual({ total: 1850, missing: ["p-cpu"] });
     expect(currentBuildTotal(partes, [gpu])).toEqual({ total: 1850, missing: ["p-cpu"] });
+  });
+
+  it("R-01: a oferta suspeita da marketplace não vira o total (mesma régua do Melhor preço)", () => {
+    const rtx = MOCK_PRODUCTS.find((p) => p.slug === "rtx-4060")!;
+    const r = currentBuildTotal([{ productId: rtx.id, offerId: "o-4060-kabum", price: 1899.9 }], MOCK_PRODUCTS);
+    expect(r).toEqual({ total: 1899.9, missing: [] });
   });
 
   it("arredonda para centavos", () => {
