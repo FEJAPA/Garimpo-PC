@@ -1,0 +1,169 @@
+# Coleta diária de preços + monitor de seletores.
+#
+# Todo dia às 06:00 UTC (03:00 em Brasília) roda `npm run collect`, que lê o preço
+# de cada oferta nas lojas e grava no Supabase. O script sai com código 2 quando
+# mais de 30% das ofertas de uma loja falham (o seletor dela provavelmente
+# quebrou). Nesse caso este workflow abre uma issue "Seletor quebrado: <loja>"
+# ou, se já houver uma aberta, comenta nela (sem duplicar).
+#
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.
+
+name: Coleta de preços
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      simulacao:
+        description: "Simulação (--dry-run): lê os preços mas não grava no banco"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+# Nunca duas coletas ao mesmo tempo (seria pesado para as lojas).
+concurrency:
+  group: coleta-de-precos
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  coletar:
+    name: Coletar preços
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar o Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      # O código de saída do script é guardado em vez de falhar na hora:
+      #   0 = tudo certo; 2 = seletor quebrado (tratado nos passos seguintes);
+      #   qualquer outro valor = erro geral e o job falha aqui mesmo.
+      - name: Coletar preços
+        id: coleta
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SIMULACAO: ${{ github.event_name == 'workflow_dispatch' && inputs.simulacao && '--dry-run' || '' }}
+        run: |
+          set +e
+          npm run collect -- $SIMULACAO
+          codigo=$?
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          if [ "$codigo" -ne 0 ] && [ "$codigo" -ne 2 ]; then
+            exit "$codigo"
+          fi
+
+      - name: Guardar resultado da coleta
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coleta-resultado
+          path: coleta-resultado.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Abrir ou atualizar issue de seletor quebrado
+        if: steps.coleta.outputs.codigo == '2'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const { owner, repo } = context.repo;
+            const resultado = JSON.parse(fs.readFileSync("coleta-resultado.json", "utf8"));
+            const linkDaExecucao = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // Issues abertas (a API de issues também devolve pull requests: filtramos).
+            const abertas = (
+              await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: "open",
+                per_page: 100,
+              })
+            ).filter((i) => !i.pull_request);
+
+            for (const loja of resultado.lojasQuebradas) {
+              const d = resultado.lojas[loja];
+              const titulo = `Seletor quebrado: ${loja}`;
+              const pct = Math.round(d.taxaFalha * 100);
+              const detalhes = d.detalhesDasFalhas
+                .map((f) => `- ${f.produto}: ${f.motivo}`)
+                .join("\n");
+
+              const resumo = [
+                `A coleta de **${resultado.finalizadoEm}** falhou em ${d.falhas} de ${d.ofertas} ofertas da loja **${loja}** (${pct}%, limite de ${Math.round(resultado.limiteDeFalha * 100)}%).`,
+                "",
+                `Execução: ${linkDaExecucao}`,
+                "",
+                "Primeiras falhas:",
+                detalhes || "- (sem detalhes)",
+              ].join("\n");
+
+              const existente = abertas.find((i) => i.title === titulo);
+              if (existente) {
+                // Já há issue aberta: só registra mais uma ocorrência.
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: existente.number,
+                  body: `Continua quebrado.\n\n${resumo}`,
+                });
+                core.info(`Issue #${existente.number} já aberta para ${loja}; comentário adicionado.`);
+                continue;
+              }
+
+              const criada = await github.rest.issues.create({
+                owner,
+                repo,
+                title: titulo,
+                body: [
+                  resumo,
+                  "",
+                  "## O que fazer",
+                  `1. Abra uma página de produto da ${loja} no navegador e inspecione o elemento do preço.`,
+                  `2. Ajuste os seletores do adaptador \`${loja}\` em \`scripts/collect-prices.mjs\`.`,
+                  "3. Teste com `npm run collect:dry` e feche esta issue quando a coleta voltar ao normal.",
+                  "",
+                  "_Issue aberta automaticamente por `.github/workflows/coleta.yml`._",
+                ].join("\n"),
+              });
+              core.info(`Issue #${criada.data.number} aberta para ${loja}.`);
+
+              // O rótulo é só organização: se falhar, a issue continua valendo.
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: criada.data.number,
+                  labels: ["coleta"],
+                });
+              } catch (e) {
+                core.warning(`Não consegui aplicar o rótulo "coleta": ${e.message}`);
+              }
+            }
+
+      # A issue já avisou; mesmo assim o job termina vermelho para aparecer na lista de execuções.
+      - name: Sinalizar seletor quebrado
+        if: steps.coleta.outputs.codigo == '2'
+        run: |
+          echo "::error::Seletor quebrado em pelo menos uma loja. Veja a issue aberta e o artefato coleta-resultado."
+          exit 2

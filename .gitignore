@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+# Playwright (e2e): resultados e relatório HTML
+/test-results/
+/playwright-report/
+
+# resultado da última coleta de preços (gerado por scripts/collect-prices.mjs)
+/coleta-resultado.json
 
 # next.js
 /.next/

@@ -1,0 +1,71 @@
+# Integração contínua (CI): a cada push e pull request confere se o projeto
+# continua saudável. É o mesmo roteiro do AGENTS.md ("Antes de dar a tarefa por
+# concluída"): tipos, lint, testes unitários, build e testes e2e no navegador.
+#
+# O CI roda em modo de demonstração (sem Supabase): peças e preços de exemplo.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Se chegar um commit novo na mesma branch, cancela a execução anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  qualidade:
+    name: Tipos, lint, testes, build e e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar o Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Conferir tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Testes unitários (Vitest)
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build
+
+      # O --with-deps instala também as bibliotecas do sistema que o Chromium precisa.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes e2e (Playwright)
+        run: npm run test:e2e
+
+      # Só sobe o relatório quando algo falha, para investigar sem rodar de novo.
+      - name: Guardar relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14

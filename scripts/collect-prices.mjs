@@ -10,6 +10,12 @@
 //
 // Requer no .env.local: NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.
 //
+// Ao final grava `coleta-resultado.json` (sucessos e falhas por loja) na raiz do
+// projeto. Se mais de 30% das ofertas de UMA loja falharem, o seletor dela
+// provavelmente quebrou: o script sai com código 2 e o workflow
+// .github/workflows/coleta.yml abre (ou atualiza) uma issue "Seletor quebrado: <loja>".
+// Código 1 = erro geral (variáveis faltando, banco fora do ar); 0 = tudo certo.
+//
 // IMPORTANTE (ética/legal): respeitamos os sites — uma requisição por vez, com
 // pausa entre elas, e identificando um User-Agent. Lojas mudam o HTML com
 // frequência, então cada adaptador isola os "seletores" daquela loja. Se um
@@ -17,7 +23,7 @@
 
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 // --- Carrega variáveis do .env.local (sem dependência externa) ---
 function loadEnv() {
@@ -35,6 +41,9 @@ loadEnv();
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const PAUSA_MS = 4000; // pausa entre páginas, para não sobrecarregar a loja
+const LIMITE_FALHA = 0.3; // acima disso (30%) numa loja, consideramos o seletor quebrado
+const ARQUIVO_RESULTADO = new URL("../coleta-resultado.json", import.meta.url);
+const MAX_FALHAS_DETALHADAS = 10; // por loja, para o arquivo e a issue não ficarem enormes
 
 // --- Adaptadores por loja: cada um sabe ler o preço da SUA página ---
 // Para adicionar uma loja nova, crie uma função que recebe a página (Playwright)
@@ -82,7 +91,29 @@ function parseBRL(txt) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+// Resume o que aconteceu em cada loja e aponta as "quebradas" (falhas > limite).
+// `porLoja` tem o formato { kabum: { ofertas, sucessos, falhas, detalhes: [{ produto, motivo }] } }.
+// TODO(V2-H): ignorar lojas com poucas ofertas (1 falha em 2 ofertas já passa de 30%)
+// e distinguir falha de rede (temporária) de seletor quebrado.
+function resumirColeta(porLoja, limite = LIMITE_FALHA) {
+  const lojas = {};
+  const lojasQuebradas = [];
+  for (const [loja, d] of Object.entries(porLoja)) {
+    const taxaFalha = d.ofertas > 0 ? d.falhas / d.ofertas : 0;
+    lojas[loja] = {
+      ofertas: d.ofertas,
+      sucessos: d.sucessos,
+      falhas: d.falhas,
+      taxaFalha: Number(taxaFalha.toFixed(4)),
+      detalhesDasFalhas: d.detalhes.slice(0, MAX_FALHAS_DETALHADAS),
+    };
+    if (taxaFalha > limite) lojasQuebradas.push(loja);
+  }
+  return { lojas, lojasQuebradas };
+}
+
 async function main() {
+  const inicio = new Date();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -111,6 +142,18 @@ async function main() {
 
   let ok = 0;
   let falhas = 0;
+  const porLoja = {};
+  // Anota o resultado de uma oferta no balanço da loja dela.
+  const registrar = (loja, produto, motivo) => {
+    const d = (porLoja[loja] ??= { ofertas: 0, sucessos: 0, falhas: 0, detalhes: [] });
+    d.ofertas++;
+    if (motivo) {
+      d.falhas++;
+      d.detalhes.push({ produto, motivo });
+    } else {
+      d.sucessos++;
+    }
+  };
   for (const oferta of alvos) {
     const nome = oferta.product?.name ?? oferta.id;
     const page = await ctx.newPage();
@@ -120,6 +163,7 @@ async function main() {
 
       if (!preco) {
         console.warn(`⚠️  ${nome} @ ${oferta.store_id}: não consegui ler o preço.`);
+        registrar(oferta.store_id, nome, "não consegui ler o preço (seletor não encontrou nada)");
         falhas++;
       } else {
         console.log(
@@ -131,10 +175,12 @@ async function main() {
           await db.from("offers").update({ price_pix: preco }).eq("id", oferta.id);
           await db.from("price_history").insert({ offer_id: oferta.id, price_pix: preco });
         }
+        registrar(oferta.store_id, nome, null);
         ok++;
       }
     } catch (e) {
       console.warn(`⚠️  ${nome} @ ${oferta.store_id}: erro — ${e.message}`);
+      registrar(oferta.store_id, nome, `erro: ${String(e.message).split("\n")[0]}`);
       falhas++;
     } finally {
       await page.close();
@@ -144,6 +190,29 @@ async function main() {
 
   await browser.close();
   console.log(`\nFim. Sucesso: ${ok} · Falhas: ${falhas}`);
+
+  // Balanço por loja + arquivo para o workflow (e para quem for investigar).
+  const { lojas, lojasQuebradas } = resumirColeta(porLoja);
+  const resultado = {
+    iniciadoEm: inicio.toISOString(),
+    finalizadoEm: new Date().toISOString(),
+    simulacao: DRY_RUN,
+    limiteDeFalha: LIMITE_FALHA,
+    total: { ofertas: alvos.length, sucessos: ok, falhas },
+    lojas,
+    lojasQuebradas,
+  };
+  writeFileSync(ARQUIVO_RESULTADO, JSON.stringify(resultado, null, 2) + "\n");
+  for (const [loja, d] of Object.entries(lojas)) {
+    console.log(`   ${loja}: ${d.sucessos}/${d.ofertas} ok · ${(d.taxaFalha * 100).toFixed(0)}% de falha`);
+  }
+  if (lojasQuebradas.length > 0) {
+    console.error(
+      `❌ Seletor provavelmente quebrado (mais de ${Math.round(LIMITE_FALHA * 100)}% de falhas): ${lojasQuebradas.join(", ")}`
+    );
+    // exitCode (e não exit) deixa o Node terminar de escrever tudo antes de sair.
+    process.exitCode = 2;
+  }
 }
 
 main();
