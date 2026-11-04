@@ -29,7 +29,7 @@ import type {
   PartSpec,
 } from "@/models/builder-types";
 import { categoryLabel } from "@/models/categories";
-import { formatBRL } from "@/lib/format";
+import { formatBRL } from "@/lib/currency";
 import { normalizeBudget } from "./budget";
 import { isTrustedStore, validOffers } from "./trust";
 import { suspiciousPrice } from "./suspicious";
@@ -74,18 +74,21 @@ function maisBarata(ofertas: OfferWithStore[]): OfferWithStore {
 export type SuspicionCheck = (product: ProductWithOffers) => Map<string, { reason: string }>;
 
 /**
- * Confiança da loja com cache por id. Por quê: `isTrustedStore` monta os textos
- * dos motivos (com `toLocaleString`) a cada chamada e custa dezenas de µs; com
- * 150 peças por categoria e várias ofertas por peça, isso sozinho passava de
- * 200 ms. A loja é a mesma em todas as ofertas dela, então basta perguntar uma vez.
+ * Confiança da loja com cache. Por quê: `isTrustedStore` monta os textos dos
+ * motivos (com `toLocaleString`) a cada chamada e custa dezenas de µs; com 150
+ * peças por categoria e várias ofertas por peça, isso sozinho passava de 200 ms.
+ * A chave é a loja inteira (todos os campos), e não só o id: vindo do banco, cada
+ * oferta traz o próprio objeto de loja, e dois objetos com o mesmo id e dados
+ * diferentes não podem dividir a resposta.
  */
 function makeTrustCache(): (store: Store) => boolean {
   const cache = new Map<string, boolean>();
   return (store) => {
-    let v = cache.get(store.id);
+    const k = JSON.stringify(store);
+    let v = cache.get(k);
     if (v === undefined) {
       v = isTrustedStore(store);
-      cache.set(store.id, v);
+      cache.set(k, v);
     }
     return v;
   };

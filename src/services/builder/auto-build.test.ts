@@ -5,6 +5,7 @@ import { PART_SPECS } from "@/models/part-specs";
 import { INSTALLMENT_TABLES } from "@/models/installment-tables";
 import { REFERENCE_BUILDS } from "@/models/reference-builds";
 import { isCompatible } from "./compatibility";
+import { formatBRL } from "@/lib/currency";
 import { isTrustedStore, validOffers } from "./trust";
 import { flagSuspiciousOffers } from "./suspicious";
 import {
@@ -385,7 +386,7 @@ describe("folga, trocas e notas (LOG-05/06, R-16, R-17)", () => {
     expect(r.totalPix).toBe(2700);
     expect(r.upgrades).toEqual([]);
     expect(r.usedWiggleRoom).toBe(false);
-    expect(r.notes).toContain("A montagem ficou R$ 200,00 acima do alvo, mas dentro do teto.");
+    expect(r.notes).toContain(`A montagem ficou ${formatBRL(200)} acima do alvo, mas dentro do teto.`);
   });
 
   it("duas trocas: cada nota com o próprio valor e uma nota com o total da folga (R-17)", () => {
@@ -400,13 +401,13 @@ describe("folga, trocas e notas (LOG-05/06, R-16, R-17)", () => {
     ]);
     const gpuNota = r.notes.find((n) => n.includes("gpu-a → gpu-c"))!;
     const cpuNota = r.notes.find((n) => n.includes("cpu-a → cpu-b"))!;
-    expect(gpuNota).toContain("R$ 1.000,00");
+    expect(gpuNota).toContain(formatBRL(1000));
     expect(gpuNota).toContain("+20% de desempenho");
-    expect(gpuNota).not.toContain("R$ 1.300,00");
-    expect(cpuNota).toContain("R$ 300,00");
+    expect(gpuNota).not.toContain(formatBRL(1300));
+    expect(cpuNota).toContain(formatBRL(300));
     expect(cpuNota).toContain("+25% de desempenho");
-    expect(cpuNota).not.toContain("R$ 1.300,00");
-    expect(r.notes).toContain("No total, as trocas usaram R$ 1.300,00 da folga (acima do alvo, dentro do teto).");
+    expect(cpuNota).not.toContain(formatBRL(1300));
+    expect(r.notes).toContain(`No total, as trocas usaram ${formatBRL(1300)} da folga (acima do alvo, dentro do teto).`);
   });
 
   it("troca paga com a sobra do alvo não conta como folga", () => {
@@ -426,7 +427,7 @@ describe("folga, trocas e notas (LOG-05/06, R-16, R-17)", () => {
     expect(agrupadas[0]).toMatch(/: [a-zà-ú].*\.$/);
     for (const n of r.notes) {
       expect(n).not.toContain("Nenhuma opção");
-      expect(n).not.toContain("R$ 0,00");
+      expect(n).not.toContain(formatBRL(0));
       expect(n).not.toContain("memória ram");
     }
   });
