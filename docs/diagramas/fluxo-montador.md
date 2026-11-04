@@ -483,7 +483,7 @@ fatia mais a sobra dos passos anteriores.
 | Item | Valor |
 |---|---|
 | Total no Pix | R$ 6.799,30 |
-| Total a prazo (preço parcelado das ofertas) | R$ 7.615,23 |
+| Total a prazo (preço parcelado das ofertas) | R$ 7.615,23; o cabeçalho mostra "ou R$ 7.615,23 parcelado", que é o parcelado mais barato (`bestInstallment`, 10x) |
 | Sobra até o teto | R$ 200,70 |
 | Usou a folga? | Sim: houve troca e 6.799,30 passa do alvo de 6.000 (selo "Usou a folga") |
 | Notas | "Subimos a placa de vídeo: NVIDIA GeForce RTX 4060 8GB → AMD Radeon RX 7700 XT 12GB, por mais R$ 1.100,00 (+42% de desempenho)." e "No total, as trocas usaram R$ 799,30 da folga (acima do alvo, dentro do teto); o resto veio do que sobrou dentro do alvo." |
@@ -504,7 +504,9 @@ O pagamento desta montagem está em [`fluxo-pagamento.md`](fluxo-pagamento.md), 
 | Filtro de lojas desligado | 6.000 / 7.000 / 0 / Jogos / não | A RTX 4060 continua vindo da KaBuM! (R$ 1.899,90). A oferta de R$ 1.399,90 do Promo Center (marketplace) é "boa demais" e nunca é recomendada em silêncio |
 | Estética máxima | 6.000 / 7.000 / 100 / Jogos / sim | Escolhe o gabinete Montech Sky Two |
 | Teto igual ao alvo | 7.000 / 7.000 / 50 / Jogos / sim | Nunca marca uso de folga |
-| Perfil Trabalho | qualquer, com folga | A folga nunca troca a placa de vídeo; só o processador pode subir |
+| Perfil Jogos | 8.000 / 10.000 / 25 / Jogos / sim | A folga sobe a placa de vídeo da RX 7700 XT para a RTX 4070 SUPER: total R$ 8.919,30 |
+| Perfil Criação | 8.000 / 10.000 / 25 / Criação / sim | Tenta o processador primeiro (o Ryzen 5 7600 já é o melhor do catálogo) e depois sobe a placa de vídeo para a RTX 4070 SUPER: total R$ 9.749,30 |
+| Perfil Trabalho | 8.000 / 10.000 / 25 / Trabalho / sim | A folga nunca troca a placa de vídeo: fica a RTX 4060, total R$ 7.349,30, sem uso da folga (o processador já é o melhor do catálogo) |
 
 ### 9.3 Catálogo sintético dos testes (ganho de 10%)
 

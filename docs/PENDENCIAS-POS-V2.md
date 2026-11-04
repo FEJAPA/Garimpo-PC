@@ -23,7 +23,7 @@ pendência. É um teste que confere que o `seed-references.sql` **não** tem mai
 
 ---
 
-## 1. Marcadores `TODO(V2-*)` no código (18)
+## 1. Marcadores `TODO(V2-*)` no código (21)
 
 ### Pacote A: catálogo e especificações (5)
 
@@ -42,13 +42,14 @@ pendência. É um teste que confere que o `seed-references.sql` **não** tem mai
 | B-1 | Trocar o passo guloso por uma otimização global (por exemplo, busca em feixe) que também troque categorias juntas no rebaixamento e na subida. Hoje a subida do processador mantém a placa-mãe. Também falta a resolução escolhida mudar a montagem (hoje ela só destaca a coluna de FPS). | `src/services/builder/auto-build.ts` (topo) |
 | B-2 | Voltar a chamar `flagSuspiciousOffers` direto no Montador quando a confiança da loja tiver cache próprio em `trust.ts`. Hoje o Montador repete a regra com um cache local, e um teste confere que as duas dão o mesmo resultado. | `src/services/builder/auto-build.ts` (`ofertasDaPeca`) |
 
-### Pacote C: confiança das lojas (3)
+### Pacote C: confiança das lojas (4)
 
 | # | O que falta | Arquivo |
 |---|---|---|
 | C-1 | Tornar configuráveis os limites de confiança (nota 4,5, Reclame Aqui 6) e alimentar o Reclame Aqui com dados reais. | `src/services/builder/trust.ts` (topo) |
 | C-2 | "Preço bom demais" também olhar o histórico de preços da peça, e não só as ofertas de hoje. | `src/services/builder/suspicious.ts` (topo) |
 | C-3 | Trocar a nota do Reclame Aqui e os anos de mercado de demonstração por dados reais. | `supabase/seed-stores.sql` (cabeçalho) |
+| C-4 | O gráfico de histórico usa a régua de **hoje** para escolher as ofertas: uma oferta sem estoque agora some do gráfico, e um ponto antigo "bom demais" de uma loja hoje honesta ainda entra. Conferir cada ponto contra a mediana confiável daquele dia. | `src/services/products.ts` (`getPriceHistory`) |
 
 ### Pacote D: desempenho (2)
 
@@ -57,7 +58,7 @@ pendência. É um teste que confere que o `seed-references.sql` **não** tem mai
 | D-1 | Usar benchmarks reais por jogo. Hoje os FPS são estimativas (ver `docs/METODOLOGIA-DESEMPENHO.md`). | `src/services/builder/performance.ts` (topo) |
 | D-2 | Trocar as estimativas dos 12 PCs de referência por médias medidas por jogo, de uma fonte aberta e estável, e atualizar todo mês. | `src/models/reference-builds.ts` (cabeçalho) |
 
-### Pacote E: pagamentos (4)
+### Pacote E: pagamentos (5)
 
 | # | O que falta | Arquivo |
 |---|---|---|
@@ -65,6 +66,13 @@ pendência. É um teste que confere que o `seed-references.sql` **não** tem mai
 | E-2 | Cupons e cashback por loja no resumo de pagamento. | `src/services/builder/payments.ts` (topo) |
 | E-3 | Tabela `coupons` no Supabase, serviço com fallback, campo na tela e cashback. Hoje não há cupom cadastrado e a tela não usa `applyCoupon`. | `src/services/builder/coupons.ts` (topo) |
 | E-4 | A mistura Pix + cartão escolher a combinação ótima de peças (hoje é gulosa, pelo custo evitado) e considerar cupons e cashback. | `src/services/builder/mixed-plan.ts` (topo) |
+| E-5 | Parcelas anunciadas **por oferta** dentro do carrinho de uma loja. Hoje vale o menor número anunciado entre as ofertas da loja (`offersInstallmentCount`), que é o lado seguro: nunca promete menos juros do que a loja cobra. | `src/services/builder/payments.ts` (topo) |
+
+### Pacote G: montagens salvas e alertas (1)
+
+| # | O que falta | Arquivo |
+|---|---|---|
+| G-1 | Se o volume de alertas crescer a ponto de estourar o tempo da função, guardar um cursor entre execuções (por exemplo, coluna `last_checked_at`, nulos primeiro). Hoje cada execução percorre todos os alertas pendentes. | `src/app/api/check-alerts/route.ts` (cabeçalho) |
 
 ### Pacote H: qualidade e operação (2)
 
@@ -73,7 +81,7 @@ pendência. É um teste que confere que o `seed-references.sql` **não** tem mai
 | H-1 | O monitor de seletores ignorar lojas com poucas ofertas (1 falha em 2 ofertas já passa de 30%) e separar falha de rede de seletor quebrado. | `scripts/collect-prices.mjs` (`resumirColeta`) |
 | H-2 | Coleta com concorrência limitada por loja: intercalar lojas, pausar por domínio e interromper cedo uma loja cujas primeiras ofertas falharam todas. | `scripts/collect-prices.mjs` (laço da coleta) |
 
-Os pacotes F (tela do Montador) e G (montagens salvas e alertas) não deixaram marcadores no código.
+O pacote F (tela do Montador) não deixou marcadores no código.
 
 ---
 
@@ -82,7 +90,7 @@ Os pacotes F (tela do Montador) e G (montagens salvas e alertas) não deixaram m
 | Item | O que falta | Por que ficou para depois | Onde |
 |---|---|---|---|
 | F-21 | Rodar `autoBuild` numa *server action* (ou num Web Worker) e mandar para o navegador só o resultado. Hoje o catálogo inteiro (peças, ofertas e lojas), as specs, as referências e os juros viram props do `BuilderForm`. | Com 20 peças não faz diferença. Com 500 peças × 3 ofertas, passaria de 1 MB por visita. | `src/app/montar/page.tsx`, `src/components/builder/BuilderForm.tsx` |
-| F-22 | Política de segurança de conteúdo (CSP) com *nonce* do Next: `script-src 'self' 'nonce-…'` e `object-src 'none'`. | O site não injeta HTML (não usa `dangerouslySetInnerHTML`), então isso é endurecimento, não falha. Os cabeçalhos básicos já estão no ar. | `next.config.ts` |
+| F-22 | Completar a política de segurança de conteúdo (CSP) com `script-src 'self' 'nonce-…'`, gerando o *nonce* a cada requisição (Proxy + renderização dinâmica). | O site não injeta HTML (não usa `dangerouslySetInnerHTML`), então isso é endurecimento, não falha. HSTS, `object-src 'none'` e `frame-ancestors 'none'` já estão no ar. | `next.config.ts` |
 | SEG-06 | Deduplicar as visitas a uma peça (por sessão ou janela de tempo) e registrar sem `await`. Hoje cada recarga e cada robô contam como visita. | Infla o ranking "Mais procuradas" e faz a tabela `product_views` crescer sem limite, mas não muda preço nem montagem. | `src/app/peca/[slug]/page.tsx`, `src/services/popularity.ts` |
 | DAD-01 | Restrições no banco: `CHECK (price_pix > 0)`, `CHECK (installment_count >= 1)` e `UNIQUE (product_id, store_id)` em `offers`, e CHECK de `perf > 0` e `aesthetics` entre 0 e 100 em `part_specs`. | O código já valida tudo isso na leitura (`validOffers`, `hasRequiredSpec`, `specs.ts`). O banco seria a segunda defesa. | `supabase/schema.sql`, `supabase/schema-builder.sql` |
 | A4 | Categoria nova "cooler" (e ventoinhas): `Category`, `CATEGORIES`, relevância estética 0,6, fatia própria e regra de altura do cooler no gabinete. | Tarefa opcional do plano, só depois de A1–A3. Mexe em fatias, testes e planejador. | `src/models/types.ts`, `src/services/builder/scoring.ts`, `compatibility.ts` |

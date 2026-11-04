@@ -15,9 +15,9 @@ As contas ficam em `src/services/builder/payments.ts` e `mixed-plan.ts`; a tela 
 `src/services/installments.ts`. A especificação é o §7 de
 `docs/superpowers/specs/2026-11-04-montador-de-pc-design.md`.
 
-> **Legenda**: amarelo = passo, azul = decisão, verde = resultado, roxo = regra,
-> **cinza tracejado = ainda não existe (pendência pós-V2)**, **cinza-azulado tracejado = código
-> pronto, mas sem tela**.
+> **Legenda**: amarelo = passo, azul = decisão, verde = resultado, roxo = regra. O que ainda não
+> existe (cupom na tela, cashback, mistura ótima) está na tabela abaixo e em
+> `docs/PENDENCIAS-POS-V2.md`.
 
 ## O que está no ar
 
