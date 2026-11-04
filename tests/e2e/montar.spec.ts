@@ -68,6 +68,8 @@ test.describe("Montador de PC", () => {
     const total = lerReais((await totalNoPix(page).textContent()) ?? "");
     expect(total).toBeGreaterThan(0);
     expect(total).toBeLessThanOrEqual(7000);
+    // A sobra é medida até o teto (e não até o alvo), e a tela diz isso.
+    await expect(page.getByText(new RegExp(String.raw`Sobra até o teto ${REAIS}`))).toBeVisible();
 
     // Uma peça de cada categoria: GPU, CPU, placa-mãe, RAM, SSD, fonte e gabinete.
     const pecas = page
@@ -129,7 +131,8 @@ test.describe("Montador de PC", () => {
     }
     const semAcrescimo = opcoes.filter((o) => o.texto.endsWith("sem acréscimo")).map((o) => Number(o.value));
     const maiorSemAcrescimo = Math.max(...semAcrescimo);
-    // A oferta diz "10x" e é isso que vale (S-03), não o "até 6x" da tabela da Terabyte.
+    // As ofertas da montagem anunciam "10x", e é isso que vale (S-03): até 10x pelo preço a
+    // prazo; 11x e 12x saem da tabela de juros (KaBuM! e Terabyte: 10x/1,10 e 12x/1,15+).
     expect(maiorSemAcrescimo).toBe(10);
     // O máximo é o da loja que parcela em mais vezes (S-04), não o da que parcela em menos.
     expect(opcoes).toHaveLength(12);
@@ -252,6 +255,34 @@ test.describe("Montador de PC", () => {
     await expect(
       page.getByRole("radiogroup", { name: "Resolução do monitor" }).getByRole("radio", { name: "Quad HD" }),
     ).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("depois de montar, a URL aponta para a montagem e recarregar mostra a mesma", async ({ page }) => {
+    await montar(page, 6000, 7000);
+    await expect(page.getByText("Total no Pix").first()).toBeVisible();
+    const total = await totalNoPix(page).textContent();
+
+    // A URL troca para o código da montagem na tela (sem alvo/teto soltos).
+    await expect(page).toHaveURL(/\/montar\?b=[A-Za-z0-9_-]+$/);
+    const endereco = page.url();
+
+    // Recarregar monta sozinho, com o mesmo total e as mesmas escolhas.
+    await page.reload();
+    await expect(page.getByText("Total no Pix").first()).toBeVisible();
+    await expect(totalNoPix(page)).toHaveText(total ?? "");
+    await expect(page).toHaveURL(endereco);
+    await expect(page.getByLabel("Quero gastar")).toHaveValue("6000");
+  });
+
+  test("o campo de dinheiro mostra como o valor foi entendido", async ({ page }) => {
+    await page.goto("/montar");
+    const alvo = page.getByLabel("Quero gastar");
+
+    // "6000.5" é seis mil e cinquenta centavos (não 60.005): a dica mostra a leitura.
+    await alvo.fill("6000.5");
+    await expect(alvo).not.toHaveAttribute("aria-invalid", "true");
+    await expect(alvo).toHaveAccessibleDescription(/^=\s*R\$\s*6\.000,50\s·/);
+    await expect(page.getByRole("button", { name: "Montar meu PC" })).toBeEnabled();
   });
 
   test("link compartilhado inválido avisa e não monta", async ({ page }) => {

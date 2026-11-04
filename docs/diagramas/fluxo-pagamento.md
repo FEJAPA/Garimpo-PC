@@ -29,7 +29,7 @@ As contas ficam em `src/services/builder/payments.ts` e `mixed-plan.ts`; a tela 
 | Faixas ("10x de R$ X + 2x de R$ Y") | **No ar.** Cada loja limita só as próprias parcelas; os centavos vão na 1ª parcela | `installmentBands`, `formatSchedule` |
 | Parcelado mais barato e onde o seletor abre | **No ar** | `bestInstallment`, `defaultInstallmentCount` |
 | Aba "Misturar" | **No ar** (visível sempre que há peças) | `mixedPlan`, `Misturar` em `PaymentPlanner.tsx` |
-| Parcelado de uma oferta ("ou 10x de R$ X") | **No ar.** A lista de peças, a página da peça e o CSV usam a mesma conta | `offerInstallment` |
+| Parcelado de uma oferta ("ou 10x de R$ X") | **No ar.** Fonte única: a lista de peças, a página da peça e o CSV usam a mesma conta (parcelas anunciadas, no máximo o fim da tabela da loja; total = preço a prazo, nunca abaixo do Pix) | `offerInstallment` |
 | Cupons de desconto | **Código pronto, sem tela.** Não há tabela `coupons` nem campo de cupom | `applyCoupon` em `coupons.ts` |
 | Cashback e mistura ótima | **Ainda não existem** (pendências E-2 a E-4) | — |
 
@@ -50,7 +50,7 @@ flowchart TD
     C -->|"não"| C1["Preço a prazo da peça: o Pix<br/>parcelas: 1, só à vista<br/>não anuncia parcelas"]:::passo
     C -->|"sim"| C2["Preço a prazo da peça: o maior entre<br/>price_installment e o Pix<br/>parcelas: installment_count, entre 1 e 24"]:::passo
     C1 --> E
-    C2 --> E["Agrupa por loja: soma itens, pixTotal e installmentTotal<br/>installmentCount: o menor entre as peças da loja<br/>offersInstallmentCount: o menor número anunciado"]:::passo
+    C2 --> E["Agrupa por loja: soma itens, pixTotal e installmentTotal<br/>installmentCount: o menor entre as peças da loja<br/>offersInstallmentCount: o menor número anunciado,<br/>zero se alguma oferta da loja só tem Pix"]:::passo
     E --> F{"A loja tem tabela de juros válida?<br/>parcelas de 1 a 24 e fator 1 ou mais"}:::decisao
     F -->|"não"| G["A loja parcela até o que as ofertas anunciam<br/>pelo preço a prazo, em qualquer número de parcelas"]:::passo
     F -->|"sim"| H["interestTable guardada na loja<br/>a loja parcela até o maior número da tabela"]:::passo
@@ -81,9 +81,10 @@ flowchart TD
 ```
 
 Exemplo: a peça da Terabyte diz "ou 10x de R$ 128,78", e a tabela de exemplo da Terabyte diz
-"até 6x pelo preço a prazo; 7x a 10x, Pix + 15%". Como a oferta **anuncia** 10x, a loja cobra o
-preço a prazo até 10x, e o seletor mostra "sem acréscimo" até 10x. A tabela só valeria acima de
-10x, mas a Terabyte não parcela além disso.
+"até 10x pelo preço a prazo; 11x e 12x, Pix + 15%". Como a oferta **anuncia** 10x, a loja cobra o
+preço a prazo até 10x, e o seletor mostra "sem acréscimo" até 10x. Em 11x e 12x vale a tabela:
+o maior entre o preço a prazo e o Pix + 15%. Se o carrinho dessa loja tiver uma peça que só aceita
+Pix, `offersInstallmentCount` vira 0 e a tabela vale desde 1x para aquela loja.
 
 Regras gerais: todos os valores são arredondados em centavos; parcelas fora de 1..24 e fatores
 menores que 1 são descartados (no serviço e no banco); o resto da divisão de cada loja vai na 1ª
@@ -126,8 +127,8 @@ O que a pessoa vê em cada aba:
 | Aba | Mostra | Detalhe |
 |---|---|---|
 | Pix (à vista) | Total no Pix | "Você economiza R$ X em relação a Nx no cartão, o parcelado mais barato." Só aparece se `pixSavings` for maior que zero |
-| Parcelado | Faixas (ex.: "10x de R$ 663,48 + 2x de R$ 534,70"), total parcelado, quanto é a mais que o Pix e se há acréscimo sobre o preço a prazo | O seletor vai de 1x até `maxInstallments`, cada opção com "sem acréscimo" ou "+R$ X". Abre no maior número sem acréscimo; se todas têm acréscimo, no parcelado mais barato |
-| Misturar | Campos "Tenho à vista (R$)" e "Cabe por mês (R$)", caixas "No Pix" e "No cartão" e o resumo "Cabe no seu orçamento" ou "Ainda não cabe por mês" | O dinheiro à vista vai primeiro para as peças que mais encarecem no cartão |
+| Parcelado | Faixas (ex.: "10x de R$ 663,48 + 2x de R$ 534,70"), total parcelado, quanto é a mais que o Pix e se há acréscimo sobre o preço a prazo | O seletor vai de 1x até `maxInstallments`, cada opção com "sem acréscimo" ou "+R$ X". Abre no maior número sem acréscimo; se todas têm acréscimo, no parcelado mais barato. Dica: "Cada loja parcela até o máximo dela; se uma termina antes, as últimas parcelas ficam menores." |
+| Misturar | Campos "Tenho à vista (R$)" e "Cabe por mês (R$)", caixas "No Pix" e "No cartão" e o resumo "Cabe no seu orçamento" ou "Ainda não cabe por mês" | Só calcula com os dois campos preenchidos (0 vale). O dinheiro à vista vai primeiro para as peças que mais encarecem no cartão |
 | Tabela por loja (sempre) | Loja, itens, Pix e a prazo, com "Nx de R$ Y" ou "só à vista" | Com tabela, também "sem acréscimo até Nx" e "+R$ X em Nx" |
 
 ---
@@ -136,9 +137,10 @@ O que a pessoa vê em cada aba:
 
 Montagem do exemplo de [`fluxo-montador.md`](fluxo-montador.md) (seção 9.1): alvo R$ 6.000, teto
 R$ 7.000, slider 0, perfil Jogos, só lojas confiáveis. Valores obtidos executando as funções reais
-em 04/11/2026 com as tabelas de juros de exemplo (`src/models/installment-tables.ts`): KaBuM! até
-10x pelo preço a prazo e 11x a 12x com Pix + 16%; Pichau até 12x pelo preço a prazo; Terabyte até
-6x pelo preço a prazo e 7x a 10x com Pix + 15%.
+em 04/11/2026 com as tabelas de juros de exemplo (`src/models/installment-tables.ts`, iguais às de
+`supabase/seed-payments.sql`): KaBuM! até 10x pelo fator 1,10 e 11x a 12x com Pix + 16%; Pichau até
+12x pelo fator 1,10; Terabyte até 10x pelo fator 1,10 e 11x a 12x com Pix + 15%. As ofertas de
+exemplo anunciam 10x ou 12x, e o preço a prazo delas fica 10% a 12% acima do Pix.
 
 ### 3.1 Por loja
 
@@ -146,7 +148,7 @@ em 04/11/2026 com as tabelas de juros de exemplo (`src/models/installment-tables
 |---|---|---|---|---|---|---|
 | Pichau | 2 | R$ 3.419,80 | R$ 3.830,18 | 10 | 12 | 12x |
 | KaBuM! | 4 | R$ 2.229,60 | R$ 2.497,16 | 10 | 12 | 10x |
-| Terabyte Shop | 1 | R$ 1.149,90 | R$ 1.287,89 | 10 | 10 | 10x |
+| Terabyte Shop | 1 | R$ 1.149,90 | R$ 1.287,89 | 10 | 12 | 10x |
 | **Soma** | 7 | **R$ 6.799,30** | **R$ 7.615,23** | | **12** | |
 
 ### 3.2 O seletor de parcelas
@@ -156,11 +158,14 @@ em 04/11/2026 com as tabelas de juros de exemplo (`src/models/installment-tables
 | 1x | 1x de R$ 7.615,23 | R$ 7.615,23 | sem acréscimo |
 | 6x | 6x de R$ 1.269,19 (+ centavos na 1ª) | R$ 7.615,23 | sem acréscimo |
 | **10x (abre aqui)** | 10x de R$ 761,50 (+ centavos na 1ª) | R$ 7.615,23 | sem acréscimo |
-| 11x | 10x de R$ 712,09 + 1x de R$ 583,31 | R$ 7.704,41 | +R$ 89,18 (só a KaBuM!) |
-| 12x | 10x de R$ 663,48 + 2x de R$ 534,70 | R$ 7.704,41 | +R$ 89,18 (só a KaBuM!) |
+| 11x | 11x de R$ 703,52 (+ centavos na 1ª) | R$ 7.738,91 | +R$ 123,68 (KaBuM! +R$ 89,18 e Terabyte +R$ 34,50) |
+| 12x | 12x de R$ 644,89 (+ centavos na 1ª) | R$ 7.738,91 | +R$ 123,68 (KaBuM! +R$ 89,18 e Terabyte +R$ 34,50) |
 
-- O seletor **abre em 10x**: é o maior número de parcelas sem acréscimo.
-- Em 11x e 12x a Terabyte fica em 10x (é o máximo dela). Por isso as últimas parcelas são menores.
+- O seletor **abre em 10x**: é o maior número de parcelas sem acréscimo, e é também o que todas as
+  peças anunciam na lista ("ou 10x de…").
+- Em 11x e 12x, KaBuM! e Terabyte passam a cobrar juros acima do preço a prazo; a Pichau, não.
+- Faixas aparecem quando uma loja termina antes das outras (ex.: "10x de R$ X + 2x de R$ Y").
+  Aqui as três lojas vão até 12x, então cada opção é uma faixa só.
 - O parcelado mais barato com mais de 1 parcela é 10x por R$ 7.615,23, então a aba Pix diz
   "Você economiza **R$ 815,93** em relação a 10x no cartão".
 - Sem as tabelas de juros (modo real com `store_installments` vazia), cada loja vai até o que as
@@ -174,8 +179,12 @@ Entrada: **R$ 3.000 à vista** e **R$ 400 por mês**.
 | Passo | Resultado |
 |---|---|
 | Pix: as peças que mais encarecem no cartão primeiro, enquanto o dinheiro à vista der | RX 7700 XT (R$ 2.999,90), que sozinha cabe nos R$ 3.000 |
-| Cartão: as outras 6 peças, no menor número de parcelas cuja 1ª parcela caiba em R$ 400 | 12x: "10x de R$ 383,49 + 2x de R$ 254,71", total R$ 4.344,52. Em 10x ou 11x, a 1ª parcela passaria de R$ 400 |
-| Notas da tela | "Pague R$ 2.999,90 no Pix (1 peça) e parcele o resto em 10x de R$ 383,49 + 2x de R$ 254,71.", "No cartão essas peças custam R$ 545,12 a mais do que no Pix." e "Desse valor, R$ 89,18 é acréscimo da loja acima do preço a prazo anunciado." |
+| Cartão: as outras 6 peças, no menor número de parcelas cuja 1ª parcela caiba em R$ 400 | 11x de R$ 398,08 (a 1ª com R$ 0,14 a mais), total R$ 4.379,02. Em 10x, a parcela passaria de R$ 400 |
+| Notas da tela | "Pague R$ 2.999,90 no Pix (1 peça) e parcele o resto em 11x de R$ 398,08.", "A 1ª parcela fica R$ 0,14 maior por causa do arredondamento dos centavos.", "No cartão essas peças custam R$ 579,62 a mais do que no Pix." e "Desse valor, R$ 123,68 é acréscimo da loja acima do preço a prazo anunciado." |
+
+O plano só é calculado com **os dois campos preenchidos** (0 vale). Com um só, a tela pede o outro:
+"Preencha também quanto cabe por mês (pode ser 0)." ou "Preencha também quanto você tem à vista
+(pode ser 0)." 
 
 ```mermaid
 flowchart TD
@@ -210,7 +219,7 @@ flowchart TD
 |---|---|---|
 | Preço a prazo da oferta | `price_installment` válido (número finito maior que zero), nunca abaixo do Pix. Sem ele, a oferta entra pelo Pix e não parcela | `validInstallmentPrice` |
 | Parcelas da oferta | `installment_count` entre 1 e 24; sem preço a prazo válido, 1x | `parcelasDaOferta` |
-| Até o anunciado, preço a prazo | Até o menor número de parcelas anunciado pelas ofertas da loja, o total é o preço a prazo, mesmo que a tabela diga outra coisa | `totalDaLoja` |
+| Até o anunciado, preço a prazo | Até o menor número de parcelas anunciado pelas ofertas da loja (`offersInstallmentCount`; 0 se alguma oferta da loja só tem Pix), o total é o preço a prazo, mesmo que a tabela diga outra coisa | `totalDaLoja` |
 | Acima do anunciado, a tabela | Total em n parcelas = o maior entre o preço a prazo e `pixTotal × fator(n)`. A tabela só encarece | `totalDaLoja`, `rateFor` |
 | Fator por parcelas | A menor faixa que cobre n; entre faixas, a de cima (a mais cara); acima da maior faixa, a maior. Tabela vazia = fator 1 | `rateFor` |
 | Máximo de parcelas | Por loja: o maior número da tabela, ou o que as ofertas anunciam. Geral: o **maior** entre as lojas, sempre | `maximoDaLoja`, `buildPaymentSummary` |

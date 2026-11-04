@@ -1,5 +1,5 @@
-// Testes e2e da página de uma peça (/peca/<slug>): o herói "Melhor preço agora" e o
-// aviso de oferta "boa demais" na comparação entre lojas.
+// Testes e2e da página de uma peça (/peca/<slug>): o herói "Melhor preço agora", o
+// aviso de oferta "boa demais" na comparação entre lojas e o parcelado de cada loja.
 //
 // Cenário do modo de demonstração (src/models/mock-data.ts), RTX 4060:
 //   - KaBuM!  R$ 1.899,90 (loja confiável)
@@ -31,5 +31,20 @@ test.describe("Página da peça", () => {
     await expect(linhaSuspeita).toHaveCount(1);
     await expect(linhaSuspeita).toContainText(/R\$\s*1\.399,90/);
     await expect(linhaSuspeita.getByText("Preço bom demais?")).toBeVisible();
+  });
+
+  test("o parcelado de cada loja é o que a oferta anuncia (S-03)", async ({ page }) => {
+    // Memória Corsair 16GB: KaBuM! anuncia 10x (R$ 391,89) e a Terabyte anuncia 12x
+    // (R$ 405,88). A tabela de juros da Terabyte vai até 12x, então a tela mostra 12x.
+    await page.goto("/peca/corsair-vengeance-16gb-ddr5");
+    const lista = page.locator("section", { has: page.getByRole("heading", { name: "Comparação entre lojas" }) });
+
+    const terabyte = lista.locator("li", { hasText: "Terabyte Shop" });
+    await expect(terabyte).toHaveCount(1);
+    await expect(terabyte).toContainText(/ou 12x de R\$\s*[\d.]+,\d{2}\s*\(R\$\s*405,88\)/);
+
+    const kabum = lista.locator("li", { hasText: "KaBuM!" });
+    await expect(kabum).toHaveCount(1);
+    await expect(kabum).toContainText(/ou 10x de R\$\s*[\d.]+,\d{2}\s*\(R\$\s*391,89\)/);
   });
 });

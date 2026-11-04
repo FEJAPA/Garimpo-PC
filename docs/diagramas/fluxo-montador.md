@@ -44,7 +44,9 @@ flowchart TD
     R1["Regra de confiança: isTrustedStore<br/>oficial, nota 4,5 ou mais, Reclame Aqui 6 ou mais<br/>quando informado e nunca bloqueada"]:::regra
     R1 -.-> P1
 
-    P1 --> D1{"As 7 categorias têm<br/>ao menos um candidato?"}:::decisao
+    P1 --> D0{"Alguma peça, ou alguma peça<br/>de cada categoria, tem spec válida?"}:::decisao
+    D0 -->|"não"| F0["FALHA<br/>Nenhuma peça do catálogo tem<br/>especificação técnica cadastrada"]:::falha
+    D0 -->|"sim"| D1{"As 7 categorias têm<br/>ao menos um candidato?"}:::decisao
     D1 -->|"não"| F1["FALHA<br/>Não há categoria disponível<br/>com os filtros atuais"]:::falha
     D1 -->|"sim"| P2["Passo 2 - planejador exato makePlanner<br/>a montagem compatível mais barata possível<br/>cheapestFrom confere tudo com allCompatible"]:::passo
     P2 --> D2{"Achou alguma montagem<br/>compatível?"}:::decisao
@@ -60,7 +62,7 @@ flowchart TD
     D4 -->|"sim"| D5
     P3b --> D5{"Total maior que o teto?"}:::decisao
 
-    D5 -->|"sim"| P4["Passo 4 - downgradeToCap<br/>na peça mais cara com alternativa mais barata,<br/>escolhe a de MAIOR utilidade que faz caber no teto<br/>se nenhuma faz caber, a mais barata, e repete"]:::passo
+    D5 -->|"sim"| P4["Passo 4 - downgradeToCap<br/>na peça mais cara com alternativa mais barata,<br/>escolhe a de MAIOR utilidade que já faz caber no teto<br/>se nenhuma basta, a mais barata, e segue para a próxima peça"]:::passo
     P4 --> D6{"Ainda maior que o teto?"}:::decisao
     D6 -->|"sim"| P4b["Usa a montagem mais barata do passo 2<br/>e avisa: Para caber no teto, usamos<br/>a montagem compatível mais barata"]:::passo
     D6 -->|"não"| P5
@@ -70,7 +72,7 @@ flowchart TD
     P5["Passo 5 - upgradePass<br/>sobe peças usando sobras e folga até o teto<br/>na ordem do perfil de uso"]:::passo
     R3["Ordem da folga por perfil<br/>jogos: placa de vídeo e depois processador<br/>criação: processador e depois placa de vídeo<br/>trabalho: só o processador<br/>ganho mínimo de 10 por cento, MIN_UPGRADE_GAIN 1,10"]:::regra
     R3 -.-> P5
-    P5 --> P6["Notas em linguagem simples<br/>Subimos a placa de vídeo: A para B, por mais R$ X<br/>e quanto disso veio da folga"]:::passo
+    P5 --> P6["Notas em linguagem simples<br/>Subimos a placa de vídeo: A para B, por mais R$ X<br/>ou economizando R$ X, e quanto veio da folga"]:::passo
     P6 --> P7["toBuildParts<br/>ordena as peças na ordem de exibição DISPLAY_ORDER"]:::passo
     P7 --> P8["Avisos<br/>suspicionNotes para peça de oferta suspeita<br/>e N peças ignoradas por falta de especificação"]:::passo
     P8 --> P9["Passo 6a - buildPaymentSummary<br/>com as tabelas de juros de ctx<br/>ver fluxo-pagamento.md"]:::passo
@@ -114,7 +116,7 @@ flowchart TD
 
     C0["Próximo produto do catálogo"]:::passo
     C0 --> C1{"Tem spec da mesma categoria<br/>e hasRequiredSpec aprova?"}:::decisao
-    C1 -->|"não"| C2["Conta em ignored<br/>vira a nota N peças do catálogo<br/>foram ignoradas por falta de especificação técnica"]:::falha
+    C1 -->|"não"| C2["Conta em ignored<br/>vira a nota N peças do catálogo<br/>foram ignoradas por falta de especificação técnica<br/>se todas ficarem de fora, a montagem falha"]:::falha
     C1 -->|"sim"| C3["Ofertas válidas: em estoque, preço Pix<br/>maior que zero e loja não bloqueada"]:::passo
     C3 --> C4{"Filtro Só lojas confiáveis ligado?"}:::decisao
     C4 -->|"sim"| C5["Fica só com as lojas confiáveis"]:::passo
@@ -231,7 +233,7 @@ flowchart TD
     D2 -->|"não, nenhuma peça tem"| D8["Para: a salvaguarda do autoBuild<br/>usa a montagem mais barata"]:::falha
     D2 -->|"sim"| D3{"Alguma alternativa faz<br/>o total caber no teto?"}:::decisao
     D3 -->|"sim"| D4["Troca pela de MAIOR utilidade<br/>entre as que fazem caber"]:::passo
-    D3 -->|"não"| D5["Troca pela mais barata<br/>e tenta de novo"]:::passo
+    D3 -->|"não"| D5["Troca pela mais barata dela<br/>na rodada seguinte, outra peça ajuda"]:::passo
     D4 --> D0
     D5 --> D0
 ```
@@ -282,7 +284,8 @@ flowchart TD
 
 Depois das trocas, `autoBuild` escreve as notas (textos reais):
 
-- uma por troca: "Subimos a placa de vídeo: A → B, por mais R$ X (+N% de desempenho)." Se a fonte
+- uma por troca: "Subimos a placa de vídeo: A → B, por mais R$ X (+N% de desempenho)." Se a troca
+  saiu mais barata, a nota diz "economizando R$ X" (e "pelo mesmo preço" se não mudou). Se a fonte
   também mudou, entra ", já contando a troca da fonte". Se o desempenho não sobe, a nota diz
   "(mesmo desempenho, visual melhor)" ou "(visual melhor, N% menos desempenho)";
 - se as peças já passavam do alvo antes das trocas: "Antes das trocas, as peças já passavam R$ X do
@@ -293,8 +296,10 @@ Depois das trocas, `autoBuild` escreve as notas (textos reais):
 - se não houve troca, mas o guloso já passou do alvo: "A montagem ficou R$ X acima do alvo, mas
   dentro do teto."
 
-`usedWiggleRoom` (o selo "Usou a folga") só é verdadeiro quando **houve troca E o total passou do
-alvo**. Um total acima do alvo sem troca aparece como "Acima do alvo, dentro do teto".
+`usedWiggleRoom` (o selo "Usou a folga") só é verdadeiro quando **houve uma troca que custou
+dinheiro E o total passou do alvo**. Troca que economizou não conta. Um total acima do alvo sem troca
+paga aparece como "Acima do alvo, dentro do teto". `BuildSuccess.upgrades` guarda cada troca (de,
+para, diferença de preço e ganho de desempenho).
 
 ---
 
