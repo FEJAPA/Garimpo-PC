@@ -14,9 +14,18 @@ create table if not exists public.part_specs (
   form_factor    text,                           -- ATX | mATX | ITX (placa-mãe)
   case_supports  text[],                         -- form factors aceitos (gabinete)
   wattage        smallint,                       -- W (fonte)
+  capacity_gb    smallint,                       -- GB (ram, ssd) — V2
+  upscaling      text[],                         -- DLSS | FSR | XeSS (gpu) — V2
   source         text,                           -- de onde veio o número (V2)
   updated_at     timestamptz not null default now()
 );
+
+-- V2 (pacote A): bancos criados com a versão anterior deste arquivo já têm a
+-- tabela, e o "create table if not exists" acima não acrescenta colunas. Estes
+-- "add column if not exists" deixam o script seguro para rodar de novo.
+alter table public.part_specs add column if not exists capacity_gb smallint;
+alter table public.part_specs add column if not exists upscaling   text[];
+alter table public.part_specs add column if not exists source      text;
 
 -- 2) Computadores de referência (para a estimativa de desempenho e o gráfico).
 create table if not exists public.reference_builds (

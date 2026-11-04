@@ -1,0 +1,187 @@
+{
+  "_leia-me": "Tabela curada de specs para scripts/collect-specs.mjs. Chave = slug do produto. Campos em camelCase, iguais a PartSpec (src/models/builder-types.ts). Todo item precisa de category, perf, aesthetics e source. Use source honesto: \"ilustrativo\" quando o número não foi medido/conferido. Ver docs/COLETA-SPECS.md.",
+  "pecas": {
+    "rx-6600": {
+      "category": "gpu",
+      "perf": 78,
+      "aesthetics": 40,
+      "tdp": 132,
+      "upscaling": [
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rx-7600": {
+      "category": "gpu",
+      "perf": 97,
+      "aesthetics": 45,
+      "tdp": 165,
+      "upscaling": [
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rtx-4060": {
+      "category": "gpu",
+      "perf": 100,
+      "aesthetics": 50,
+      "tdp": 115,
+      "upscaling": [
+        "DLSS",
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rtx-4060-ti": {
+      "category": "gpu",
+      "perf": 118,
+      "aesthetics": 55,
+      "tdp": 160,
+      "upscaling": [
+        "DLSS",
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rx-7700-xt": {
+      "category": "gpu",
+      "perf": 142,
+      "aesthetics": 50,
+      "tdp": 245,
+      "upscaling": [
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rtx-4070-super": {
+      "category": "gpu",
+      "perf": 168,
+      "aesthetics": 60,
+      "tdp": 220,
+      "upscaling": [
+        "DLSS",
+        "FSR"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "ryzen-5-7600": {
+      "category": "cpu",
+      "perf": 100,
+      "aesthetics": 50,
+      "socket": "AM5",
+      "tdp": 65,
+      "source": "ilustrativo (V1)"
+    },
+    "core-i5-14400f": {
+      "category": "cpu",
+      "perf": 92,
+      "aesthetics": 50,
+      "socket": "LGA1700",
+      "tdp": 110,
+      "source": "ilustrativo (V1)"
+    },
+    "b650m-asus": {
+      "category": "motherboard",
+      "perf": 100,
+      "aesthetics": 60,
+      "socket": "AM5",
+      "ramType": "DDR5",
+      "formFactor": "mATX",
+      "source": "ilustrativo (V1)"
+    },
+    "a620m-asrock": {
+      "category": "motherboard",
+      "perf": 80,
+      "aesthetics": 35,
+      "socket": "AM5",
+      "ramType": "DDR5",
+      "formFactor": "mATX",
+      "source": "ilustrativo (V1)"
+    },
+    "b760m-gigabyte": {
+      "category": "motherboard",
+      "perf": 95,
+      "aesthetics": 45,
+      "socket": "LGA1700",
+      "ramType": "DDR5",
+      "formFactor": "mATX",
+      "source": "ilustrativo (V1)"
+    },
+    "corsair-vengeance-16gb-ddr5": {
+      "category": "ram",
+      "perf": 100,
+      "aesthetics": 45,
+      "ramType": "DDR5",
+      "capacityGb": 16,
+      "source": "ilustrativo (V1)"
+    },
+    "xpg-lancer-rgb-32gb-ddr5": {
+      "category": "ram",
+      "perf": 130,
+      "aesthetics": 85,
+      "ramType": "DDR5",
+      "capacityGb": 32,
+      "source": "ilustrativo (V1)"
+    },
+    "kingston-nv2-1tb": {
+      "category": "ssd",
+      "perf": 100,
+      "aesthetics": 30,
+      "capacityGb": 1000,
+      "source": "ilustrativo (V1)"
+    },
+    "wd-black-sn770-2tb": {
+      "category": "ssd",
+      "perf": 140,
+      "aesthetics": 30,
+      "capacityGb": 2000,
+      "source": "ilustrativo (V1)"
+    },
+    "corsair-cv650": {
+      "category": "psu",
+      "perf": 100,
+      "aesthetics": 30,
+      "wattage": 650,
+      "source": "ilustrativo (V1)"
+    },
+    "msi-mag-a750gl": {
+      "category": "psu",
+      "perf": 125,
+      "aesthetics": 55,
+      "wattage": 750,
+      "source": "ilustrativo (V1)"
+    },
+    "gabinete-gamemax-h605": {
+      "category": "case",
+      "perf": 70,
+      "aesthetics": 65,
+      "caseSupports": [
+        "ATX",
+        "mATX",
+        "ITX"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "montech-sky-two": {
+      "category": "case",
+      "perf": 85,
+      "aesthetics": 95,
+      "caseSupports": [
+        "ATX",
+        "mATX",
+        "ITX"
+      ],
+      "source": "ilustrativo (V1)"
+    },
+    "rise-mode-galaxy": {
+      "category": "case",
+      "perf": 50,
+      "aesthetics": 30,
+      "caseSupports": [
+        "mATX",
+        "ITX"
+      ],
+      "source": "ilustrativo (V1)"
+    }
+  }
+}
