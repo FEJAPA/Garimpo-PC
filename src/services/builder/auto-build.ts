@@ -2,20 +2,26 @@
 //
 // Passos (resumo):
 //   1. candidatos por categoria (ofertas válidas + spec completa); peças sem spec
-//      ou com spec incompleta ficam de fora e viram nota; oferta "boa demais"
-//      só é usada se não houver outra, e aí vira aviso;
+//      ou com spec incompleta ficam de fora e viram nota (se nenhuma tem spec,
+//      a falha diz isso); oferta "boa demais" só é usada se não houver outra, e
+//      aí vira aviso;
 //   2. garante que existe UMA montagem compatível que cabe no teto (senão falha);
 //   3. passo guloso: divide o alvo em fatias por categoria e escolhe, em cada
 //      uma, a opção de maior utilidade que cabe (fatia + sobra acumulada).
 //      Processador e placa-mãe são escolhidos JUNTOS, como um par (V2-B2);
-//   4. se passou do teto, rebaixa a categoria mais cara até caber;
-//   5. usa sobras e a folga (até o teto) para subir GPU e depois CPU, só quando
-//      o ganho de utilidade é >= 10%;
+//   4. se passou do teto, rebaixa a peça mais cara: entre as opções compatíveis
+//      mais baratas, a de MAIOR utilidade que já faz caber (se nenhuma basta,
+//      a mais barata, e segue para a próxima peça) (F-02);
+//   5. usa sobras e a folga (até o teto) para subir peças na ordem do perfil de
+//      uso: jogos GPU → CPU, criação CPU → GPU, trabalho só CPU (S-02), e só
+//      quando o ganho de utilidade é >= 10%. Troca que sai mais barata vira
+//      "economizando" e não conta como uso da folga (F-04);
 //   6. calcula desempenho e pagamento (com o contexto do banco, se vier).
 //
 // TODO(V2-B): trocar o guloso por uma otimização global (ex.: busca em feixe)
-// que considere trocas entre categorias também no rebaixamento e nas subidas
-// (hoje a subida de CPU mantém a placa-mãe), e a resolução-alvo.
+// que considere trocas entre categorias também no rebaixamento (hoje uma peça
+// por rodada, sem trocar a fonte junto) e nas subidas (hoje a subida de CPU
+// mantém a placa-mãe), e a resolução-alvo.
 
 import type { Category, OfferWithStore, ProductWithOffers, Store } from "@/models/types";
 import type {
@@ -27,13 +33,14 @@ import type {
   BuildSuccess,
   Candidate,
   PartSpec,
+  UsageProfile,
 } from "@/models/builder-types";
 import { categoryLabel } from "@/models/categories";
 import { formatBRL } from "@/lib/currency";
 import { normalizeBudget } from "./budget";
 import { isTrustedStore, validOffers } from "./trust";
 import { suspiciousPrice } from "./suspicious";
-import { categoryShares, partUtility } from "./scoring";
+import { categoryShares, partUtility, upgradeOrder } from "./scoring";
 import { hasRequiredSpec, isCompatible } from "./compatibility";
 import { estimatePerformance } from "./performance";
 import { buildPaymentSummary } from "./payments";
@@ -453,22 +460,38 @@ function greedyPass(
   return { parts, notes };
 }
 
-/** Passo 4: rebaixa a categoria mais cara até caber no teto. */
-function downgradeToCap(parts: Candidate[], cands: CandidatesByCategory, hardCap: number): Candidate[] {
+/**
+ * Passo 4: rebaixa até caber no teto (F-02).
+ *
+ * A cada rodada, pega a peça mais cara que tem opção compatível mais barata e,
+ * entre essas opções, fica com a de MAIOR utilidade cuja troca já faz o total
+ * caber. Por quê: trocar pela "próxima mais barata" podia escolher uma peça
+ * pior e mais cara que outra que também cabia (ex.: gpu-b R$ 2.900 com perf 95
+ * no lugar de gpu-c R$ 2.500 com perf 100).
+ * Se nenhuma troca dessa peça basta sozinha, usa a mais barata dela (é o
+ * máximo que ela pode ajudar) e a rodada seguinte completa com outra peça. O
+ * passo 5 ainda pode subir de novo a peça rebaixada com o que sobrar.
+ */
+function downgradeToCap(
+  parts: Candidate[],
+  cands: CandidatesByCategory,
+  utility: Scorer,
+  hardCap: number
+): Candidate[] {
   let current = [...parts];
   for (let iter = 0; iter < 100 && totalOf(current) > hardCap; iter++) {
+    const total = totalOf(current);
     const porPreco = [...current].sort((a, b) => b.price - a.price);
     let trocou = false;
     for (const peca of porPreco) {
       const others = current.filter((p) => p !== peca);
-      const maisBaratas = cands[peca.spec.category]
-        .filter((c) => c.price < peca.price && compatible(others, c))
-        .sort((a, b) => b.price - a.price); // a próxima mais barata primeiro
-      if (maisBaratas.length > 0) {
-        current = [...others, maisBaratas[0]];
-        trocou = true;
-        break;
-      }
+      const maisBaratas = cands[peca.spec.category].filter((c) => c.price < peca.price && compatible(others, c));
+      if (maisBaratas.length === 0) continue;
+      const cabem = maisBaratas.filter((c) => round2(total - peca.price + c.price) <= hardCap);
+      const escolhida = cabem.length > 0 ? sortByUtility(cabem, utility)[0] : [...maisBaratas].sort(byPrice)[0];
+      current = [...others, escolhida];
+      trocou = true;
+      break;
     }
     if (!trocou) break;
   }
@@ -477,17 +500,22 @@ function downgradeToCap(parts: Candidate[], cands: CandidatesByCategory, hardCap
 
 type Upgrade = { category: Category; from: Candidate; to: Candidate; priceDelta: number; trocouFonte: boolean };
 
-/** Passo 5: sobe GPU e depois CPU usando sobras e folga, só com ganho >= 10%. */
+/**
+ * Passo 5: sobe peças usando sobras e folga, só com ganho >= 10%, na ordem do
+ * perfil de uso (`upgradeOrder`, S-02): no "Trabalho" a folga nunca vai para a
+ * placa de vídeo.
+ */
 function upgradePass(
   parts: Candidate[],
   planner: Planner,
   utility: Scorer,
-  hardCap: number
+  hardCap: number,
+  usage: UsageProfile | undefined
 ): { parts: Candidate[]; upgrades: Upgrade[] } {
   let current = [...parts];
   const upgrades: Upgrade[] = [];
 
-  for (const cat of ["gpu", "cpu"] as Category[]) {
+  for (const cat of upgradeOrder(usage)) {
     const atual = current.find((p) => p.spec.category === cat);
     if (!atual) continue;
     const semPsu = current.filter((p) => p !== atual && p.spec.category !== "psu");
@@ -533,7 +561,11 @@ function ganhoPct(from: Candidate, to: Candidate): number | null {
   return Math.round((para / de - 1) * 100);
 }
 
-/** Nota de uma troca, com o preço DELA (R-17) e o ganho real de desempenho. */
+/**
+ * Nota de uma troca, com o preço DELA (R-17) e o ganho real de desempenho.
+ * F-04: uma troca pode sair MAIS BARATA (ex.: GPU melhor e mais barata que só
+ * cabia com outra fonte). Aí a nota diz "economizando", nunca "por mais -R$".
+ */
 function notaDaTroca(u: Upgrade): string {
   const pct = ganhoPct(u.from, u.to);
   const fonte = u.trocouFonte ? ", já contando a troca da fonte" : "";
@@ -541,7 +573,13 @@ function notaDaTroca(u: Upgrade): string {
   if (pct !== null && pct > 0) ganho = ` (+${pct}% de desempenho)`;
   else if (pct === 0) ganho = " (mesmo desempenho, visual melhor)";
   else if (pct !== null) ganho = ` (visual melhor, ${Math.abs(pct)}% menos desempenho)`;
-  return `Subimos ${ARTIGO[u.category]} ${lower(u.category)}: ${u.from.product.name} → ${u.to.product.name}, por mais ${formatBRL(u.priceDelta)}${fonte}${ganho}.`;
+  const preco =
+    u.priceDelta > 0
+      ? `por mais ${formatBRL(u.priceDelta)}`
+      : u.priceDelta < 0
+        ? `economizando ${formatBRL(-u.priceDelta)}`
+        : "pelo mesmo preço";
+  return `Subimos ${ARTIGO[u.category]} ${lower(u.category)}: ${u.from.product.name} → ${u.to.product.name}, ${preco}${fonte}${ganho}.`;
 }
 
 /** R-01: cada peça que veio de oferta "boa demais" gera um aviso (nunca passa em silêncio). */
@@ -572,9 +610,20 @@ export function autoBuild(
   const budget = normalizeBudget(prefs.budget);
   const { candidates: cands, ignored } = collectCandidates(products, specs, prefs.trustedOnly);
 
-  // 1) Toda categoria precisa de ao menos um candidato.
+  // 1) Toda categoria precisa de ao menos um candidato. S-10: se faltou porque
+  // nenhuma peça (ou nenhuma da categoria) tem spec, dizer isso; mandar
+  // desligar o filtro de lojas seria a dica errada.
+  const semSpec = new Set(ignored.slugs);
+  const todasSemSpec = (lista: ProductWithOffers[]) => lista.length > 0 && lista.every((p) => semSpec.has(p.slug));
+  if (todasSemSpec(products)) {
+    return fail("Nenhuma peça do catálogo tem especificação técnica cadastrada; não dá para montar agora.");
+  }
   for (const cat of PICK_ORDER) {
     if (cands[cat].length === 0) {
+      if (todasSemSpec(products.filter((p) => p.category === cat))) {
+        const nenhuma = ARTIGO[cat] === "a" ? "Nenhuma" : "Nenhum";
+        return fail(`${nenhuma} ${lower(cat)} do catálogo tem especificação técnica cadastrada; não dá para montar agora.`);
+      }
       const dica = prefs.trustedOnly ? " Desative “Só lojas confiáveis” ou tente mais tarde." : " Tente mais tarde.";
       return fail(`Não há ${lower(cat)} disponível com os filtros atuais.${dica}`);
     }
@@ -603,25 +652,27 @@ export function autoBuild(
 
   // 4) Garantia do teto.
   if (totalOf(parts) > budget.hardCap) {
-    parts = downgradeToCap(parts, cands, budget.hardCap);
+    parts = downgradeToCap(parts, cands, utility, budget.hardCap);
     if (totalOf(parts) > budget.hardCap) {
       parts = cheapest.parts;
       notes.push("Para caber no teto, usamos a montagem compatível mais barata.");
     }
   }
 
-  // 5) Sobras e folga: subir GPU/CPU quando vale a pena.
+  // 5) Sobras e folga: subir GPU/CPU (na ordem do perfil) quando vale a pena.
   const totalAntes = totalOf(parts);
-  const up = upgradePass(parts, planner, utility, budget.hardCap);
+  const up = upgradePass(parts, planner, utility, budget.hardCap, prefs.usage);
   parts = up.parts;
   const totalPix = totalOf(parts);
 
   for (const u of up.upgrades) notes.push(notaDaTroca(u));
+  // F-04: só troca que custou dinheiro pode ter usado a folga.
+  const trocasPagas = up.upgrades.filter((u) => u.priceDelta > 0);
   const excessoAntes = Math.max(0, round2(totalAntes - budget.target));
   const excessoDepois = Math.max(0, round2(totalPix - budget.target));
-  if (up.upgrades.length === 0 && excessoDepois > 0) {
+  if (trocasPagas.length === 0 && excessoDepois > 0) {
     notes.push(`A montagem ficou ${formatBRL(excessoDepois)} acima do alvo, mas dentro do teto.`);
-  } else if (up.upgrades.length > 0) {
+  } else if (trocasPagas.length > 0) {
     if (excessoAntes > 0) {
       notes.push(`Antes das trocas, as peças já passavam ${formatBRL(excessoAntes)} do alvo (dentro do teto).`);
     }
@@ -630,7 +681,7 @@ export function autoBuild(
       // é só o que passou do alvo. Ex.: troca de R$ 1.100, sobra de R$ 300,70 →
       // "usaram R$ 799,30 da folga; o resto veio do que sobrou dentro do alvo".
       const daFolga = round2(excessoDepois - excessoAntes);
-      const custoTrocas = round2(up.upgrades.reduce((soma, u) => soma + u.priceDelta, 0));
+      const custoTrocas = round2(trocasPagas.reduce((soma, u) => soma + u.priceDelta, 0));
       const resto = custoTrocas > daFolga ? "; o resto veio do que sobrou dentro do alvo" : "";
       notes.push(`No total, as trocas usaram ${formatBRL(daFolga)} da folga (acima do alvo, dentro do teto)${resto}.`);
     }
@@ -663,10 +714,13 @@ export function autoBuild(
     ok: true,
     parts: buildParts,
     totalPix,
-    totalInstallment: payment.installmentTotal,
+    // S-09: o "ou R$ X parcelado" do cabeçalho tem de ser um parcelado que existe
+    // (o mais barato com mais de 1 parcela); o preço a prazo somado pode não ser.
+    totalInstallment: payment.bestInstallment?.total ?? payment.installmentTotal,
     budget,
     // LOG-05: só "usou a folga" se uma troca foi feita E o total passou do alvo.
-    usedWiggleRoom: up.upgrades.length > 0 && totalPix > budget.target,
+    // F-04: troca que economizou (ou não mudou o preço) não conta.
+    usedWiggleRoom: trocasPagas.length > 0 && totalPix > budget.target,
     leftover: round2(budget.hardCap - totalPix),
     notes: [...avisos, ...notes],
     upgrades,

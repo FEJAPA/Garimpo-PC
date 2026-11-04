@@ -1,6 +1,6 @@
 -- Estrutura do banco de dados do GarimpoPC.
 -- Cria as 4 tabelas principais: lojas, peças, ofertas e histórico de preços.
--- Espelha os tipos definidos em src/lib/types.ts.
+-- Espelha os tipos definidos em src/models/types.ts.
 
 -- 1) Lojas onde as peças são vendidas.
 create table if not exists public.stores (

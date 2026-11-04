@@ -19,6 +19,7 @@
 //   concorrência limitada, para não estourar o tempo da função.
 // - DAD-05: ao avisar, o alerta é desligado (is_active = false) e ganha
 //   notified_at; a página /conta mostra "avisado em DD/MM" e oferece "Reativar".
+// - F-20: as travas acima têm teste em route.test.ts (cliente admin e e-mail falsos).
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";

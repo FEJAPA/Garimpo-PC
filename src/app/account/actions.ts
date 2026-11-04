@@ -5,10 +5,14 @@
 //
 // V2 (pacote G): saveBuild/deleteSavedBuild (G1), createBuildAlert (G2),
 // reactivateAlert (DAD-05), teto do preço-alvo (SEG-10) e erro do delete (SEG-11).
+// T-8: criar um alerta que já existe (mesma peça ativa, ou mesma montagem) troca
+// o valor e diz "Alerta atualizado", para a pessoa não achar que tem dois.
+// Testes: src/app/account/actions.test.ts (F-20).
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSupabase, getCurrentUser } from "@/models/supabase-server";
+import { formatBRL } from "@/lib/format";
 import { parseSavedBuildForm, parseTargetPrice, type SavedBuildRowPart } from "@/services/saved-builds";
 
 type ActionResult = { ok: boolean; message: string };
@@ -28,7 +32,11 @@ async function getProductId(slug: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
-/** Cria um alerta: avisa quando o preço PIX cair até o valor alvo. */
+/**
+ * Cria um alerta: avisa quando o preço PIX cair até o valor alvo. Se a pessoa já
+ * tem um alerta ATIVO desta peça, só troca o valor dele (um alerta por peça).
+ * Alertas já avisados (pausados) ficam como estão: a /conta oferece "Reativar".
+ */
 export async function createAlert(formData: FormData): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "Você precisa entrar para criar um alerta." };
@@ -42,16 +50,35 @@ export async function createAlert(formData: FormData): Promise<ActionResult> {
   if (!productId) return { ok: false, message: "Peça não encontrada." };
 
   const supabase = await getServerSupabase();
-  const { error } = await supabase.from("price_alerts").insert({
-    user_id: user.id,
-    product_id: productId,
-    target_price: alvo.value,
-  });
+  const { data: existente } = await supabase
+    .from("price_alerts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("product_id", productId)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
 
-  if (error) return { ok: false, message: "Não foi possível criar o alerta." };
+  const { error } = existente
+    ? await supabase
+        .from("price_alerts")
+        .update({ target_price: alvo.value, notified_at: null })
+        .eq("id", existente.id)
+        .eq("user_id", user.id)
+    : await supabase.from("price_alerts").insert({
+        user_id: user.id,
+        product_id: productId,
+        target_price: alvo.value,
+      });
+
+  if (error) {
+    console.error("Erro ao criar alerta:", error.message);
+    return { ok: false, message: "Não foi possível criar o alerta." };
+  }
 
   revalidatePath(`/peca/${slug}`);
   revalidatePath("/conta");
+  if (existente) return { ok: true, message: `Alerta atualizado para ${formatBRL(alvo.value)}.` };
   return { ok: true, message: "Alerta criado! Avisaremos quando o preço cair." };
 }
 
@@ -237,5 +264,8 @@ export async function createBuildAlert(formData: FormData): Promise<ActionResult
   }
 
   revalidatePath("/conta");
+  if (existente) {
+    return { ok: true, message: "Alerta atualizado! Avisaremos quando a montagem cair até esse valor." };
+  }
   return { ok: true, message: "Alerta criado! Avisaremos quando a montagem cair até esse valor." };
 }

@@ -1,6 +1,6 @@
 -- Tabelas ligadas ao USUÁRIO logado: favoritos e alertas de preço.
 -- Cada linha pertence a um usuário (auth.uid()) e só ele pode ver/mexer.
--- Rode no SQL Editor DEPOIS do schema.sql principal.
+-- Rode no SQL Editor DEPOIS do schema.sql principal. O script é re-executável.
 
 -- Favoritos: peças que o usuário quer acompanhar.
 create table if not exists public.favorites (
@@ -31,6 +31,22 @@ drop policy if exists "favoritos do proprio usuario" on public.favorites;
 create policy "favoritos do proprio usuario" on public.favorites
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-drop policy if exists "alertas do proprio usuario" on public.price_alerts;
-create policy "alertas do proprio usuario" on public.price_alerts
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- schema-alerts.sql reforça esta política: além do dono do alerta, confere o
+-- dono da montagem salva (saved_build_id). Por isso aqui ela só é criada se
+-- ainda não existir (S-18): rodar este arquivo de novo depois do
+-- schema-alerts.sql não pode trocar a versão forte por esta, mais fraca (com a
+-- fraca, alguém poderia apontar um alerta para a montagem de outra pessoa, e o
+-- e-mail revelaria o total dela).
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'price_alerts'
+      and policyname = 'alertas do proprio usuario'
+  ) then
+    create policy "alertas do proprio usuario" on public.price_alerts
+      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end
+$$;

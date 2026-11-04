@@ -4,28 +4,29 @@
 //
 // Regra (simples de explicar):
 // 1. O dinheiro à vista vai primeiro para as peças que MAIS ENCARECEM no cartão
-//    (R-06): custo evitado = max(preço a prazo, Pix × fator da loja no máximo de
-//    parcelas) − Pix. Sem tabela de juros e sem preço a prazo, isso é
-//    Pix × (fator − 1). Empate: a peça mais cara primeiro. Se uma peça não cabe,
-//    tenta as próximas (aproveita o que sobra).
+//    (R-06): custo evitado = total da peça no cartão, no máximo de parcelas da
+//    loja − Pix. O total no cartão sai da MESMA conta de "Como pagar"
+//    (payments.ts): até o que a oferta anuncia vale o preço a prazo dela (S-03);
+//    acima disso, max(preço a prazo, Pix × fator); e nunca abaixo do Pix (S-06).
+//    Empate: a peça mais cara primeiro. Se uma peça não cabe, tenta as próximas
+//    (aproveita o que sobra).
 //    Por que não só "a mais cara": uma peça de loja com +15% no cartão custa
 //    mais para parcelar do que uma peça mais cara de loja sem juros.
 // 2. O resto vai para o cartão no MENOR número de parcelas cuja 1ª parcela (a
 //    maior) cabe no "cabe por mês" (menos meses = menos juros e menos tempo
 //    endividado), respeitando o máximo e a tabela de juros de cada loja.
+// 3. Só calculamos com os DOIS valores preenchidos (F-11, ver mixedPlanPrompt):
+//    "cabe por mês" vazio não vira "sem limite" nem "zero", para não adivinhar.
 // TODO(V2-E): escolher a combinação ótima de peças (hoje é gulosa) e considerar
 // cupons/cashback na conta.
 
 import type { BuildPart, InstallmentRate } from "@/models/builder-types";
 import { formatBRL } from "@/lib/format";
 import {
-  MAX_INSTALLMENTS,
   buildPaymentSummary,
   formatSchedule,
   installmentBands,
   installmentPlan,
-  rateFor,
-  validInstallmentPrice,
   type ScheduleBand,
 } from "./payments";
 
@@ -61,13 +62,24 @@ function naoNegativo(n: number): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** Quanto a peça encarece se for para o cartão no máximo de parcelas da loja. */
+/** Quanto a peça encarece se for sozinha para o cartão, no máximo de parcelas da loja. */
 function custoEvitado(p: BuildPart, tables?: Record<string, InstallmentRate[]>): number {
-  const pix = p.offer.price_pix;
-  const aPrazo = validInstallmentPrice(p.offer) ?? pix;
-  const tabela = tables?.[p.offer.store.id] ?? [];
-  const fator = tabela.length > 0 ? rateFor(tabela, MAX_INSTALLMENTS) : 1;
-  return round2(Math.max(aPrazo, pix * fator) - pix);
+  const sozinha = buildPaymentSummary([p], tables);
+  const noCartao = installmentPlan(sozinha, sozinha.maxInstallments).total;
+  return Math.max(0, round2(noCartao - p.offer.price_pix));
+}
+
+/**
+ * O que falta preencher no modo Misturar (F-11), ou null se dá para calcular.
+ * Os dois campos são obrigatórios; 0 é um valor válido ("não tenho nada à vista").
+ */
+export function mixedPlanPrompt(cashText: string, monthlyText: string): string | null {
+  const temAVista = cashText.trim() !== "";
+  const temPorMes = monthlyText.trim() !== "";
+  if (temAVista && temPorMes) return null;
+  if (temAVista) return "Preencha também quanto cabe por mês (pode ser 0).";
+  if (temPorMes) return "Preencha também quanto você tem à vista (pode ser 0).";
+  return "Diga quanto você tem à vista e quanto cabe por mês para ver a melhor divisão.";
 }
 
 export function mixedPlan(

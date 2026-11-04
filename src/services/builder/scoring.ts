@@ -60,6 +60,27 @@ const USAGE_ADJUST: Record<UsageProfile, Partial<Record<Category, number>>> = {
 };
 
 /**
+ * Em que ordem a folga (e as sobras) sobe as peças, por perfil (S-02). Só GPU e
+ * CPU sobem; a ordem importa porque a primeira troca pode gastar o que havia:
+ *   - jogos: placa de vídeo primeiro (é ela que dá os FPS), depois processador;
+ *   - criação: processador primeiro (render, compilação, exportação), depois a
+ *     placa de vídeo, que ainda ajuda no render e na codificação;
+ *   - trabalho: só o processador. Gastar a folga numa placa de vídeo mais forte
+ *     desfaria a divisão do perfil (a GPU já tem fatia menor) sem ganho real
+ *     em planilha, estudo ou muitas abas.
+ */
+const UPGRADE_ORDER: Record<UsageProfile, readonly Category[]> = {
+  jogos: ["gpu", "cpu"],
+  criacao: ["cpu", "gpu"],
+  trabalho: ["cpu"],
+};
+
+/** Categorias que a folga pode subir, na ordem (ausente = "jogos"). Devolve uma cópia. */
+export function upgradeOrder(usage: UsageProfile = "jogos"): Category[] {
+  return [...(UPGRADE_ORDER[usage] ?? UPGRADE_ORDER.jogos)];
+}
+
+/**
  * Fração do orçamento alvo reservada a cada categoria, interpolada pelo slider
  * e ajustada pelo perfil de uso (ausente = "jogos").
  */

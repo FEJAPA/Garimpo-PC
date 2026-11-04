@@ -5,8 +5,9 @@
 // monta de novo com os preços de hoje. decodeBuild é tolerante: qualquer código
 // estranho vira null (a tela simplesmente ignora).
 
-import type { BuildPart, BuildPreferences, Resolution, UsageProfile } from "@/models/builder-types";
+import type { BuildPart, BuildPreferences, PaymentSummary, Resolution, UsageProfile } from "@/models/builder-types";
 import { categoryLabel } from "@/models/categories";
+import { interestTablesOf, offerInstallment } from "@/services/builder/payments";
 import { MAX_MONEY } from "./money";
 
 export type SharedPart = { slug: string; storeId: string };
@@ -142,15 +143,21 @@ function celula(valor: string): string {
 /**
  * Lista de compras em CSV (separador ";" e vírgula decimal, como o Excel em
  * português abre por padrão). Começa com BOM para manter os acentos.
+ *
+ * "Parcelado" e "Parcelas" vêm de `offerInstallment` (F-13), a mesma conta da
+ * lista de peças, da página da peça e de "Como pagar". Com o resumo de
+ * pagamento (`payment`), respeita a tabela de juros de cada loja.
  */
-export function shoppingListCsv(parts: BuildPart[]): string {
+export function shoppingListCsv(parts: BuildPart[], payment?: PaymentSummary): string {
   const linhas: string[][] = [["Categoria", "Peça", "Loja", "Preço Pix (R$)", "Parcelado (R$)", "Parcelas", "Link"]];
+  const tabelas = payment ? interestTablesOf(payment) : {};
   let totalPix = 0;
   let totalParcelado = 0;
   for (const part of parts) {
     const { offer } = part;
-    const temParcelado = Boolean(offer.price_installment && offer.price_installment > 0 && offer.installment_count);
-    const parcelado = temParcelado ? (offer.price_installment as number) : offer.price_pix;
+    const anunciado = offerInstallment(offer, tabelas[offer.store.id]);
+    // Sem preço a prazo válido: só à vista, pelo Pix, em 1x.
+    const parcelado = anunciado?.total ?? offer.price_pix;
     totalPix += offer.price_pix;
     totalParcelado += parcelado;
     linhas.push([
@@ -159,7 +166,7 @@ export function shoppingListCsv(parts: BuildPart[]): string {
       offer.store.name,
       reaisCsv(offer.price_pix),
       reaisCsv(parcelado),
-      String(temParcelado ? offer.installment_count : 1),
+      String(anunciado?.count ?? 1),
       safeHref(offer.url) ?? "",
     ]);
   }

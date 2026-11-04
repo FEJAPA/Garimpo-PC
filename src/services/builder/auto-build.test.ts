@@ -7,6 +7,7 @@ import { REFERENCE_BUILDS } from "@/models/reference-builds";
 import { isCompatible } from "./compatibility";
 import { formatBRL } from "@/lib/currency";
 import { isTrustedStore, validOffers } from "./trust";
+import { installmentOptions } from "./payments";
 import { flagSuspiciousOffers } from "./suspicious";
 import {
   makeProduct,
@@ -225,7 +226,8 @@ describe("contexto da montagem (R-02)", () => {
     expect(sem.payment.stores.every((s) => s.interestTable === undefined)).toBe(true);
     expect(com.payment.stores.length).toBeGreaterThan(0);
     expect(com.payment.stores.every((s) => (s.interestTable?.length ?? 0) > 0)).toBe(true);
-    expect(com.totalInstallment).toBe(com.payment.installmentTotal);
+    // S-09: o "ou R$ X parcelado" do cabeçalho é o parcelado mais barato que existe.
+    expect(com.totalInstallment).toBe(com.payment.bestInstallment?.total ?? com.payment.installmentTotal);
     // As peças não mudam: o contexto só afeta pagamento e desempenho.
     expect(com.parts.map((p) => p.offer.id)).toEqual(sem.parts.map((p) => p.offer.id));
   });
@@ -356,6 +358,29 @@ describe("peças sem especificação técnica (LOG-02/03/04)", () => {
     expect(zero.notes.some((n) => n.includes("ignorada"))).toBe(false);
   });
 
+  it("sem nenhuma spec cadastrada, diz isso em vez de mandar desligar o filtro (S-10)", () => {
+    for (const trusted of [true, false]) {
+      const r = autoBuild(MOCK_PRODUCTS, {}, prefs(6000, 7000, 25, trusted));
+      expect(r.ok).toBe(false);
+      if (r.ok) continue;
+      expect(r.reason).toBe("Nenhuma peça do catálogo tem especificação técnica cadastrada; não dá para montar agora.");
+    }
+  });
+
+  it("categoria inteira sem spec diz qual é, sem falar do filtro de lojas (S-10)", () => {
+    for (const [cat, frase] of [
+      ["gpu", "Nenhuma placa de vídeo"],
+      ["cpu", "Nenhum processador"],
+    ] as const) {
+      const specs = Object.fromEntries(Object.entries(PART_SPECS).filter(([, s]) => s.category !== cat));
+      const r = autoBuild(MOCK_PRODUCTS, specs, prefs(6000, 7000, 25, true));
+      expect(r.ok).toBe(false);
+      if (r.ok) continue;
+      expect(r.reason).toBe(`${frase} do catálogo tem especificação técnica cadastrada; não dá para montar agora.`);
+      expect(r.reason).not.toContain("Desative");
+    }
+  });
+
   it("catálogo vazio falha com motivo, sem lançar erro", () => {
     const r = autoBuild([], {}, prefs(6000, 7000));
     expect(r.ok).toBe(false);
@@ -442,6 +467,147 @@ describe("folga, trocas e notas (LOG-05/06, R-16, R-17)", () => {
       expect(n).not.toContain(formatBRL(0));
       expect(n).not.toContain("memória ram");
     }
+  });
+});
+
+describe("rebaixamento até o teto (F-02, F-04)", () => {
+  // Par processador + placa-mãe único (R$ 3.500) e resto R$ 800. gpu-a cabe na
+  // fatia, mas com o par passa do teto (R$ 7.300). gpu-c é mais barata E melhor
+  // que gpu-b: o rebaixamento tem de ir para ela, não para "a próxima mais barata".
+  function comGpus(perfB: number) {
+    return catalogo(
+      [
+        { slug: "gpu-a", category: "gpu", perf: 120, aesthetics: 50, tdp: 100 },
+        { slug: "gpu-b", category: "gpu", perf: perfB, aesthetics: 50, tdp: 100 },
+        { slug: "gpu-c", category: "gpu", perf: 100, aesthetics: 50, tdp: 100 },
+        { slug: "cpu", category: "cpu", perf: 100, aesthetics: 50, socket: "AM5", tdp: 65 },
+        ...RESTO,
+      ],
+      { "gpu-a": 3000, "gpu-b": 2900, "gpu-c": 2500, cpu: 2000, ...PRECOS_RESTO, mobo: 1500 }
+    );
+  }
+
+  it("troca pela de MAIOR utilidade que faz caber, não pela próxima mais barata (F-02)", () => {
+    const { produtos, specs } = comGpus(95);
+    const r = autoBuild(produtos, specs, prefs(7200, 7200, 0));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.parts.find((p) => p.category === "gpu")!.product.slug).toBe("gpu-c");
+    expect(r.totalPix).toBe(6800);
+    expect(todasCompativeis(r)).toBe(true);
+  });
+
+  it("depois do rebaixamento não sobra troca 'para cima' que sai mais barata (F-04)", () => {
+    const { produtos, specs } = comGpus(60);
+    const r = autoBuild(produtos, specs, prefs(7200, 7200, 0));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.parts.find((p) => p.category === "gpu")!.product.slug).toBe("gpu-c");
+    expect(r.upgrades).toEqual([]);
+    for (const n of r.notes) expect(n).not.toContain("-R$");
+  });
+
+  it("troca que sai mais barata diz 'economizando' e não conta como uso da folga (F-04)", () => {
+    // gpu-cara + par caro passam do teto. O rebaixamento só pode usar gpu-z
+    // (gpu-y pede fonte maior que a de 450 W). Na subida, gpu-y + fonte de 850 W
+    // sai R$ 100 mais barata que gpu-z + fonte de 450 W.
+    const lista: PartSpec[] = [
+      { slug: "gpu-cara", category: "gpu", perf: 120, aesthetics: 50, tdp: 100 },
+      { slug: "gpu-y", category: "gpu", perf: 115, aesthetics: 50, tdp: 300 },
+      { slug: "gpu-z", category: "gpu", perf: 100, aesthetics: 50, tdp: 100 },
+      { slug: "cpu", category: "cpu", perf: 100, aesthetics: 50, socket: "AM5", tdp: 65 },
+      { slug: "psu-450", category: "psu", perf: 100, aesthetics: 50, wattage: 450 },
+      { slug: "psu-850", category: "psu", perf: 100, aesthetics: 50, wattage: 850 },
+      ...RESTO.filter((s) => s.slug !== "psu"),
+    ];
+    const { produtos, specs } = catalogo(lista, {
+      "gpu-cara": 3000, "gpu-y": 2000, "gpu-z": 2400, cpu: 2400, mobo: 1800, ram: 200, ssd: 200, case: 200,
+      "psu-450": 200, "psu-850": 500,
+    });
+    const r = autoBuild(produtos, specs, prefs(7200, 7500, 0));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.totalPix).toBe(7300);
+    expect(r.upgrades).toEqual([{ category: "gpu", from: "gpu-z", to: "gpu-y", priceDelta: -100, perfGainPct: 15 }]);
+    expect(r.usedWiggleRoom).toBe(false);
+    const nota = r.notes.find((n) => n.includes("gpu-z → gpu-y"))!;
+    expect(nota).toContain(`economizando ${formatBRL(100)}`);
+    expect(nota).not.toContain("por mais");
+    expect(nota).not.toContain("-R$");
+    expect(r.notes).toContain(`A montagem ficou ${formatBRL(100)} acima do alvo, mas dentro do teto.`);
+    expect(r.notes.some((n) => n.includes("folga"))).toBe(false);
+  });
+});
+
+describe("a folga respeita o perfil de uso (S-02)", () => {
+  // gpu-a → gpu-c custa +R$ 1.000 (+20%); cpu-a → cpu-b, +R$ 300 (+25%).
+  // Montagem mais barata (e a do guloso com alvo 2700): R$ 2.700.
+  const lista: PartSpec[] = [
+    { slug: "gpu-a", category: "gpu", perf: 100, aesthetics: 50, tdp: 100 },
+    { slug: "gpu-c", category: "gpu", perf: 120, aesthetics: 50, tdp: 100 },
+    { slug: "cpu-a", category: "cpu", perf: 100, aesthetics: 50, socket: "AM5", tdp: 65 },
+    { slug: "cpu-b", category: "cpu", perf: 125, aesthetics: 50, socket: "AM5", tdp: 65 },
+    ...RESTO,
+  ];
+  const { produtos, specs } = catalogo(lista, { "gpu-a": 1000, "gpu-c": 2000, "cpu-a": 500, "cpu-b": 800, ...PRECOS_RESTO });
+  const montarCom = (usage: UsageProfile, teto: number) => autoBuild(produtos, specs, { ...prefs(2700, teto, 0), usage });
+  const slugDe = (r: BuildSuccess, cat: Category) => r.parts.find((p) => p.category === cat)!.product.slug;
+
+  it("Trabalho com folga sobe o processador e não troca a placa de vídeo", () => {
+    const r = montarCom("trabalho", 4000);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(slugDe(r, "gpu")).toBe("gpu-a");
+    expect(slugDe(r, "cpu")).toBe("cpu-b");
+    expect(r.upgrades?.map((u) => u.category)).toEqual(["cpu"]);
+    expect(r.totalPix).toBe(3000);
+  });
+
+  it("Criação sobe primeiro o processador; Jogos, primeiro a placa de vídeo", () => {
+    // Teto 3700: só cabe UMA das duas trocas, e a ordem decide qual.
+    const criacao = montarCom("criacao", 3700);
+    const jogos = montarCom("jogos", 3700);
+    expect(criacao.ok && jogos.ok).toBe(true);
+    if (!criacao.ok || !jogos.ok) return;
+    expect([slugDe(criacao, "gpu"), slugDe(criacao, "cpu")]).toEqual(["gpu-a", "cpu-b"]);
+    expect([slugDe(jogos, "gpu"), slugDe(jogos, "cpu")]).toEqual(["gpu-c", "cpu-a"]);
+    // Com folga para as duas, Criação faz as duas (processador primeiro).
+    const folgada = montarCom("criacao", 4000);
+    expect(folgada.ok && folgada.upgrades?.map((u) => u.category)).toEqual(["cpu", "gpu"]);
+  });
+});
+
+describe("parcelado do cabeçalho (S-09)", () => {
+  it("'ou R$ X parcelado' é um parcelado que existe, mesmo com marketplace acima do preço a prazo", () => {
+    // A placa de vídeo vem de uma marketplace que cobra Pix + 15% em qualquer
+    // número de parcelas: R$ 1.150, acima dos R$ 1.100 a prazo que a oferta anuncia.
+    const lista: PartSpec[] = [
+      { slug: "gpu", category: "gpu", perf: 100, aesthetics: 50, tdp: 100 },
+      { slug: "cpu", category: "cpu", perf: 100, aesthetics: 50, socket: "AM5", tdp: 65 },
+      ...RESTO,
+    ];
+    const { produtos, specs } = catalogo(lista, { gpu: 1000, cpu: 500, ...PRECOS_RESTO });
+    const comMarketplace = produtos.map((p) =>
+      p.slug === "gpu" ? makeProduct("gpu", "gpu", [{ store: LOJA_DUVIDOSA, price: 1000, installment: 1100, count: 1 }]) : p
+    );
+    const r = autoBuild(comMarketplace, specs, prefs(3000, 3000, 0, false), {
+      installmentTables: { [LOJA_DUVIDOSA.id]: [{ count: 12, factor: 1.15 }] },
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.parts.find((p) => p.category === "gpu")!.offer.store.id).toBe(LOJA_DUVIDOSA.id);
+    expect(r.payment.bestInstallment).toBeDefined();
+    expect(r.totalInstallment).toBe(r.payment.bestInstallment!.total);
+    expect(r.totalInstallment).toBeGreaterThan(r.payment.installmentTotal);
+    expect(installmentOptions(r.payment).some((o) => o.total === r.totalInstallment)).toBe(true);
+  });
+
+  it("no catálogo de exemplo, sem o filtro (GPU da marketplace), o valor também existe no seletor", () => {
+    const r = autoBuild(MOCK_PRODUCTS, PART_SPECS, prefs(8000, 9000, 25, false), { installmentTables: INSTALLMENT_TABLES });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.totalInstallment).toBe(r.payment.bestInstallment!.total);
+    expect(installmentOptions(r.payment).some((o) => o.total === r.totalInstallment)).toBe(true);
   });
 });
 
@@ -536,19 +702,26 @@ describe("catálogo sintético grande (B1)", () => {
     }
   });
 
-  it("monta com 150 peças por categoria em menos de 200 ms (falha só acima de 400 ms)", () => {
-    autoBuild(grande.products, grande.specs, prefs(8000, 9000)); // aquecimento (JIT)
+  it("monta com 150 peças por categoria em menos de 200 ms (mediana de 5 execuções por cenário)", () => {
+    // Aquecimento: as primeiras execuções pagam a compilação (JIT) e não contam.
+    for (let i = 0; i < 3; i++) autoBuild(grande.products, grande.specs, prefs(8000, 9000));
+    // Mediana, e não a pior: uma pausa do coletor de lixo ou do CI numa execução
+    // isolada não deve derrubar o teste, mas a montagem típica tem de caber em 200 ms.
+    const mediana = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
     let pior = 0;
     for (const [alvo, teto, a, trusted] of [
       [6000, 7000, 25, true], [12000, 15000, 80, false], [4000, 4000, 0, true], [20000, 25000, 50, false],
     ] as [number, number, number, boolean][]) {
-      const t0 = performance.now();
-      autoBuild(grande.products, grande.specs, prefs(alvo, teto, a, trusted));
-      pior = Math.max(pior, performance.now() - t0);
+      const tempos: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        const t0 = performance.now();
+        autoBuild(grande.products, grande.specs, prefs(alvo, teto, a, trusted));
+        tempos.push(performance.now() - t0);
+      }
+      pior = Math.max(pior, mediana(tempos));
     }
-    if (pior > 200) console.warn(`autoBuild com 150 peças/categoria levou ${pior.toFixed(1)} ms (meta: 200 ms)`);
-    expect(pior).toBeLessThan(400);
-  });
+    expect(pior).toBeLessThan(200);
+  }, 30_000);
 
   it("INVARIANTES em 200 combinações aleatórias de preferências", () => {
     const rnd = seededRandom(7);
@@ -574,7 +747,9 @@ describe("catálogo sintético grande (B1)", () => {
       expect(r.parts.map((x) => x.category).sort()).toEqual([...CATEGORIAS].sort());
       expect(todasCompativeis(r)).toBe(true);
       if (p.trustedOnly) expect(r.parts.every((x) => isTrustedStore(x.offer.store))).toBe(true);
-      expect(r.usedWiggleRoom).toBe((r.upgrades?.length ?? 0) > 0 && r.totalPix > target);
+      // F-04: só troca que custou dinheiro conta como uso da folga.
+      expect(r.usedWiggleRoom).toBe((r.upgrades ?? []).some((u) => u.priceDelta > 0) && r.totalPix > target);
+      for (const n of r.notes) expect(n).not.toContain("-R$");
       for (const n of r.notes) expect(n).not.toMatch(/NaN|Infinity|undefined/);
       for (const u of r.upgrades ?? []) {
         expect(Number.isFinite(u.perfGainPct)).toBe(true);

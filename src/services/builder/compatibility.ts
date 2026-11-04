@@ -19,24 +19,26 @@ const preenchido = (s: string | undefined): boolean => typeof s === "string" && 
  * placa-mãe sem `socket` "combinaria" com qualquer processador, e a promessa
  * "peças sempre compatíveis" quebraria em silêncio. Então, antes de montar,
  * exigimos por categoria:
- *   - gpu e cpu: `tdp` e `perf` finitos e > 0 (fonte e desempenho dependem deles);
+ *   - gpu e cpu: `tdp` finito e > 0 (a potência da fonte depende dele);
  *   - cpu: `socket`; placa-mãe: `socket`, `ramType` e `formFactor`;
  *   - ram: `ramType`; gabinete: `caseSupports` não vazio; fonte: `wattage` > 0;
- *   - ssd: `perf` finito e > 0;
- *   - todas: categoria conhecida, `perf` finito ≥ 0 e `aesthetics` entre 0 e 100.
+ *   - todas: categoria conhecida, `perf` finito e > 0 e `aesthetics` entre 0 e 100.
+ * É a MESMA regra de `src/services/specs.ts` (leitura do banco) e de
+ * `scripts/collect-specs.mjs` (S-25): perf 0 viraria utilidade zero e um
+ * "+Infinity%" de desempenho na nota da troca.
  * Conferir se a categoria da spec bate com a do produto fica com quem tem o
  * produto (auto-build.ts).
  */
 export function hasRequiredSpec(spec: PartSpec): boolean {
   if (!CATEGORIAS.includes(spec.category)) return false;
-  if (!Number.isFinite(spec.perf) || spec.perf < 0) return false;
+  if (!positivo(spec.perf)) return false;
   if (!Number.isFinite(spec.aesthetics) || spec.aesthetics < 0 || spec.aesthetics > 100) return false;
 
   switch (spec.category) {
     case "gpu":
-      return positivo(spec.tdp) && positivo(spec.perf);
+      return positivo(spec.tdp);
     case "cpu":
-      return positivo(spec.tdp) && positivo(spec.perf) && preenchido(spec.socket);
+      return positivo(spec.tdp) && preenchido(spec.socket);
     case "motherboard":
       return preenchido(spec.socket) && preenchido(spec.ramType) && preenchido(spec.formFactor);
     case "ram":
@@ -46,7 +48,7 @@ export function hasRequiredSpec(spec: PartSpec): boolean {
     case "psu":
       return positivo(spec.wattage);
     case "ssd":
-      return positivo(spec.perf);
+      return true;
   }
 }
 

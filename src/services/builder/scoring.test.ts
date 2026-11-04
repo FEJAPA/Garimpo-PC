@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { partUtility, categoryShares, AESTHETICS_RELEVANCE } from "./scoring";
+import { partUtility, categoryShares, upgradeOrder, AESTHETICS_RELEVANCE } from "./scoring";
 import type { PartSpec } from "@/models/builder-types";
 
 const gabineteBonito: PartSpec = { slug: "a", category: "case", perf: 50, aesthetics: 95 };
@@ -87,5 +87,29 @@ describe("fatias do orçamento por perfil de uso (V2-B3)", () => {
     expect(s.ram).toBeCloseTo(jogos.ram + 0.03);
     expect(s.ssd).toBeCloseTo(jogos.ssd + 0.04);
     expect(s.case).toBeCloseTo(jogos.case);
+  });
+});
+
+describe("ordem de subida com a folga, por perfil (S-02)", () => {
+  it("jogos sobe a placa de vídeo e depois o processador", () => {
+    expect(upgradeOrder("jogos")).toEqual(["gpu", "cpu"]);
+  });
+
+  it("criação sobe o processador e depois a placa de vídeo", () => {
+    expect(upgradeOrder("criacao")).toEqual(["cpu", "gpu"]);
+  });
+
+  it("trabalho só sobe o processador (a placa de vídeo não ajuda planilha)", () => {
+    expect(upgradeOrder("trabalho")).toEqual(["cpu"]);
+  });
+
+  it("sem perfil, vale o de jogos", () => {
+    expect(upgradeOrder()).toEqual(["gpu", "cpu"]);
+    expect(upgradeOrder(undefined)).toEqual(upgradeOrder("jogos"));
+  });
+
+  it("devolve uma cópia (quem chama não estraga a tabela)", () => {
+    upgradeOrder("jogos").pop();
+    expect(upgradeOrder("jogos")).toEqual(["gpu", "cpu"]);
   });
 });

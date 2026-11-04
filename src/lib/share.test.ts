@@ -100,6 +100,37 @@ describe("shoppingListCsv", () => {
     const linha = shoppingListCsv([p]).trim().split("\r\n")[1];
     expect(linha).toBe("Placa de vídeo;'=HYPERLINK(1);\"Kabum; Oficial\";1899,90;1899,90;1;");
   });
+
+  // F-13: o CSV usa a mesma conta da tela (offerInstallment), para a lista que a
+  // pessoa leva para a loja não divergir de "Como pagar".
+  it("preço a prazo válido sem número de parcelas: 1x pelo preço a prazo (como na tela)", () => {
+    const p = parte();
+    p.offer = { ...p.offer, price_pix: 200, price_installment: 230, installment_count: null };
+    const linhas = shoppingListCsv([p]).trim().split("\r\n");
+    expect(linhas[1]).toBe('Placa de vídeo;"Placa ""RTX"" 4060";"Kabum; Oficial";200,00;230,00;1;https://kabum.com.br/x');
+    expect(linhas[2]).toBe("Total;;;200,00;230,00;;");
+  });
+
+  it("preço a prazo abaixo do Pix vale o Pix (S-06)", () => {
+    const p = parte();
+    p.offer = { ...p.offer, price_pix: 1000, price_installment: 900, installment_count: 10 };
+    expect(shoppingListCsv([p]).trim().split("\r\n")[1]).toContain(";1000,00;1000,00;10;");
+  });
+
+  it("com o resumo de pagamento, respeita a tabela da loja: oferta 12x e tabela até 10x → 10x", () => {
+    const p = parte();
+    p.offer = { ...p.offer, price_pix: 1000, price_installment: 1120, installment_count: 12 };
+    const payment = {
+      pixTotal: 1000,
+      installmentTotal: 1120,
+      maxInstallments: 10,
+      pixSavings: 120,
+      stores: [{ store, items: 1, pixTotal: 1000, installmentTotal: 1120, installmentCount: 10, offersInstallmentCount: 12, interestTable: [{ count: 10, factor: 1.15 }] }],
+    };
+    expect(shoppingListCsv([p], payment).trim().split("\r\n")[1]).toContain(";1000,00;1120,00;10;");
+    // Sem o resumo, vale o que a oferta anuncia.
+    expect(shoppingListCsv([p]).trim().split("\r\n")[1]).toContain(";1000,00;1120,00;12;");
+  });
 });
 
 describe("safeHref", () => {

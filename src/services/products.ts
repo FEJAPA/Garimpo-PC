@@ -256,6 +256,9 @@ export async function getPriceHistory(
   // são "boas demais" (suspeitas). Senão o gráfico mostraria como "menor preço"
   // o valor de uma loja que o próprio site manda conferir (ex.: R$ 1.399,90 na
   // RTX 4060 do exemplo), enquanto o herói diz que o melhor preço é outro.
+  // TODO(V2-C): a régua é a de HOJE. Oferta sem estoque agora some do gráfico, e
+  // um ponto antigo "bom demais" de loja hoje honesta ainda entra; conferir cada
+  // ponto contra a mediana confiável daquele dia.
   const suspeitas = flagSuspiciousOffers(product);
   const offerIds = validOffers(product, false)
     .filter((o) => !suspeitas.has(o.id))

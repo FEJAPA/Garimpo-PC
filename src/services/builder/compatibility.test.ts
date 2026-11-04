@@ -79,6 +79,13 @@ describe("especificação mínima por categoria (LOG-02/03)", () => {
     expect(hasRequiredSpec({ slug: "x", category: "ssd", perf: 0, aesthetics: 30 })).toBe(false);
   });
 
+  it("exige perf > 0 em TODAS as categorias, como specs.ts (S-25)", () => {
+    for (const s of completas) {
+      expect(hasRequiredSpec({ ...s, perf: 0 })).toBe(false);
+      expect(hasRequiredSpec({ ...s, perf: -1 })).toBe(false);
+    }
+  });
+
   it("estética precisa estar entre 0 e 100 em qualquer categoria", () => {
     expect(hasRequiredSpec({ ...ramDdr5, aesthetics: 101 })).toBe(false);
     expect(hasRequiredSpec({ ...caseMatx, aesthetics: -1 })).toBe(false);

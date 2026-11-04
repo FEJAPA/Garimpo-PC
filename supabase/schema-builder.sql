@@ -1,7 +1,12 @@
--- Montador de PC: tabelas de apoio (scaffold V1 — ainda NÃO usadas pelo app).
--- Na V1 as specs e as referências vivem em src/models/part-specs.ts e
--- src/models/reference-builds.ts. Na V2 (pacotes A, D e G do plano) o app passa
--- a ler daqui. Rode no SQL Editor DEPOIS de schema.sql e schema-auth.sql.
+-- Montador de PC: tabelas que o app USA com o Supabase configurado (V2).
+-- - part_specs: especificações de cada peça, lidas por src/services/specs.ts.
+-- - reference_builds: computadores de referência, lidos por src/services/references.ts.
+-- - saved_builds: montagens salvas, gravadas por src/app/account/actions.ts e
+--   listadas em /conta.
+-- Sem banco (modo de demonstração), specs e referências vêm de
+-- src/models/part-specs.ts e src/models/reference-builds.ts (dados ilustrativos).
+-- Com banco, tabela vazia NÃO cai no exemplo: a tela avisa que faltam dados.
+-- Rode no SQL Editor DEPOIS de schema.sql e schema-auth.sql. O script é re-executável.
 
 -- 1) Especificações técnicas por peça (1 linha por produto).
 create table if not exists public.part_specs (

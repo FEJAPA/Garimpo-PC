@@ -2,11 +2,14 @@
 
 // "Salvar montagem" no resultado do Montador (V2, pacote G1). O Pacote F encaixa
 // <SaveBuildButton prefs={prefs} result={result} /> no BuildResultView.
+// - Sem banco (modo de demonstração): só um aviso em texto (F-23). O link de
+//   entrar levaria a uma tela que diz "o login ainda não está configurado".
 // - Sem login: link "Entre para salvar a montagem", que volta para esta página.
 // - Com login: campo de nome + botão; a action confere as ofertas e grava.
 //
 // Aqui também mora o formulário do alerta da montagem inteira (G2), usado na
 // página /conta: ele precisa de estado no navegador para o retorno em linha.
+// Com alerta já criado, o botão diz "Mudar alerta" (T-8): a action troca o valor.
 
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
@@ -36,6 +39,7 @@ function useLogado(): boolean | null {
 }
 
 export function SaveBuildButton({ prefs, result }: { prefs: BuildPreferences; result: BuildSuccess }) {
+  const configurado = isSupabaseConfigured();
   const logado = useLogado();
   const pathname = usePathname();
   // A query (ex.: ?b=código) é lida depois de montar, para o link de entrar voltar à mesma montagem.
@@ -47,11 +51,20 @@ export function SaveBuildButton({ prefs, result }: { prefs: BuildPreferences; re
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (logado !== false) return;
+    if (!configurado || logado !== false) return;
     // Fora do render para não divergir do HTML do servidor (que não conhece a query).
     const id = requestAnimationFrame(() => setBusca(window.location.search));
     return () => cancelAnimationFrame(id);
-  }, [logado]);
+  }, [configurado, logado]);
+
+  if (!configurado) {
+    return (
+      <p className="flex max-w-sm items-start gap-1.5 self-center text-xs text-ink-muted">
+        <Bookmark className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+        <span>Salvar montagens e alertas precisam do banco configurado (modo de demonstração).</span>
+      </p>
+    );
+  }
 
   if (logado === false) {
     const next = `${pathname || "/montar"}${busca}`;
@@ -139,11 +152,14 @@ export function SavedBuildAlertForm({
   buildId,
   buildName,
   suggested,
+  hasAlert = false,
 }: {
   buildId: string;
   buildName: string;
   /** Valor inicial do campo (o alvo atual, ou um pouco abaixo do total salvo). */
   suggested: number;
+  /** A montagem já tem alerta: o botão vira "Mudar alerta" (a action troca o valor). */
+  hasAlert?: boolean;
 }) {
   const [valor, setValor] = useState(String(Math.max(1, Math.round(suggested))));
   const [retorno, setRetorno] = useState<Retorno | null>(null);
@@ -166,9 +182,14 @@ export function SavedBuildAlertForm({
           <div className="min-w-0 flex-1">
             <MoneyInput id={campoId} value={valor} onChange={setValor} />
           </div>
-          <Button type="submit" variant="secondary" loading={pending} aria-label={`Criar alerta para ${buildName}`}>
+          <Button
+            type="submit"
+            variant="secondary"
+            loading={pending}
+            aria-label={hasAlert ? `Mudar alerta de ${buildName}` : `Criar alerta para ${buildName}`}
+          >
             <Bell className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            Criar alerta
+            {hasAlert ? "Mudar alerta" : "Criar alerta"}
           </Button>
         </div>
       </Field>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mixedPlan } from "./mixed-plan";
+import { mixedPlan, mixedPlanPrompt } from "./mixed-plan";
 import { makePart, LOJA_DUVIDOSA, LOJA_KABUM, LOJA_PICHAU } from "./test-fixtures";
 import { INSTALLMENT_TABLES } from "@/models/installment-tables";
 import { formatBRL } from "@/lib/format";
@@ -49,9 +49,13 @@ describe("mistura Pix + parcelado (sem tabela de juros, V1)", () => {
   it("não cabe: avisa quanto falta por mês", () => {
     const r = mixedPlan(pecas, { cash: 0, monthly: 100 });
     expect(r.fits).toBe(false);
-    // No máximo (6x) a parcela é 330.
-    expect(r).toMatchObject({ months: 6, monthly: 330, installmentTotal: 1980 });
-    expect(r.notes).toContain(`Falta ${formatBRL(230)} por mês para caber no seu orçamento.`);
+    // No máximo (10x, a Kabum; a Pichau para em 6x) a 1ª parcela é 165 + 55 = 220.
+    expect(r).toMatchObject({ months: 10, monthly: 220, installmentTotal: 1980 });
+    expect(r.schedule).toEqual([
+      { count: 6, monthly: 220 },
+      { count: 4, monthly: 165 },
+    ]);
+    expect(r.notes).toContain(`Falta ${formatBRL(120)} por mês para caber no seu orçamento.`);
   });
 
   it("valores inválidos ou negativos contam como zero", () => {
@@ -104,12 +108,65 @@ describe("mistura Pix + parcelado (com tabela de juros)", () => {
   // R-06: o Pix vai primeiro para a peça que mais encarece no cartão.
   it("peça de loja com +15% vai ao Pix antes de uma mais cara sem juros", () => {
     const tabelas = { duvidosa: [{ count: 12, factor: 1.15 }] };
-    const comJuros = makePart({ slug: "com-juros", category: "gpu", perf: 100, aesthetics: 50 }, { store: LOJA_DUVIDOSA, price: 800, installment: 800, count: 12 });
+    // A oferta só anuncia o Pix; no cartão vale a tabela da loja (+15%). Se ela
+    // anunciasse 12x por R$ 800, valeria o anunciado (S-03) e não haveria juros.
+    const comJuros = makePart({ slug: "com-juros", category: "gpu", perf: 100, aesthetics: 50 }, { store: LOJA_DUVIDOSA, price: 800, installment: null, count: null });
     const semJuros = makePart({ slug: "sem-juros", category: "cpu", perf: 100, aesthetics: 50 }, { store: LOJA_PICHAU, price: 1000, installment: 1000, count: 10 });
     const r = mixedPlan([semJuros, comJuros], { cash: 1000, monthly: 200 }, tabelas);
     // Pelo preço iria a de R$ 1.000; pelo custo evitado vai a de R$ 800 (120 de juros).
     expect(slugs(r.pixItems)).toEqual(["com-juros"]);
     expect(slugs(r.installmentItems)).toEqual(["sem-juros"]);
     expect(r).toMatchObject({ pixTotal: 800, installmentTotal: 1000, fits: true });
+  });
+
+  // S-03: o custo evitado usa a mesma conta de "Como pagar". Uma oferta que
+  // anuncia 12x pelo preço a prazo não encarece além dele, mesmo com tabela.
+  it("o custo evitado respeita o que a oferta anuncia", () => {
+    const tabelas = { duvidosa: [{ count: 12, factor: 1.15 }] };
+    // Anuncia 12x por 800 (= Pix): no cartão custa o mesmo que no Pix.
+    const anunciada = makePart({ slug: "anunciada", category: "gpu", perf: 100, aesthetics: 50 }, { store: LOJA_DUVIDOSA, price: 800, installment: 800, count: 12 });
+    // Pichau sem tabela: 1000 no Pix, 1050 a prazo (custa 50 a mais no cartão).
+    const aPrazo = makePart({ slug: "a-prazo", category: "cpu", perf: 100, aesthetics: 50 }, { store: LOJA_PICHAU, price: 1000, installment: 1050, count: 10 });
+    const r = mixedPlan([anunciada, aPrazo], { cash: 1000, monthly: 1000 }, tabelas);
+    expect(slugs(r.pixItems)).toEqual(["a-prazo"]);
+  });
+});
+
+// S-06: preço a prazo abaixo do Pix é dado ruim e não pode "baratear" o cartão.
+describe("mistura com preço a prazo abaixo do Pix (S-06)", () => {
+  it("o custo evitado nunca é negativo (empate: a peça mais cara vai primeiro)", () => {
+    // A "ruim" (a prazo 400 < Pix 500) tem custo 0, como a "igual"; empate: a mais cara.
+    const ruim = makePart({ slug: "ruim", category: "gpu", perf: 100, aesthetics: 50 }, { store: LOJA_PICHAU, price: 500, installment: 400, count: 10 });
+    const igual = makePart({ slug: "igual", category: "cpu", perf: 100, aesthetics: 50 }, { store: LOJA_PICHAU, price: 200, installment: 200, count: 10 });
+    const r = mixedPlan([igual, ruim], { cash: 500, monthly: 1000 });
+    expect(slugs(r.pixItems)).toEqual(["ruim"]);
+    // No cartão, a "igual" sai pelo preço do Pix, nunca abaixo dele.
+    expect(r.installmentTotal).toBe(200);
+  });
+
+  it("no cartão, a peça nunca sai mais barata que no Pix", () => {
+    const ruim = makePart({ slug: "ruim", category: "gpu", perf: 100, aesthetics: 50 }, { store: LOJA_PICHAU, price: 500, installment: 400, count: 10 });
+    const r = mixedPlan([ruim], { cash: 0, monthly: 1000 });
+    expect(r.installmentTotal).toBe(500);
+    expect(r.notes).toContain("O parcelamento sai pelo mesmo preço do Pix.");
+  });
+});
+
+// F-11: com "Cabe por mês" vazio, o plano diria "Falta R$ X por mês" sem a pessoa
+// ter dito quanto cabe. Escolha: só calcular com os DOIS campos preenchidos
+// (0 vale); vazio não é tratado como "sem limite" para não adivinhar.
+describe("mixedPlanPrompt: o que falta preencher no modo Misturar", () => {
+  it("pede os dois valores quando nada foi preenchido", () => {
+    expect(mixedPlanPrompt("", "  ")).toBe("Diga quanto você tem à vista e quanto cabe por mês para ver a melhor divisão.");
+  });
+
+  it("pede o que falta quando só um foi preenchido", () => {
+    expect(mixedPlanPrompt("3000", "")).toBe("Preencha também quanto cabe por mês (pode ser 0).");
+    expect(mixedPlanPrompt("", "500")).toBe("Preencha também quanto você tem à vista (pode ser 0).");
+  });
+
+  it("com os dois preenchidos (0 vale), não pede nada", () => {
+    expect(mixedPlanPrompt("3000", "500")).toBeNull();
+    expect(mixedPlanPrompt("0", "0")).toBeNull();
   });
 });

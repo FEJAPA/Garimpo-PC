@@ -166,9 +166,12 @@ describe("saveBuild (F-20)", () => {
 
   it("recusa oferta que sumiu do banco ou ficou com preço inválido", async () => {
     fake.user = DONO;
-    expect((await (bancoDoSave({ ofertas: [OFERTAS_DO_BANCO[0]] }), saveBuild(formMontagem()))).ok).toBe(false);
-    const semPreco = [{ ...OFERTAS_DO_BANCO[0], price_pix: 0 }, OFERTAS_DO_BANCO[1]];
-    expect((await (bancoDoSave({ ofertas: semPreco }), saveBuild(formMontagem()))).ok).toBe(false);
+    bancoDoSave({ ofertas: [OFERTAS_DO_BANCO[0]] });
+    expect((await saveBuild(formMontagem())).ok).toBe(false);
+
+    const consultas = bancoDoSave({ ofertas: [{ ...OFERTAS_DO_BANCO[0], price_pix: 0 }, OFERTAS_DO_BANCO[1]] });
+    expect((await saveBuild(formMontagem())).ok).toBe(false);
+    expect(consultas.some((c) => c.verbo === "insert")).toBe(false);
   });
 
   it("limite de 50 montagens: com 50 recusa, com 49 ainda salva", async () => {

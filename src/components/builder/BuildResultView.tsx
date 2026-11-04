@@ -81,7 +81,7 @@ function CopiarLink({ prefs, result }: { prefs: BuildPreferences; result: BuildS
 }
 
 function baixarLista(result: BuildSuccess) {
-  const blob = new Blob([shoppingListCsv(result.parts)], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([shoppingListCsv(result.parts, result.payment)], { type: "text/csv;charset=utf-8" });
   const href = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = href;
@@ -109,7 +109,6 @@ function BuildResultViewImpl({
   const { budget } = result;
   const situacao = situacaoDe(result);
   const cabecalho = useRef<HTMLDivElement>(null);
-  const ignoradas = result.ignored?.count ?? 0;
 
   useEffect(() => {
     if (focusOnMount) cabecalho.current?.focus();
@@ -131,7 +130,7 @@ function BuildResultViewImpl({
             <p className="text-sm text-ink-muted">Total no Pix</p>
             <p className="font-display text-4xl font-semibold tracking-tight text-ink sm:text-5xl">{formatBRL(result.totalPix)}</p>
             <p className="tnum mt-2 text-sm text-ink-muted">
-              Alvo {formatBRL(budget.target)} · Teto {formatBRL(budget.hardCap)} · Sobra {formatBRL(result.leftover)}
+              Alvo {formatBRL(budget.target)} · Teto {formatBRL(budget.hardCap)} · Sobra até o teto {formatBRL(result.leftover)}
             </p>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -151,24 +150,18 @@ function BuildResultViewImpl({
         </div>
       </Card>
 
-      {(result.notes.length > 0 || ignoradas > 0) && (
+      {/* As peças ignoradas por falta de spec já vêm como nota de autoBuild (S-08). */}
+      {result.notes.length > 0 && (
         <Callout tone="info" title="Como chegamos aqui">
           <ul className="list-disc space-y-1 pl-4">
             {result.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}
-            {ignoradas > 0 && (
-              <li>
-                {ignoradas === 1
-                  ? "1 peça do catálogo ficou de fora porque não temos a especificação técnica dela."
-                  : `${ignoradas} peças do catálogo ficaram de fora porque não temos a especificação técnica delas.`}
-              </li>
-            )}
           </ul>
         </Callout>
       )}
 
-      <BuildSummary parts={result.parts} />
+      <BuildSummary parts={result.parts} payment={result.payment} />
       <PerformancePanel estimate={result.performance} references={references} resolution={prefs.resolution ?? "1080p"} />
       <PaymentPlanner payment={result.payment} parts={result.parts} />
     </div>

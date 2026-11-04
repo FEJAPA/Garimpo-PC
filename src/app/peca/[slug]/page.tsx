@@ -9,12 +9,14 @@
 // botão "Ver na loja". O botão também some se a URL não for http/https (safeHref) ou se
 // a peça estiver sem estoque.
 //
-// "ou Nx de R$ X" segue a mesma leitura do Montador ("Como pagar"): preço a prazo
-// válido e parcelas entre 1 e MAX_INSTALLMENTS. Dado ruim (zero, negativo) não aparece.
+// "ou Nx de R$ X (R$ total)" vem de offerInstallment, a MESMA regra da lista de peças
+// e de "Como pagar" no Montador, com a tabela de juros da loja (F-12): dado ruim (zero,
+// negativo) não aparece, as parcelas ficam entre 1 e 24 e no máximo o que a tabela da
+// loja aceita, e o total nunca fica abaixo do Pix. Antes, a tela testava
+// `price_installment && installment_count` e o React escrevia "0" quando um deles era 0 (S-13).
 
 import { cache } from "react";
 import type { Metadata } from "next";
-import type { Offer } from "@/models/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, ShieldAlert, ShieldCheck } from "lucide-react";
@@ -22,7 +24,8 @@ import { getProductBySlug, getPriceHistory, usingRealData } from "@/services/pro
 import { registerView } from "@/services/popularity";
 import { storeTrust } from "@/services/builder/trust";
 import { flagSuspiciousOffers } from "@/services/builder/suspicious";
-import { MAX_INSTALLMENTS, validInstallmentPrice } from "@/services/builder/payments";
+import { offerInstallment } from "@/services/builder/payments";
+import { getInstallmentTables } from "@/services/installments";
 import { categoryLabel } from "@/models/categories";
 import { formatBRL, getBestOffer, offerWarning } from "@/lib/format";
 import { StoreBadge } from "@/components/StoreBadge";
@@ -37,21 +40,6 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 // A busca da peça roda duas vezes por visita (título e página); `cache` faz o banco
 // ser consultado uma vez só.
 const carregarPeca = cache(getProductBySlug);
-
-/**
- * Parcelado que a oferta anuncia, ou null se o dado não serve. Antes, a tela testava
- * `price_installment && installment_count` e o React escrevia "0" quando um deles era 0
- * (S-13); e um "99x" do banco aparecia cru, enquanto o Montador limita a 24x (LOG-12).
- * TODO(V2-E): trocar por offerInstallment(oferta) de src/services/builder/payments.ts
- * (F-12: uma regra só para a peça, a lista do Montador, "Como pagar" e o CSV).
- */
-function parceladoDaOferta(oferta: Offer): { count: number; monthly: number; total: number } | null {
-  const total = validInstallmentPrice(oferta);
-  const parcelas = Math.floor(Number(oferta.installment_count));
-  if (total === null || !Number.isFinite(parcelas) || parcelas < 1) return null;
-  const count = Math.min(parcelas, MAX_INSTALLMENTS);
-  return { count, monthly: total / count, total };
-}
 
 export async function generateMetadata(props: PageProps<"/peca/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
@@ -72,7 +60,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
 
   await registerView(product.id);
 
-  const history = await getPriceHistory(product);
+  const [history, tabelasDeJuros] = await Promise.all([getPriceHistory(product), getInstallmentTables()]);
   const dadosReais = usingRealData();
   const melhor = getBestOffer(product);
   // Se a melhor oferta for suspeita (só sobrou ela), o herói avisa ao lado do preço.
@@ -130,7 +118,7 @@ export default async function ProductPage(props: PageProps<"/peca/[slug]">) {
               const confianca = storeTrust(oferta.store);
               const suspeita = suspeitas.get(oferta.id);
               const bloqueada = Boolean(oferta.store.blocked);
-              const parcelado = parceladoDaOferta(oferta);
+              const parcelado = offerInstallment(oferta, tabelasDeJuros[oferta.store.id]);
               // Uma guarda só: link seguro (http/https), em estoque e de loja não bloqueada.
               const linkDaLoja = oferta.in_stock && !bloqueada ? safeHref(oferta.url) : null;
               const IconeConfianca = confianca.trusted ? ShieldCheck : ShieldAlert;

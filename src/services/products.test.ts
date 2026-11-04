@@ -18,6 +18,9 @@ import {
 import { MOCK_HISTORY, MOCK_PRODUCTS } from "@/models/mock-data";
 import type { ProductWithOffers, Store } from "@/models/types";
 
+/** Teto padrão do PostgREST por resposta (o coletor também cita: DAD-02). */
+const MAX_LINHAS_POSTGREST = 1000;
+
 // Cliente falso controlável: por padrão null (= sem Supabase, modo demonstração).
 const fake = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock("@/models/supabase", () => ({
@@ -29,7 +32,8 @@ vi.mock("@/models/supabase", () => ({
  * Cliente mínimo: `from(tabela)` devolve um construtor encadeável (select, eq,
  * in, order, or, maybeSingle...) que, ao ser aguardado, resolve com a resposta
  * configurada para aquela tabela. Guarda os filtros `in` para conferirmos e,
- * como o banco, aplica `in(coluna, valores)` às linhas da resposta.
+ * como o banco, aplica `in(coluna, valores)` às linhas da resposta. Também imita
+ * o PostgREST: no máximo 1.000 linhas por resposta, e `range(de, ate)` escolhe a página.
  */
 function clienteFalso(respostas: Record<string, { data: unknown; error: { message: string } | null }>) {
   const chamadas: { tabela: string; metodo: string; args: unknown[] }[] = [];
@@ -37,9 +41,11 @@ function clienteFalso(respostas: Record<string, { data: unknown; error: { messag
     from(tabela: string) {
       let resposta = respostas[tabela] ?? { data: [], error: null };
       const builder: Record<string, unknown> = {};
-      for (const metodo of ["select", "eq", "in", "order", "or", "limit"]) {
+      let pagina: [number, number] = [0, Infinity];
+      for (const metodo of ["select", "eq", "in", "order", "or", "limit", "range"]) {
         builder[metodo] = (...args: unknown[]) => {
           chamadas.push({ tabela, metodo, args });
+          if (metodo === "range") pagina = args as [number, number];
           if (metodo === "in" && Array.isArray(resposta.data)) {
             const [coluna, valores] = args as [string, unknown[]];
             resposta = {
@@ -54,8 +60,13 @@ function clienteFalso(respostas: Record<string, { data: unknown; error: { messag
         const d = resposta.data;
         return Promise.resolve({ data: Array.isArray(d) ? (d[0] ?? null) : d, error: resposta.error });
       };
-      builder.then = (ok: (v: unknown) => unknown, erro: (e: unknown) => unknown) =>
-        Promise.resolve(resposta).then(ok, erro);
+      builder.then = (ok: (v: unknown) => unknown, erro: (e: unknown) => unknown) => {
+        const [de, ate] = pagina;
+        const final = Array.isArray(resposta.data)
+          ? { ...resposta, data: resposta.data.slice(de, Math.min(ate + 1, de + MAX_LINHAS_POSTGREST)) }
+          : resposta;
+        return Promise.resolve(final).then(ok, erro);
+      };
       return builder;
     },
   };
@@ -280,5 +291,52 @@ describe("getPriceHistory honesto (V2, S-17)", () => {
     const semOfertas: ProductWithOffers = { ...rtx, offers: rtx.offers.map((o) => ({ ...o, in_stock: false })) };
     expect(await getPriceHistory(semOfertas)).toEqual([]);
     expect(chamadas.some((c) => c.tabela === "price_history")).toBe(false);
+  });
+});
+
+describe("getPriceHistory pagina o histórico (DAD-02)", () => {
+  const rtx = MOCK_PRODUCTS.find((p) => p.slug === "rtx-4060")!;
+
+  /** `n` dias seguidos de leitura da Kabum, do mais novo para o mais antigo (como a consulta pede). */
+  function pontosDiarios(n: number) {
+    const fim = Date.parse("2026-11-04T12:00:00Z");
+    return Array.from({ length: n }, (_, i) => ({
+      offer_id: "o-4060-kabum",
+      recorded_at: new Date(fim - i * 86_400_000).toISOString(),
+      price_pix: 1800 + (i % 7),
+    }));
+  }
+
+  it("com mais de 1.000 linhas, busca a segunda página e mantém os pontos mais recentes", async () => {
+    const { client, chamadas } = clienteFalso({ price_history: { data: pontosDiarios(1500), error: null } });
+    fake.client = client;
+
+    const hist = await getPriceHistory(rtx);
+    expect(hist).toHaveLength(1500);
+    expect(hist.at(-1)!.date).toBe("2026-11-04");
+    expect(hist[0].date).toBe(dayInSaoPaulo(new Date(Date.parse("2026-11-04T12:00:00Z") - 1499 * 86_400_000).toISOString()));
+
+    const paginas = chamadas.filter((c) => c.tabela === "price_history" && c.metodo === "range").map((c) => c.args);
+    expect(paginas).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+    // Do mais novo para o mais antigo: se um dia faltar página, somem os pontos velhos, não os de hoje.
+    const ordem = chamadas.find((c) => c.tabela === "price_history" && c.metodo === "order");
+    expect(ordem?.args).toEqual(["recorded_at", { ascending: false }]);
+  });
+
+  it("com exatamente 1.000 linhas, confere a página seguinte (vazia) e para", async () => {
+    const { client, chamadas } = clienteFalso({ price_history: { data: pontosDiarios(1000), error: null } });
+    fake.client = client;
+    expect(await getPriceHistory(rtx)).toHaveLength(1000);
+    expect(chamadas.filter((c) => c.tabela === "price_history" && c.metodo === "range")).toHaveLength(2);
+  });
+
+  it("erro em qualquer página devolve vazio (a tela não mostra um gráfico pela metade)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client } = clienteFalso({ price_history: { data: null, error: { message: "timeout" } } });
+    fake.client = client;
+    expect(await getPriceHistory(rtx)).toEqual([]);
   });
 });

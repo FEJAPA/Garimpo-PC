@@ -7,7 +7,10 @@
 //   e grava notified_at. Aqui ele sai de "ativos" e aparece como "avisado em DD/MM",
 //   com o botão "Reativar".
 // - A11Y-10: cada "Remover" diz o que remove.
+// - S-11: título próprio da aba ("Minha conta").
+// - T-8: com alerta da montagem já criado, o formulário diz "Mudar alerta".
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, BellRing, Bookmark } from "lucide-react";
@@ -23,6 +26,10 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { SavedBuildAlertForm } from "@/components/builder/SaveBuildButton";
+
+export const metadata: Metadata = {
+  title: "Minha conta",
+};
 
 type AlertRow = {
   id: string;
@@ -217,6 +224,7 @@ export default async function ContaPage(props: PageProps<"/conta">) {
                       buildId={m.id}
                       buildName={m.name}
                       suggested={alvo ?? Math.floor(m.totalPix * 0.95)}
+                      hasAlert={Boolean(alerta)}
                     />
                   </Card>
                 </li>
