@@ -1,0 +1,1415 @@
+{
+  "avaliadoEm": "2026-11-04",
+  "metodo": "Avaliação heurística (Nielsen, 10 heurísticas) por leitura de código e capturas; escala 0–4 por heurística; severidade de problemas 0–4 (Nielsen). Não é teste com usuários.",
+  "escala": {
+    "0": "problema grave",
+    "1": "problema maior",
+    "2": "problema menor",
+    "3": "boa",
+    "4": "excelente"
+  },
+  "severidadeEscala": {
+    "0": "não é problema de usabilidade",
+    "1": "cosmético",
+    "2": "menor",
+    "3": "maior",
+    "4": "catastrófico"
+  },
+  "regraDeNota": "Nota da heurística em cada tela: 3 se não há problema ou só problemas de severidade 1 (cosméticos); 2 se o pior problema é de severidade 2; 1 se de severidade 3; 0 se de severidade 4; 4 só quando não há problema algum e há um ponto forte excepcional citado em justificativas. media = média simples das 10 notas. Telas maiores acumulam mais achados por terem mais superfície; a regra do pior problema pesa isso (ex.: /montar tem a única nota 4 em prevenção de erros e mesmo assim fica abaixo da home).",
+  "convencoesTarefas": "cliques = toques/cliques em botões, links, abas e itens de lista (não conta focar campo de texto nem rolar); camposDigitados = campos de texto preenchidos; telas = rotas do GarimpoPC no caminho principal (lojas externas não contam). Pessoa leiga, sem conta, primeira visita, desktop. tempoEstimadoSeg é ESTIMATIVA por modelo de ações (não é medição com pessoas): 2,5 s por clique/toque, 5 s por campo digitado, 10 s por bloco de leitura/decisão, 3 s por rolagem, 1 s por carga de página; a composição de cada tarefa está em composicaoTempo.",
+  "limitacoes": [
+    "Não é teste com usuários: não há tempos, taxas de erro ou satisfação medidos; nenhum número de pessoas foi inventado.",
+    "Nada foi executado no navegador: o app não foi iniciado. Achados vêm de leitura de código, de capturas existentes (scratchpad/shots) e de contraste calculado a partir dos tokens. Itens deduzidos do código estão marcados como tais.",
+    "/conta (exige login) não tem captura e foi avaliada só pelo código; /busca e /peca não têm captura desktop da V2 completa além de w2-peca.png e v2-busca-desktop.png; a V1 é comparada pelas capturas antigas e por git show do commit 0a8b6a5 (leitura).",
+    "As capturas full-page mostram o cabeçalho sticky e o skip link sobrepostos ao título em alguns trechos (w2-montar-desktop.png, montar-erro.png): tratados como artefato da captura, não como defeito.",
+    "Os preços, lojas e históricos das capturas são dados de exemplo (modo de demonstração); achados sobre dados (ex.: histórico × melhor preço) dependem do catálogo real.",
+    "npx vitest run: 21 arquivos / 376 testes passam; npx tsc --noEmit: sem erros. Não há teste de acessibilidade automatizado (axe) no repositório."
+  ],
+  "telas": [
+    {
+      "id": "home",
+      "rota": "/",
+      "nome": "Início",
+      "fontes": "src/app/page.tsx; capturas home-desktop.png (V1), w2-home-mobile.png (V2); sem captura desktop da V2",
+      "heuristicas": {
+        "visibilidade_status": 3,
+        "correspondencia_mundo_real": 4,
+        "controle_liberdade": 3,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 2,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 2,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 2
+      },
+      "media": 2.8,
+      "justificativas": {
+        "visibilidade_status": "Sem estados de carregamento na tela; único defeito é a faixa de demonstração tardia (severidade 1).",
+        "correspondencia_mundo_real": "NOTA 4: vocabulário da pessoa, sem jargão e com termos novos explicados (page.tsx:22-41,52-58,76-77).",
+        "controle_liberdade": "Sem problemas encontrados: duas rotas claras (Montar / Comparar), cabeçalho sempre visível, botão Voltar do navegador funciona (formulário GET).",
+        "consistencia_padroes": "Cópia desatualizada (“Dois controles”) e campos reescritos à mão: ambos severidade 1.",
+        "prevencao_erros": "step=100 bloqueia valores comuns e valor inválido é trocado em silêncio (severidade 2).",
+        "reconhecimento_vs_lembranca": "Valores padrão visíveis, três passos e chips de categoria dispensam lembrar o que fazer.",
+        "flexibilidade_eficiencia": "Clique extra entre “Montar com esse orçamento” e o resultado (severidade 2).",
+        "estetica_minimalismo": "Hierarquia limpa (um herói, um cartão, três passos); sem ruído (home-desktop.png).",
+        "recuperacao_erros": "Sem erros alcançáveis na tela; estado vazio “Nenhuma peça cadastrada ainda.” é passivo, mas só ocorre sem catálogo.",
+        "ajuda_documentacao": "Critérios de confiança e de histórico não explicados e /metodologia não linkada (severidade 2)."
+      },
+      "pontosFortes": [
+        "Promessa e público claros no primeiro viewport: h1 “Monte seu PC gamer pelo preço certo, sem cair em golpe.” e, ao lado, o cartão “Quanto você pode gastar?” com 6.000/7.000 já preenchidos e CTA primário “Montar com esse orçamento” (src/app/page.tsx:52-58,73-113; home-desktop.png).",
+        "Linguagem em português coloquial e sem jargão (“Quero gastar”, “No máximo”, “teto”, “folga”), com a folga explicada no próprio cartão (page.tsx:24,111).",
+        "Três passos numerados e quatro diferenciais com ícone + texto; nada depende só de cor (page.tsx:117-175).",
+        "Duas entradas para os dois públicos: formulário de orçamento (principal) e chips de categoria + “Mais procuradas” (secundário) (page.tsx:59-70,134-159).",
+        "No celular a página vira coluna única, com CTAs de 48 px de altura e sem rolagem horizontal (w2-home-mobile.png; Button size=lg h-12 em src/components/ui/Button.tsx:29)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "prevencao_erros",
+          "severidade": 2,
+          "descricao": "Os campos “Quero gastar” e “No máximo” são type=number com min=0 e step=100 em um formulário sem noValidate. Um valor que não seja múltiplo de 100 (ex.: 5.950 ou 4.999) é barrado pela validação nativa do navegador, com mensagem genérica fora da voz do produto, antes de chegar ao Montador. Já valor vazio passa e, em /montar, é trocado em silêncio pelos padrões 6.000/7.000. Deduzido da especificação HTML e da leitura do código; não rodei no navegador.",
+          "evidencia": "src/app/page.tsx:74,84-87,98-101; src/app/montar/page.tsx:24-28; src/components/builder/BuilderForm.tsx:117-122",
+          "sugestao": "Usar o MoneyInput de /montar (texto com inputMode decimal e parseMoney, sem step) e mostrar mensagem própria; avisar quando um valor for descartado."
+        },
+        {
+          "heuristica": "flexibilidade_eficiencia",
+          "severidade": 2,
+          "descricao": "“Montar com esse orçamento” abre /montar com os valores preenchidos, mas a montagem só roda depois de outro clique em “Montar meu PC”; a pessoa cai no estado vazio “O que vai acontecer”. O rótulo promete o resultado e entrega um formulário. Só o link ?b= monta sozinho.",
+          "evidencia": "src/app/page.tsx:107-110; src/components/builder/BuilderForm.tsx:159-166; docs/diagramas/jornada-usuario.md (“Pontos de atrito”)",
+          "sugestao": "Montar sozinho quando chegar ?alvo/?teto da home (como no ?b=) ou renomear o botão para “Ir para o Montador”."
+        },
+        {
+          "heuristica": "ajuda_documentacao",
+          "severidade": 2,
+          "descricao": "A home promete “Lojas confiáveis” e “Histórico de preço real”, mas não explica o critério (oficial + nota ≥ 4,5 + Reclame Aqui) nem leva a uma página de explicação. A única página de método (/metodologia) trata só do desempenho e só é alcançada pelo rodapé do painel de resultado do Montador; cabeçalho e rodapé não a listam.",
+          "evidencia": "src/app/page.tsx:36-41; src/components/SiteFooter.tsx:13-23; src/components/SiteHeader.tsx:37-39; src/components/builder/PerformancePanel.tsx:210-217 (único link para /metodologia)",
+          "sugestao": "Página “Como avaliamos as lojas e o preço” linkada no bloco “Por que o GarimpoPC” e no rodapé, junto com /metodologia."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "A cópia do passo 2 ficou desatualizada: “Só lojas confiáveis? Mais desempenho ou mais visual? Dois controles, sem jargão.”, mas o Montador V2 tem quatro controles (uso, resolução, lojas confiáveis, desempenho↔estética).",
+          "evidencia": "src/app/page.tsx:27-29; src/components/builder/BuilderForm.tsx:195-229",
+          "sugestao": "Atualizar para “Escolha o uso, a resolução e o estilo”."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "Os campos da home são escritos à mão (type=number com setas, outline-none e anel focus:ring-brand/30) em vez de usar Field/MoneyInput. O foco continua visível pela borda brand, mas é mais fraco que o anel de 2 px do resto do site, e o comportamento de digitação difere do /montar.",
+          "evidencia": "src/app/page.tsx:89,103 × src/components/ui/Field.tsx:54-55",
+          "sugestao": "Reaproveitar Field + MoneyInput (client) ou extrair um MoneyInput que funcione em formulário GET."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 1,
+          "descricao": "A faixa “Modo de demonstração” fica dentro de “Mais procuradas”, depois de mais de uma tela de rolagem. No primeiro viewport (desktop e celular) nada diz que preços e peças são de exemplo.",
+          "evidencia": "src/app/page.tsx:145-149; home-desktop.png (faixa só abaixo do bloco “Como funciona”); w2-home-mobile.png (sem faixa no primeiro viewport)",
+          "sugestao": "Faixa fina no topo do layout enquanto usingRealData() for falso."
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 3,
+        "2": 3,
+        "3": 0,
+        "4": 0
+      }
+    },
+    {
+      "id": "busca",
+      "rota": "/busca",
+      "nome": "Busca de peças",
+      "fontes": "src/app/busca/page.tsx; src/components/ProductCard.tsx, CategoryChips.tsx, StoreBadge.tsx; capturas busca-desktop.png (V1), v2-busca-desktop.png (V2)",
+      "heuristicas": {
+        "visibilidade_status": 2,
+        "correspondencia_mundo_real": 3,
+        "controle_liberdade": 3,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 3,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 2,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 2
+      },
+      "media": 2.7,
+      "justificativas": {
+        "visibilidade_status": "Chips sem estado ativo (severidade 2); contagem e termo ecoados são bons.",
+        "correspondencia_mundo_real": "“menor preço no Pix”, “em 3 lojas”, “Oficial”: linguagem da pessoa; sem problemas.",
+        "controle_liberdade": "Chips e “todas as peças” permitem sair de qualquer filtro; sem problemas.",
+        "consistencia_padroes": "Cartão idêntico ao da home; só o salto h1→h3 (severidade 1).",
+        "prevencao_erros": "Preço do cartão exclui loja bloqueada/suspeita e avisa (ProductCard.tsx:4-6,43-48).",
+        "reconhecimento_vs_lembranca": "Categoria, preço e loja visíveis no cartão; nada a lembrar.",
+        "flexibilidade_eficiencia": "Sem ordenação nem filtros (severidade 2).",
+        "estetica_minimalismo": "Cartões enxutos, uma informação principal por cartão (v2-busca-desktop.png).",
+        "recuperacao_erros": "Estado vazio útil; só os exemplos não são clicáveis (severidade 1).",
+        "ajuda_documentacao": "Motivos da confiança só no title/leitor de tela (severidade 2)."
+      },
+      "pontosFortes": [
+        "Cartão com hierarquia clara: categoria, nome, “menor preço no Pix” em destaque, loja com selo de confiança e nota; o cartão inteiro é um link grande (src/components/ProductCard.tsx:23-53; v2-busca-desktop.png).",
+        "O preço do cartão nunca vem de loja bloqueada nem de oferta suspeita; se só sobrar oferta suspeita, o cartão diz “oferta mais barata no Pix” e avisa “Preço bom demais? Confira a loja antes de pagar.” (ProductCard.tsx:4-6,36,43-48).",
+        "Contagem de resultados, termo no h1 e no campo, título da aba “Busca: termo” (src/app/busca/page.tsx:17-21,28,34).",
+        "Estado vazio ensina o próximo passo (termos de exemplo e link “todas as peças”) e a faixa de demonstração aparece no topo (busca/page.tsx:41-45,54-63)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 2,
+          "descricao": "Os chips de categoria não têm estado ativo (nem aria-current): ao buscar “gabinete” ou clicar no chip “Gabinete”, ele continua igual aos outros e a pessoa não vê qual filtro está valendo. Além disso o chip é só uma busca de texto (?q=Gabinete), não um filtro.",
+          "evidencia": "src/components/CategoryChips.tsx:12-17; src/app/busca/page.tsx:37-39; v2-busca-desktop.png (busca “gabinete”, chip “Gabinete” idêntico aos demais)",
+          "sugestao": "Marcar o chip da categoria ativa (estilo + aria-current) e mostrar “Filtrando por: Gabinete” com opção de limpar."
+        },
+        {
+          "heuristica": "flexibilidade_eficiencia",
+          "severidade": 2,
+          "descricao": "Sem ordenar nem filtrar: num comparador de preços não há “menor preço”, “só lojas confiáveis” ou faixa de preço. As 20 peças aparecem em uma grade única de 3 colunas.",
+          "evidencia": "src/app/busca/page.tsx:47-52; busca-desktop.png (20 peças, sem controles de lista)",
+          "sugestao": "Select “Ordenar por” (menor preço, nome) e filtro “Só lojas confiáveis”, como no Montador."
+        },
+        {
+          "heuristica": "ajuda_documentacao",
+          "severidade": 2,
+          "descricao": "No cartão, “Oficial”, a nota e “Confiável” aparecem sem o motivo à vista: os motivos ficam no atributo title (dica de mouse que não existe no toque) e em texto só para leitor de tela. O público principal compra pelo celular (PRODUCT.md, “Plataforma”).",
+          "evidencia": "src/components/StoreBadge.tsx:8-10,43,52-59; src/components/ProductCard.tsx:41",
+          "sugestao": "Ícone “por quê?” que abre os motivos no toque, ou levar o selo para /peca/[slug] com âncora na lista de lojas."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "Salto de nível de título: h1 da página e, logo abaixo, o nome de cada peça em h3, sem h2 intermediário.",
+          "evidencia": "src/app/busca/page.tsx:32-36,47-52; src/components/ProductCard.tsx:31",
+          "sugestao": "Usar h2 nos cartões ou um h2 oculto “Resultados”."
+        },
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 1,
+          "descricao": "A mensagem de “Nenhuma peça encontrada” é boa, mas os exemplos (“RTX”, “Ryzen”, “SSD”) são texto, não atalhos clicáveis.",
+          "evidencia": "src/app/busca/page.tsx:54-63",
+          "sugestao": "Transformar os exemplos em links para /busca?q=…"
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 2,
+        "2": 3,
+        "3": 0,
+        "4": 0
+      }
+    },
+    {
+      "id": "peca",
+      "rota": "/peca/[slug]",
+      "nome": "Detalhe da peça",
+      "fontes": "src/app/peca/[slug]/page.tsx; StoreBadge, PriceHistoryChart, PriceAlertButton; capturas w2-peca.png (V2), peca-desktop.png (V1)",
+      "heuristicas": {
+        "visibilidade_status": 1,
+        "correspondencia_mundo_real": 2,
+        "controle_liberdade": 3,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 2,
+        "reconhecimento_vs_lembranca": 2,
+        "flexibilidade_eficiencia": 3,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 3
+      },
+      "media": 2.5,
+      "justificativas": {
+        "visibilidade_status": "Alerta sem confirmação (severidade 3) e preço sem data/hora (severidade 2): PriceAlertButton.tsx:48-55; page.tsx:84-102.",
+        "correspondencia_mundo_real": "“mediana” e escala do Reclame Aqui sem unidade (severidade 2).",
+        "controle_liberdade": "“Todas as peças” e cabeçalho levam de volta; lojas e alertas não prendem a pessoa; sem problemas.",
+        "consistencia_padroes": "Mesmos selos, cartões e Callouts do restante do site; só a cor dos motivos (severidade 1).",
+        "prevencao_erros": "Histórico agrega ofertas que a página manda ignorar (severidade 2), apesar de bloqueio e aviso exemplares no resto.",
+        "reconhecimento_vs_lembranca": "Pessoa precisa inferir o veredito de promoção a partir do gráfico (severidade 2).",
+        "flexibilidade_eficiencia": "Lojas ordenadas por preço, alerta com valor sugerido, link de volta; sem problemas.",
+        "estetica_minimalismo": "Blocos claros (herói, lojas, histórico); w2-peca.png.",
+        "recuperacao_erros": "404 padrão sem texto próprio (severidade 1, não verificado em execução).",
+        "ajuda_documentacao": "Motivos de confiança e avisos explicam a decisão na própria tela (page.tsx:121-134,158-166)."
+      },
+      "pontosFortes": [
+        "Cada loja mostra “Por que confiável / Por que não marcamos como confiável” com os motivos visíveis (loja oficial, nota e nº de avaliações, Reclame Aqui, anos de mercado) (src/app/peca/[slug]/page.tsx:121-134; w2-peca.png).",
+        "“Preço bom demais?” por oferta e no herói; loja bloqueada ganha explicação e perde o botão “Ver na loja”; o “Melhor preço” ignora ofertas suspeitas e bloqueadas (page.tsx:56-58,96-100,149-166; src/lib/format.ts:34-52).",
+        "Preço Pix e parcelado lado a lado por loja, ordenados do menor ao maior, com “Indisponível” e “Melhor preço” em texto (page.tsx:104-155).",
+        "Gráfico de histórico acessível: role=img com resumo, grade hairline e alternativa em tabela (“Ver como tabela”) (src/components/PriceHistoryChart.tsx:35,83-123).",
+        "Alerta de preço com valor sugerido (90% do preço atual), rótulo claro e, sem login, link que volta para a mesma peça após entrar (PriceAlertButton.tsx:29,41,70-72; src/app/auth/actions.ts:49)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 3,
+          "descricao": "Depois de clicar “Salvar” no alerta de preço, o formulário fecha e volta o botão “Criar alerta de preço” sem nenhuma confirmação: a mensagem “Alerta criado! Avisaremos quando o preço cair.” é gravada no estado, mas a ramificação do botão fechado (return antecipado) não a renderiza. A pessoa não sabe se deu certo e pode clicar de novo, criando alertas duplicados (a action não confere duplicata). A mesma estrutura já existia na V1 (commit 0a8b6a5) e não foi corrigida.",
+          "evidencia": "src/components/PriceAlertButton.tsx:48-55 (return do botão fechado), 61-65 (setFeedback + setAberto(false)), 92-96 (mensagem só dentro do formulário aberto); src/app/account/actions.ts:45-55 (insert sem checar duplicata)",
+          "sugestao": "Manter um aviso de status fora do formulário (“Alerta criado: avisaremos por e-mail quando custar até R$ X” + “Ver em Minha conta”) e trocar o botão por “Alerta ativo · alterar”."
+        },
+        {
+          "heuristica": "reconhecimento_vs_lembranca",
+          "severidade": 2,
+          "descricao": "“É promoção de verdade?” não é respondida em palavras: o gráfico de menor preço por dia é a única resposta, sem rótulo como “menor preço dos últimos N dias” ou “X% abaixo da média”. O resumo em texto (priceHistorySummary) só vai para leitores de tela, via aria-label. O diferencial “O gráfico mostra se a promoção é de verdade ou preço inflado” (home) depende de a pessoa leiga interpretar a linha.",
+          "evidencia": "src/app/peca/[slug]/page.tsx:174-179; src/lib/format.ts:69-82; src/components/PriceHistoryChart.tsx:35; src/app/page.tsx:38",
+          "sugestao": "Linha de síntese acima do gráfico: “Hoje: R$ 1.899,90 · menor dos últimos 90 dias: R$ 1.841 · média: R$ 2.050 (7% abaixo)”."
+        },
+        {
+          "heuristica": "prevencao_erros",
+          "severidade": 2,
+          "descricao": "O histórico usa o menor preço do dia entre TODAS as ofertas do produto, inclusive de lojas bloqueadas, não confiáveis ou com “Preço bom demais?”. A própria página manda ignorar essas ofertas no “Melhor preço agora”, mas elas podem puxar o histórico para baixo e fazer a promoção parecer normal (ou o preço atual parecer alto). Na captura (dados de exemplo) o último ponto do gráfico (≈ R$ 1.841) já fica abaixo do “Melhor preço agora” (R$ 1.899,90), sem explicação. O efeito real depende dos dados.",
+          "evidencia": "src/services/products.ts:251-280 (sem filtro de loja/suspeita); src/app/peca/[slug]/page.tsx:56,174-179; src/services/builder/suspicious.ts:4-5 (TODO V2-C); w2-peca.png",
+          "sugestao": "Calcular o histórico só com ofertas válidas e não suspeitas (mesma regra de getBestOffer) e dizer isso na legenda do gráfico."
+        },
+        {
+          "heuristica": "correspondencia_mundo_real",
+          "severidade": 2,
+          "descricao": "O aviso usa “mediana” (“27% abaixo da mediana das lojas confiáveis (R$ 1.914,90)”) e os motivos misturam duas escalas sem unidade: nota em estrelas (0–5, “Nota 3,8, abaixo de 4,5”) e Reclame Aqui (0–10, “Reclame Aqui baixo (4,9)”). Um 4,9 “baixo” parece melhor que um 4,5 “bom”; o limite (6) não aparece.",
+          "evidencia": "src/services/builder/suspicious.ts:42; src/services/builder/trust.ts:15,62-71; w2-peca.png (linha “Promo Center”)",
+          "sugestao": "“27% mais barato que o preço típico das lojas confiáveis” e “Reclame Aqui: 4,9 de 10 (mínimo para confiável: 6)”."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 2,
+          "descricao": "O preço da peça não diz quando foi lido. O Montador mostra “lido em 15/06, 09:00” por peça, mas a página da peça (e os cartões) mostram “Melhor preço agora” sem data/hora, justamente onde a pessoa decide se a promoção é de hoje.",
+          "evidencia": "src/app/peca/[slug]/page.tsx:84-102 (sem recorded_at) × src/components/builder/BuildSummary.tsx:64-66",
+          "sugestao": "Mostrar “Atualizado em 15/06, 09:00” sob o preço do herói e em cada loja."
+        },
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 1,
+          "descricao": "Peça inexistente chama notFound(), mas não há not-found.tsx, error.tsx nem loading.tsx em src/app: a pessoa vê o 404 padrão do Next (em inglês), embora dentro do cabeçalho do site. Não verifiquei no navegador.",
+          "evidencia": "src/app/peca/[slug]/page.tsx:50; find src -name 'not-found*' -o -name 'error.tsx' -o -name 'loading.tsx' (nenhum resultado)",
+          "sugestao": "Criar not-found.tsx em português com busca e link “Ver todas as peças”, e error.tsx com “Tentar de novo”."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "Numa loja “não verificada” todos os motivos ficam laranja com ícone de alerta, inclusive os positivos (ex.: “Nota 4,7”, “22 anos de mercado”).",
+          "evidencia": "src/app/peca/[slug]/page.tsx:112,126-131",
+          "sugestao": "Colorir cada motivo pelo seu próprio resultado, não pelo da loja."
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 2,
+        "2": 4,
+        "3": 1,
+        "4": 0
+      }
+    },
+    {
+      "id": "montar",
+      "rota": "/montar",
+      "nome": "Montador de PC",
+      "fontes": "src/app/montar/page.tsx; src/components/builder/*; src/components/ui/*; capturas w2-montar-desktop.png, w2-montar-mobile.png (V2), montar-desktop.png, montar-erro.png (V1)",
+      "heuristicas": {
+        "visibilidade_status": 3,
+        "correspondencia_mundo_real": 2,
+        "controle_liberdade": 1,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 4,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 2,
+        "estetica_minimalismo": 2,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 3
+      },
+      "media": 2.6,
+      "justificativas": {
+        "visibilidade_status": "Estados e foco exemplares; só selo laranja e resultado sem marca de desatualizado (severidade 1).",
+        "correspondencia_mundo_real": "Jargão de desempenho sem explicação (severidade 2); nomes de formas de pagamento (severidade 1).",
+        "controle_liberdade": "Montagem perdida ao entrar para salvar e ao atualizar a página (severidade 3).",
+        "consistencia_padroes": "Usa o design system todo (Field, Toggle, Slider, SegmentedControl, Callout); sem problemas relevantes.",
+        "prevencao_erros": "NOTA 4: validação por campo, teto garantido, filtros seguros por padrão, avisos de preço (BuilderForm.tsx:131-193,236; BuildSummary.tsx:82-86).",
+        "reconhecimento_vs_lembranca": "Opções visíveis com dicas; só falta a loja nas listas do plano misto (severidade 1).",
+        "flexibilidade_eficiencia": "Atalhos por URL (?alvo, ?teto, ?b), CSV e link; mas “Como pagar” fica no fim sem atalho (severidade 2).",
+        "estetica_minimalismo": "Resultado longo e repetitivo (severidade 2).",
+        "recuperacao_erros": "Erros com motivo e saída em texto; sem botão de ação (severidade 1).",
+        "ajuda_documentacao": "Dicas em cada controle, passo a passo no estado vazio e metodologia; faltam legendas do índice (severidade 1)."
+      },
+      "pontosFortes": [
+        "Quatro estados bem tratados: vazio que ensina em 4 passos (“O que vai acontecer”), carregando (esqueleto de 7 linhas, aria-busy, resultado antigo a 60%), erro com o motivo e a saída (“Orçamento insuficiente: a montagem mais barata compatível custa R$ …. Suba o teto ou desative “Só lojas confiáveis””) e sucesso; ao montar, o foco vai para o resumo (BuilderForm.tsx:242,258-264,276-325; BuildResultView.tsx:114-116).",
+        "Formulário honesto: validação por campo em português ligada ao campo (aria-describedby, role=alert), botão desabilitado se inválido, dica dinâmica da folga e aviso “Teto menor que o alvo…”, aceita “6.000” e “6000,50” (BuilderForm.tsx:131-139,176-193; src/components/ui/Field.tsx:19-51; src/lib/money.ts:13-34).",
+        "“Como chegamos aqui” explica cada troca com valor e ganho (“Subimos a placa de vídeo: … por mais R$ 1.100,00 (+42% de desempenho)”) e quanto da folga foi usado (BuildResultView.tsx:155-169; w2-montar-desktop.png).",
+        "Anti-golpe dentro da montagem: loja com selo e “Por que confiável”, “Preço bom demais?” por peça quando o filtro está desligado, “lido em” por peça (BuildSummary.tsx:47-50,64-66,82-86).",
+        "Estimativa de desempenho honesta: rotulada como estimativa, com PCs parecidos, gráfico + tabela equivalente, FPS por resolução com a escolhida em destaque e base/fonte/mês + link de metodologia (PerformancePanel.tsx:66-70,93-150,153-218).",
+        "Pagamento à brasileira: Pix × Parcelado × Misturar, acréscimo por loja (“sem acréscimo até 12x”), economia no Pix e veredito “Cabe no seu orçamento / Ainda não cabe por mês” (PaymentPlanner.tsx:78-200,277-306).",
+        "Compartilhar e salvar: “Copiar link” com confirmação e plano B (campo para copiar à mão), “Baixar lista (CSV)”, “Salvar montagem” com status; URL aceita ?alvo, ?teto e ?b (BuildResultView.tsx:38-93; SaveBuildButton.tsx:84-135; montar/page.tsx:5-6)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "controle_liberdade",
+          "severidade": 3,
+          "descricao": "“Entre para salvar a montagem” leva a /entrar?next=<caminho + query atual>. Como o Montador não grava a montagem na URL (só ?alvo/?teto da home ou o ?b= de um link compartilhado), quem montou direto e cria a conta volta a um formulário vazio: precisa clicar “Montar meu PC” de novo e perde uso, resolução, slider e filtro de lojas, que voltam ao padrão. O comentário do componente diz que o link volta “à mesma montagem”, o que só vale se a pessoa já tinha vindo de um ?b=. Atualizar a página também apaga o resultado.",
+          "evidencia": "src/components/builder/SaveBuildButton.tsx:49-63 (next = pathname + window.location.search); src/components/builder/BuilderForm.tsx:117-130,159-166 (estado só em useState; auto-montagem apenas com shareCode); grep em src: nenhum router.replace/history.replaceState no Montador",
+          "sugestao": "Gravar ?b=<código> na URL (router.replace) depois de montar, ou guardar a montagem em sessionStorage antes de ir para /entrar e restaurá-la ao voltar. O mesmo conserta o “atualizar a página”."
+        },
+        {
+          "heuristica": "correspondencia_mundo_real",
+          "severidade": 2,
+          "descricao": "O bloco “Desempenho esperado” usa vocabulário de entusiasta sem explicar: “FPS”, “jogos AAA”, “drivers”, “FSR”, “Índice GarimpoPC 127” (sem escala: o 100 é RTX 4060 + Ryzen 5 7600, dito só em /metodologia), e outros trechos usam “socket” e “marketplaces”. A pessoa leiga (PRODUCT.md) não sabe se 127 ou 65 fps é bom.",
+          "evidencia": "src/components/builder/PerformancePanel.tsx:68,73-74,154; src/components/builder/BuilderForm.tsx:218,314; w2-montar-desktop.png (“Com FSR, os FPS podem subir bastante em 1440p…”; “Jogos AAA pesados … 65 fps”)",
+          "sugestao": "Legenda curta: “FPS = quadros por segundo; acima de 60 o jogo fica fluido”; “Índice 127: 100 equivale a RTX 4060 + Ryzen 5 7600”; trocar “socket” por “encaixe do processador” e “marketplaces” por “lojas de terceiros”."
+        },
+        {
+          "heuristica": "flexibilidade_eficiencia",
+          "severidade": 2,
+          "descricao": "“Como pagar” é o último bloco, depois de Peças e Desempenho (≈ 80% da altura da página no desktop e ~6.500 px no celular), sem âncoras nem resumo fixo. Quem só quer saber “quanto no Pix e quanto parcelado” rola a página inteira; o cabeçalho do resultado traz só “ou R$ 7.615,23 parcelado”.",
+          "evidencia": "src/components/builder/BuildResultView.tsx:171-173 (ordem Peças → Desempenho → Pagamento); w2-montar-desktop.png (Como pagar a ≈ 82% da página); w2-montar-mobile.png (390×6522)",
+          "sugestao": "Barra de âncoras “Peças · Desempenho · Como pagar” sob o resumo, ou um atalho “Ver como pagar” no cabeçalho do resultado."
+        },
+        {
+          "heuristica": "estetica_minimalismo",
+          "severidade": 2,
+          "descricao": "O resultado empilha cinco blocos e repete informação: “Por que confiável: …” em cada uma das 7 peças (4 linhas por peça) e o mesmo desempenho em três formas (3 cartões “PCs parecidos”, gráfico de 13 barras e tabela de 12 PCs). No celular a página passa de 6.000 px.",
+          "evidencia": "src/components/builder/BuildSummary.tsx:47-50; src/components/builder/PerformancePanel.tsx:93-150; w2-montar-desktop.png (~4.000 px); w2-montar-mobile.png (6.522 px)",
+          "sugestao": "Mostrar o motivo da confiança só em “Detalhes” (ou uma vez por loja) e abrir “PCs parecidos”/tabela só sob demanda."
+        },
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 1,
+          "descricao": "Os erros dizem o motivo e a saída em texto, mas sem ação: não há botão “Usar teto de R$ …” ou “Desligar lojas confiáveis”. O erro “Não encontramos uma combinação compatível de peças no catálogo atual.” não traz nenhuma saída.",
+          "evidencia": "src/components/builder/BuilderForm.tsx:260-264; src/services/builder/auto-build.ts:579,587,589-593",
+          "sugestao": "Botões de correção no próprio Callout de erro e uma saída para o erro de compatibilidade (“aumente o teto ou desligue o filtro”)."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 1,
+          "descricao": "O resultado não é marcado como desatualizado quando a pessoa mexe nos campos: o rótulo do botão (“Montar de novo”) é fixo desde a primeira montagem e o resultado só “esmaece” durante o cálculo.",
+          "evidencia": "src/components/builder/BuilderForm.tsx:231-234,242",
+          "sugestao": "Selo “Resultado de R$ 6.000 / teto 7.000: edite e clique em Montar de novo” quando os campos divergirem do resultado."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 1,
+          "descricao": "O selo “Usou a folga” sai em laranja de atenção (tom warn) para um resultado normal e dentro do teto; “Acima do alvo, dentro do teto” também. Cor de alerta para um desfecho previsto pelo produto.",
+          "evidencia": "src/components/builder/BuildResultView.tsx:23-28; w2-montar-desktop.png (selo laranja)",
+          "sugestao": "Usar tom neutro/brand para “Usou a folga” e reservar warn para risco."
+        },
+        {
+          "heuristica": "correspondencia_mundo_real",
+          "severidade": 1,
+          "descricao": "“Misturar” (aba de pagamento) não diz o que mistura; além disso “Pix (à vista)”, “Parcelado”, “A prazo” e “No cartão” são quatro nomes para as mesmas duas formas de pagar.",
+          "evidencia": "src/components/builder/PaymentPlanner.tsx:85-88,195,283,288",
+          "sugestao": "Renomear para “Pix + parcelado” e padronizar os termos."
+        },
+        {
+          "heuristica": "reconhecimento_vs_lembranca",
+          "severidade": 1,
+          "descricao": "No plano misto as listas “No Pix” e “No cartão” mostram só o nome e o preço Pix da peça, sem a loja, embora “cada loja é um pagamento separado”. A tabela “Pagamento por loja” continua abaixo com os totais máximos de cada loja, que não são os do plano misto.",
+          "evidencia": "src/components/builder/PaymentPlanner.tsx:152-193,313-324",
+          "sugestao": "Incluir a loja em cada linha do plano misto e recalcular/ocultar a tabela por loja no modo Misturar."
+        },
+        {
+          "heuristica": "ajuda_documentacao",
+          "severidade": 1,
+          "descricao": "O Índice GarimpoPC e o FPS não têm legenda no ponto de uso; a explicação está em /metodologia, que abre em nova aba pelo rodapé do cartão “Desempenho esperado” (texto pequeno, text-xs).",
+          "evidencia": "src/components/builder/PerformancePanel.tsx:73-74,207-218",
+          "sugestao": "Ícone “?” ao lado do Índice com definição de uma linha e link para /metodologia."
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 6,
+        "2": 3,
+        "3": 1,
+        "4": 0
+      }
+    },
+    {
+      "id": "conta",
+      "rota": "/conta",
+      "nome": "Minha conta",
+      "fontes": "src/app/conta/page.tsx; src/app/account/actions.ts; SaveBuildButton.tsx (SavedBuildAlertForm). SEM captura de tela (rota exige login): avaliada só por leitura de código",
+      "heuristicas": {
+        "visibilidade_status": 3,
+        "correspondencia_mundo_real": 3,
+        "controle_liberdade": 2,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 3,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 3,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 2
+      },
+      "media": 2.8,
+      "justificativas": {
+        "visibilidade_status": "Estado de cada alerta visível; só o rótulo “Criar alerta” em montagem que já tem alerta (severidade 1).",
+        "correspondencia_mundo_real": "“Minhas montagens”, “Meus alertas de preço”, “Remover”, “Reativar”: linguagem direta; sem problemas.",
+        "controle_liberdade": "Remoção imediata sem confirmação nem desfazer (severidade 2).",
+        "consistencia_padroes": "Usa Card, Badge, Callout e Button do design system; só o título de aba ausente (severidade 1).",
+        "prevencao_erros": "Ações restritas ao dono (user_id) e limite de 50 montagens; sem problemas de interface encontrados.",
+        "reconhecimento_vs_lembranca": "Lista com nome, total, data e alvo à vista; sem problemas.",
+        "flexibilidade_eficiencia": "“Abrir no Montador” e links para a peça em cada alerta; sem problemas.",
+        "estetica_minimalismo": "Duas seções simples com cartões compactos (por leitura do código; sem captura).",
+        "recuperacao_erros": "Erros por código em português; sem botão de nova tentativa (severidade 1).",
+        "ajuda_documentacao": "Não diz como/quando o aviso chega (severidade 2)."
+      },
+      "pontosFortes": [
+        "Estados vazios que ensinam o próximo passo, com ícone, texto e link (“Você ainda não salvou nenhuma montagem. Monte um PC e clique em “Salvar montagem”.” + “Montar um PC”) (src/app/conta/page.tsx:145-154,236-245).",
+        "Alertas com ciclo de vida visível: “Alerta ativo”, “avisado em DD/MM”, “pausado até você reativar” e botão “Reativar” (conta/page.tsx:191-214,264-288).",
+        "Cada “Remover”/“Reativar” diz o que age (aria-label com o nome da peça/montagem) e há mensagens de erro em português por código (conta/page.tsx:37-41,55-76).",
+        "Montagens salvas reabrem no Montador com um clique (“Abrir no Montador”, link ?b=) (conta/page.tsx:157-181)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "controle_liberdade",
+          "severidade": 2,
+          "descricao": "“Remover” (alerta ou montagem) age na hora, sem confirmação nem desfazer. Remover uma montagem apaga também o alerta dela (on delete cascade), e o botão é do tipo ghost, de pouco destaque, ao lado de “Abrir no Montador”.",
+          "evidencia": "src/app/conta/page.tsx:56-65,182-187; src/app/account/actions.ts:59-71,178-190",
+          "sugestao": "Pedir confirmação para montagem (“Remover também apaga o alerta”) ou oferecer “Desfazer” por alguns segundos."
+        },
+        {
+          "heuristica": "ajuda_documentacao",
+          "severidade": 2,
+          "descricao": "Nada diz como e quando o aviso chega: nem “por e-mail”, nem de quanto em quanto tempo o preço é verificado. O texto fala só em “avisar quando custar até R$ X”; o agendador é externo (/api/check-alerts).",
+          "evidencia": "src/app/conta/page.tsx:255-258,164-174 (SavedBuildAlertForm); src/components/PriceAlertButton.tsx:70-72; docs/diagramas/mapa-de-telas.md (rota /api/check-alerts)",
+          "sugestao": "Uma linha fixa: “Avisamos por e-mail (para o endereço da sua conta); conferimos os preços a cada X horas.”"
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "A página não define título próprio (sem export metadata): a aba mostra o título padrão do site, “GarimpoPC — monte e compare seu PC gamer pelo preço certo”, contra o DESIGN.md (“Cada página tem <title> próprio”).",
+          "evidencia": "src/app/conta/page.tsx:1-25 (sem metadata); src/app/layout.tsx:12-15",
+          "sugestao": "export const metadata = { title: “Minha conta” }."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 1,
+          "descricao": "Em cada montagem com alerta já existente o formulário continua dizendo “Criar alerta”, embora a ação atualize o valor do alerta existente.",
+          "evidencia": "src/components/builder/SaveBuildButton.tsx:164-172; src/app/account/actions.ts:193-195",
+          "sugestao": "Trocar o rótulo para “Atualizar alerta” quando já existir."
+        },
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 1,
+          "descricao": "Se o carregamento falhar, a mensagem pede “Recarregue a página em instantes” e não oferece botão de tentar de novo.",
+          "evidencia": "src/app/conta/page.tsx:141-143,232-234",
+          "sugestao": "Botão “Tentar de novo” (link para a própria rota)."
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 3,
+        "2": 2,
+        "3": 0,
+        "4": 0
+      }
+    },
+    {
+      "id": "entrar",
+      "rota": "/entrar",
+      "nome": "Entrar / Criar conta",
+      "fontes": "src/app/entrar/page.tsx; src/app/auth/actions.ts; capturas w2-entrar.png (V2, modo demonstração)",
+      "heuristicas": {
+        "visibilidade_status": 2,
+        "correspondencia_mundo_real": 2,
+        "controle_liberdade": 3,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 2,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 2,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 1,
+        "ajuda_documentacao": 3
+      },
+      "media": 2.4,
+      "justificativas": {
+        "visibilidade_status": "“Conta criada! Você já pode entrar.” pode ser falso e botões sem loading (severidade 2).",
+        "correspondencia_mundo_real": "Cópia desatualizada e botão primário “Entrar” para quem quer criar conta (severidade 2).",
+        "controle_liberdade": "“Voltar” e navegação disponíveis; nada prende a pessoa; sem problemas.",
+        "consistencia_padroes": "Usa Callout, Button e INPUT_CLASSES; autocomplete/placeholder (severidade 1).",
+        "prevencao_erros": "Formulário ativo no modo de demonstração (severidade 2).",
+        "reconhecimento_vs_lembranca": "Apenas dois campos com rótulos visíveis; sem problemas.",
+        "flexibilidade_eficiencia": "Campos vazios após criar conta (severidade 2).",
+        "estetica_minimalismo": "Formulário mínimo, sem ruído (w2-entrar.png).",
+        "recuperacao_erros": "Sem recuperação de senha e erro genérico para casos não mapeados (severidade 3).",
+        "ajuda_documentacao": "Sem problemas além dos já listados: o benefício da conta é dito em uma linha (desatualizada, ver correspondência)."
+      },
+      "pontosFortes": [
+        "Formulário mínimo: e-mail e senha, rótulos visíveis, autoComplete=email, type=email, mensagens de erro traduzidas e dentro de Callout com role=alert (entrar/page.tsx:50-54,61-78; auth/actions.ts:77-83; w2-entrar.png).",
+        "Login opcional e explicado: “Crie uma conta para receber alertas…”; o destino ?next= leva de volta à peça ou ao Montador, só para caminhos internos (entrar/page.tsx:16-25,41-43; auth/actions.ts:20-29,49).",
+        "Botões com hierarquia (Entrar primário, Criar conta secundário) e botão “Voltar” (entrar/page.tsx:35-38,79-84)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 3,
+          "descricao": "Não existe “Esqueci minha senha”: quem erra a senha vê só “E-mail ou senha incorretos.” e não tem como recuperar a conta; recriar com o mesmo e-mail dá “Este e-mail já está cadastrado.”. Mensagens não mapeadas (por exemplo, e-mail ainda não confirmado) caem em “Não foi possível concluir. Tente novamente.”, sem saída.",
+          "evidencia": "src/app/entrar/page.tsx:61-85 (sem link de recuperação); src/app/auth/actions.ts:77-83; grep -ri 'esqueci|reset' src (sem resultados)",
+          "sugestao": "Fluxo de recuperação por e-mail (resetPasswordForEmail) e tradução de “Email not confirmed” (“Confirme o e-mail que enviamos para …”)."
+        },
+        {
+          "heuristica": "flexibilidade_eficiencia",
+          "severidade": 2,
+          "descricao": "Depois de “Criar conta” a pessoa volta a /entrar com os campos vazios e precisa digitar e-mail e senha de novo; o cadastro não entra sozinho.",
+          "evidencia": "src/app/auth/actions.ts:65; src/app/entrar/page.tsx:61-85 (sem defaultValue)",
+          "sugestao": "Entrar automaticamente após criar (quando não houver confirmação por e-mail) ou voltar com o e-mail preenchido."
+        },
+        {
+          "heuristica": "visibilidade_status",
+          "severidade": 2,
+          "descricao": "“Conta criada! Você já pode entrar.” pode ser falso: o próprio código admite que, conforme a configuração do Supabase, é preciso confirmar o e-mail. Os botões também não têm estado de carregamento enquanto a ação roda no servidor (o componente Button suporta loading, mas não é usado aqui).",
+          "evidencia": "src/app/auth/actions.ts:64-65; src/app/entrar/page.tsx:79-84",
+          "sugestao": "Mensagem condicional (“Enviamos um link para confirmar seu e-mail”) e pending visual nos botões (useFormStatus)."
+        },
+        {
+          "heuristica": "correspondencia_mundo_real",
+          "severidade": 2,
+          "descricao": "A cópia só fala de alertas (“Crie uma conta para receber alertas quando o preço de uma peça cair.”), mas a V2 também usa a conta para salvar montagens: quem chega de “Entre para salvar a montagem” lê uma justificativa que não é a sua. O título “Entrar no GarimpoPC” e o botão primário “Entrar” escondem que, para quem é novo, o caminho é o botão secundário “Criar conta”.",
+          "evidencia": "src/app/entrar/page.tsx:40-43,79-84; src/components/builder/SaveBuildButton.tsx:59-62",
+          "sugestao": "Título e texto conforme o contexto (“Entre ou crie uma conta para salvar sua montagem”) e deixar claro o par “Já tenho conta / Quero criar”."
+        },
+        {
+          "heuristica": "prevencao_erros",
+          "severidade": 2,
+          "descricao": "No modo de demonstração (sem Supabase) a tela avisa “O login ainda não está configurado (banco de dados ausente).”, mas mantém os dois botões ativos; as ações chamam o cliente do Supabase com URL/chave indefinidas, o que provavelmente falha com erro do servidor (inferido do código; não executei). E é para cá que “Entre para salvar a montagem” e “Entre para criar um alerta de preço” mandam a pessoa.",
+          "evidencia": "src/app/entrar/page.tsx:45-49,61-85; src/app/auth/actions.ts:42; src/models/supabase-server.ts:17-22; SaveBuildButton.tsx:25-36,56-63; w2-entrar.png e w2-montar-desktop.png",
+          "sugestao": "Desabilitar o formulário (ou esconder os links “Entre para…”) quando isSupabaseConfigured() for falso."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "A senha usa autoComplete=current-password também no “Criar conta” (o certo é new-password) e a única instrução de tamanho (“mínimo 6 caracteres”) é placeholder, que some ao digitar.",
+          "evidencia": "src/app/entrar/page.tsx:69-77",
+          "sugestao": "Texto de ajuda fixo sob o campo e autoComplete conforme a ação."
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 1,
+        "2": 4,
+        "3": 1,
+        "4": 0
+      }
+    },
+    {
+      "id": "metodologia",
+      "rota": "/metodologia",
+      "nome": "Como estimamos o desempenho",
+      "fontes": "src/app/metodologia/page.tsx; docs/METODOLOGIA-DESEMPENHO.md; captura w2-metodologia.png (só o topo da página)",
+      "heuristicas": {
+        "visibilidade_status": 3,
+        "correspondencia_mundo_real": 2,
+        "controle_liberdade": 2,
+        "consistencia_padroes": 3,
+        "prevencao_erros": 3,
+        "reconhecimento_vs_lembranca": 3,
+        "flexibilidade_eficiencia": 3,
+        "estetica_minimalismo": 3,
+        "recuperacao_erros": 3,
+        "ajuda_documentacao": 2
+      },
+      "media": 2.7,
+      "justificativas": {
+        "visibilidade_status": "Página estática; data das fontes aparece no texto; sem problemas.",
+        "correspondencia_mundo_real": "Trechos de desenvolvedor (interpolação, measuredAt, caminhos de arquivo) para público leigo (severidade 2).",
+        "controle_liberdade": "Nova aba + “Voltar ao Montador” que abre outro /montar (severidade 2).",
+        "consistencia_padroes": "Asteriscos literais no texto (severidade 1).",
+        "prevencao_erros": "Página somente leitura; sem problemas.",
+        "reconhecimento_vs_lembranca": "Títulos numerados e curtos; sem problemas.",
+        "flexibilidade_eficiencia": "Documento curto, sem fluxo; sem problemas.",
+        "estetica_minimalismo": "Tipografia limpa e uma coluna só (w2-metodologia.png).",
+        "recuperacao_erros": "Mensagem de fallback de operador (severidade 1).",
+        "ajuda_documentacao": "Cobre só o desempenho e não é linkada no site (severidade 2)."
+      },
+      "pontosFortes": [
+        "Honestidade explícita: “Isto é uma estimativa, não um teste: a GarimpoPC não mediu nenhum FPS.”, margem de erro de ±10–15% das fontes e mês de referência (maio/2026) declarados (w2-metodologia.png; docs/METODOLOGIA-DESEMPENHO.md).",
+        "Leitura confortável: coluna de 70ch, títulos numerados, contraste alto e link “Voltar ao Montador” (metodologia/page.tsx:96-104; w2-metodologia.png).",
+        "Seção “Limites” diz o que a estimativa não cobre (jogo a jogo, 4K, ray tracing) (docs/METODOLOGIA-DESEMPENHO.md §6)."
+      ],
+      "problemas": [
+        {
+          "heuristica": "correspondencia_mundo_real",
+          "severidade": 2,
+          "descricao": "Boa parte do texto é para desenvolvedor e vai ao ar para a pessoa leiga: “3. Do índice ao FPS (interpolação)”, “média ponderada pela distância (interpolação linear)”, fórmula “FPS × índice ÷ índice da referência”, o campo `measuredAt` “no código” e a seção “7. Onde isso está no código” com caminhos de arquivo.",
+          "evidencia": "docs/METODOLOGIA-DESEMPENHO.md (seções 2, 3 e 7); src/app/metodologia/page.tsx:18,89-93 (renderiza o arquivo inteiro)",
+          "sugestao": "Separar a versão pública (o que significa o índice, de onde vêm os números, limites) da nota técnica; remover a seção 7 da página."
+        },
+        {
+          "heuristica": "controle_liberdade",
+          "severidade": 2,
+          "descricao": "O link “ver metodologia” do Montador abre /metodologia em nova aba (target=_blank), mas a página oferece “Voltar ao Montador” (link para /montar): nessa aba nova, o clique abre um /montar vazio, sem a montagem que a pessoa estava vendo. O certo seria fechar a aba.",
+          "evidencia": "src/components/builder/PerformancePanel.tsx:210-217; src/app/metodologia/page.tsx:97-100",
+          "sugestao": "Abrir na mesma aba (a montagem passa a persistir na URL, ver /montar) ou esconder “Voltar ao Montador” quando houver window.opener/histórico."
+        },
+        {
+          "heuristica": "ajuda_documentacao",
+          "severidade": 2,
+          "descricao": "Só o desempenho tem página de método. Não há explicação pública de como a loja é considerada “confiável” (oficial + nota ≥ 4,5 + Reclame Aqui ≥ 6), de como o “Preço bom demais?” é calculado (≥ 25% abaixo da mediana) nem de como o histórico é montado, que são os outros diferenciais do produto. E a página não é linkada no cabeçalho, no rodapé nem na home.",
+          "evidencia": "src/services/builder/trust.ts:13-15,48-82; src/services/builder/suspicious.ts:31-44; src/components/SiteHeader.tsx:37-39; src/components/SiteFooter.tsx:13-23",
+          "sugestao": "Ampliar para “Como funciona o GarimpoPC” (desempenho, lojas, preço suspeito, histórico) e linkar no rodapé."
+        },
+        {
+          "heuristica": "consistencia_padroes",
+          "severidade": 1,
+          "descricao": "O renderizador de Markdown não trata itálico: o texto aparece com asteriscos literais (“diz que *estima* os FPS”).",
+          "evidencia": "src/app/metodologia/page.tsx:21-23 (só negrito, código e link); w2-metodologia.png",
+          "sugestao": "Suportar *itálico* no inline() ou tirar os asteriscos do documento."
+        },
+        {
+          "heuristica": "recuperacao_erros",
+          "severidade": 1,
+          "descricao": "Se o arquivo não for encontrado, a pessoa vê “O arquivo docs/METODOLOGIA-DESEMPENHO.md não foi encontrado nesta instalação.”, mensagem de operador.",
+          "evidencia": "src/app/metodologia/page.tsx:89-92",
+          "sugestao": "“Esta página está indisponível agora. Volte ao Montador.”"
+        }
+      ],
+      "contagemProblemasPorSeveridade": {
+        "1": 2,
+        "2": 3,
+        "3": 0,
+        "4": 0
+      }
+    }
+  ],
+  "tarefas": [
+    {
+      "id": "montar-orcamento",
+      "nome": "Montar um PC com R$ 6.000 (teto 7.000) e ir à loja da placa de vídeo",
+      "cenario": "Pessoa leiga, sem conta, primeira visita, no desktop. Cliques = toques/cliques em botões, links, abas e itens de lista (não conta focar campo de texto nem rolar). Telas = rotas do GarimpoPC visitadas no caminho principal (a loja é um site externo e não conta).",
+      "passos": [
+        "Abrir / (página inicial)",
+        "No cartão “Quanto você pode gastar?”, digitar 6000 em “Quero gastar” e 7000 em “No máximo” (os dois já vêm preenchidos com 6.000 e 7.000; só se digita se o valor for outro)",
+        "Clicar “Montar com esse orçamento” (abre /montar?alvo=6000&teto=7000 com os campos preenchidos e o cartão “O que vai acontecer”)",
+        "(Opcional) conferir “Só lojas confiáveis” (ligado), “Para que você vai usar?” (Jogos) e “Resolução do monitor” (Full HD)",
+        "Clicar “Montar meu PC”",
+        "Ler o resultado: “Total no Pix”, selo (“Dentro do alvo” / “Usou a folga”) e a caixa “Como chegamos aqui”",
+        "Na lista “Peças”, linha “Placa de vídeo”, clicar “Ver na loja” (abre a loja em nova aba)"
+      ],
+      "cliques": 3,
+      "camposDigitados": 2,
+      "telas": 2,
+      "composicaoTempo": {
+        "leituras": 2,
+        "cliques": 3,
+        "camposDigitados": 2,
+        "rolagens": 1,
+        "cargas": 2
+      },
+      "variantes": [
+        "Aceitando os valores padrão da home (6.000/7.000, que coincidem com o cenário): 0 campos digitados.",
+        "Indo direto por “Montar meu PC” da home ou do menu “Montar PC”: 2 cliques até o resultado (sem passar pelo cartão), mas com os mesmos valores padrão.",
+        "No celular: +1 rolagem até a linha da placa de vídeo (w2-montar-mobile.png: a lista começa depois do formulário e do resumo)."
+      ],
+      "atritos": [
+        "“Montar com esse orçamento” leva a um formulário preenchido, não à montagem: sobra um clique em “Montar meu PC” e a pessoa passa pelo estado vazio (src/app/page.tsx:107-110; BuilderForm.tsx:159-166; docs/diagramas/jornada-usuario.md).",
+        "Os campos da home têm step=100: valores que não são múltiplos de 100 (ex.: 5.950) podem ser barrados pela validação nativa do navegador (src/app/page.tsx:84-87,98-101). Deduzido do código; não rodei no navegador.",
+        "No celular o painel de entradas vem antes do resultado; o foco é levado ao resumo ao montar, o que ameniza (BuildResultView.tsx:114-116; w2-montar-mobile.png).",
+        "“Ver na loja” abre em nova aba e a pessoa sai do site; o aviso para leitor de tela existe (“abre em nova aba”) e a linha mostra “lido em dd/mm hh:mm” (ButtonLink em src/components/ui/Button.tsx:86-91; BuildSummary.tsx:64-66).",
+        "Com “Só lojas confiáveis” desligado, a peça pode vir com o aviso “Preço bom demais?”, que exige uma decisão extra antes de clicar (BuildSummary.tsx:82-86)."
+      ],
+      "tempoEstimadoSeg": 43
+    },
+    {
+      "id": "comparar-peca",
+      "nome": "Descobrir se a RTX 4060 está em promoção de verdade e criar um alerta",
+      "cenario": "Pessoa leiga, sem conta, primeira visita, no desktop. O alerta exige conta: o caminho principal inclui criá-la. Mesmas convenções de contagem da tarefa 1.",
+      "passos": [
+        "Abrir / (página inicial) e rolar até “Mais procuradas”",
+        "Clicar no cartão “NVIDIA GeForce RTX 4060 8GB” (abre /peca/rtx-4060). Alternativa: digitar “rtx 4060” em “Buscar peça, marca ou categoria” + Enter e clicar o cartão em /busca",
+        "Ler “Melhor preço agora (Pix)” e a loja",
+        "Em “Comparação entre lojas”, ler cada loja: selo (Confiável / Não verificada), “Por que confiável” e os avisos “Preço bom demais?”",
+        "Rolar até “Histórico de preços” e interpretar a linha (opcional: abrir “Ver como tabela”). Não há veredito escrito sobre ser promoção de verdade",
+        "Clicar “Entre para criar um alerta de preço” (abre /entrar?next=/peca/rtx-4060)",
+        "Digitar “E-mail” e “Senha” (mínimo 6 caracteres) e clicar “Criar conta” (volta a /entrar com “Conta criada! Você já pode entrar.” e campos vazios)",
+        "Digitar “E-mail” e “Senha” de novo e clicar “Entrar” (volta a /peca/rtx-4060)",
+        "Clicar “Criar alerta de preço”; o campo “Avise-me quando NVIDIA GeForce RTX 4060 8GB custar até:” já vem com 90% do preço atual",
+        "Clicar “Salvar”. O formulário fecha e volta o botão “Criar alerta de preço”, sem mensagem de confirmação"
+      ],
+      "cliques": 6,
+      "camposDigitados": 4,
+      "telas": 3,
+      "composicaoTempo": {
+        "leituras": 5,
+        "cliques": 6,
+        "camposDigitados": 4,
+        "rolagens": 2,
+        "cargas": 4
+      },
+      "variantes": [
+        "Pessoa já logada: 3 cliques (cartão da peça, “Criar alerta de preço”, “Salvar”) e 0 campos digitados (aceitando os 90% sugeridos).",
+        "Quem só quer saber se é promoção (sem alerta): 1 clique e 0 campos."
+      ],
+      "atritos": [
+        "Não há veredito em palavras sobre “promoção de verdade”: a página só mostra o gráfico de menor preço por dia; o resumo textual vai só para leitor de tela (src/app/peca/[slug]/page.tsx:174-179; src/lib/format.ts:69-82; src/app/page.tsx:38 promete o contrário).",
+        "O histórico usa o menor preço do dia entre todas as ofertas, inclusive de lojas bloqueadas, não confiáveis e suspeitas, e pode divergir do “Melhor preço agora”; na captura o último ponto (≈ R$ 1.841) está abaixo do herói (R$ 1.899,90) sem explicação (src/services/products.ts:251-280; w2-peca.png, dados de exemplo).",
+        "Sem data/hora de leitura do preço na página da peça (só o Montador mostra “lido em”) (page.tsx:84-102; BuildSummary.tsx:64-66).",
+        "Jargão e escalas misturadas nos motivos: “mediana”, “Reclame Aqui baixo (4,9)” sem dizer que a escala vai de 0 a 10 (suspicious.ts:42; trust.ts:71).",
+        "Criar o alerta exige conta: 3 cliques de login e 4 campos digitados; depois de “Criar conta” os campos voltam vazios e é preciso digitar tudo de novo (auth/actions.ts:65; entrar/page.tsx:61-85). Ponto positivo: o ?next= volta para a própria peça (PriceAlertButton.tsx:41).",
+        "“Conta criada! Você já pode entrar.” pode ser falso se o projeto exigir confirmação de e-mail (auth/actions.ts:64-65).",
+        "Nenhuma confirmação ao salvar o alerta: a mensagem de sucesso não é renderizada e o botão volta ao estado inicial; a pessoa pode clicar de novo e criar duplicatas (PriceAlertButton.tsx:48-65; account/actions.ts:45-55).",
+        "Nenhum texto diz por qual canal e com que frequência o aviso chega (e-mail? a cada quantas horas?)."
+      ],
+      "tempoEstimadoSeg": 95
+    },
+    {
+      "id": "pagamento-misto",
+      "nome": "Descobrir quanto pagar no Pix e quanto parcelar com R$ 3.000 à vista e R$ 400/mês",
+      "cenario": "Pessoa leiga, sem conta, primeira visita, no desktop; usa a montagem padrão (6.000/7.000). Mesmas convenções de contagem da tarefa 1. O resultado exato do plano depende do catálogo do momento e não foi simulado aqui.",
+      "passos": [
+        "Abrir / (página inicial)",
+        "Clicar “Montar meu PC” (hero; abre /montar com os valores padrão 6.000 e 7.000)",
+        "Clicar “Montar meu PC” no painel de entradas",
+        "Rolar até a última seção, “Como pagar” (depois de “Peças” e “Desempenho esperado”)",
+        "No grupo “Forma de pagamento”, clicar a aba “Misturar” (as outras são “Pix (à vista)” e “Parcelado”)",
+        "Digitar 3000 (ou 3.000) em “Tenho à vista (R$)”",
+        "Digitar 400 em “Cabe por mês (R$)”",
+        "Ler os cartões “No Pix” (valor e peças) e “No cartão” (“Nx de R$ …” e “Total no cartão”) e o aviso “Cabe no seu orçamento” ou “Ainda não cabe por mês”, com as notas (“Pague R$ X no Pix (N peças) e parcele o resto em …”)"
+      ],
+      "cliques": 3,
+      "camposDigitados": 2,
+      "telas": 2,
+      "composicaoTempo": {
+        "leituras": 3,
+        "cliques": 3,
+        "camposDigitados": 2,
+        "rolagens": 2,
+        "cargas": 2
+      },
+      "variantes": [
+        "Se a pessoa digitar o próprio orçamento na home: +2 campos e +1 clique (“Montar com esse orçamento”) no lugar do primeiro “Montar meu PC”.",
+        "No celular a rolagem até “Como pagar” é bem maior (página de ~6.500 px, w2-montar-mobile.png)."
+      ],
+      "atritos": [
+        "“Como pagar” é o último bloco, sem âncora nem atalho: a pessoa passa por Peças e Desempenho (≈ 80% da altura da página no desktop) para chegar (BuildResultView.tsx:171-173; w2-montar-desktop.png).",
+        "“Misturar” não diz o que mistura (“Pix + parcelado”) e fica como terceira aba, sem destaque (PaymentPlanner.tsx:85-88).",
+        "Os campos aceitam “3.000”, “3000” e “3000,50” e mostram erro por campo em português (parseMoney; PaymentPlanner.tsx:36-42,258-272). Ponto positivo.",
+        "O resultado responde direto à pergunta: dois cartões (“No Pix”, “No cartão”) e um veredito “Cabe no seu orçamento” / “Ainda não cabe por mês: Falta R$ X por mês” (PaymentPlanner.tsx:281-306; mixed-plan.ts:136-160). Ponto positivo.",
+        "As listas “No Pix” e “No cartão” mostram nome e preço Pix da peça, sem a loja; e a tabela “Pagamento por loja” continua abaixo com totais que não são os do plano misto (PaymentPlanner.tsx:152-193,313-324).",
+        "Termos diferentes para a mesma coisa: “Pix (à vista)”, “Parcelado”, “A prazo”, “No cartão”, “Tenho à vista” (PaymentPlanner.tsx:85-88,195,258,288).",
+        "O plano não é salvo nem entra no link compartilhado: ao “Montar de novo” os valores digitados em Misturar se perdem (BuildResultView.tsx key={versao} em BuilderForm.tsx:266)."
+      ],
+      "tempoEstimadoSeg": 56
+    },
+    {
+      "id": "compartilhar-salvar",
+      "nome": "Compartilhar a montagem com um amigo e salvá-la na conta",
+      "cenario": "Pessoa leiga, sem conta, primeira visita, no desktop; começa em /montar com os valores padrão. Mesmas convenções de contagem da tarefa 1.",
+      "passos": [
+        "Abrir /montar (menu “Montar PC”)",
+        "Clicar “Montar meu PC”",
+        "No cabeçalho do resultado, clicar “Copiar link” (o botão vira “Link copiado” por ~2,5 s)",
+        "Colar o link na conversa com o amigo (fora do site). O amigo abre /montar?b=<código> e a montagem roda sozinha, com os preços de hoje",
+        "Clicar “Entre para salvar a montagem” (abre /entrar?next=/montar; a montagem não está na URL)",
+        "Digitar “E-mail” e “Senha” e clicar “Criar conta” (volta a /entrar com “Conta criada! Você já pode entrar.” e campos vazios)",
+        "Digitar “E-mail” e “Senha” de novo e clicar “Entrar” (volta a /montar com o formulário vazio: a montagem e as preferências se perderam)",
+        "Clicar “Montar meu PC” outra vez",
+        "Conferir o campo “Nome da montagem” (vem “Minha montagem”) e clicar “Salvar montagem”",
+        "Ler a confirmação “Montagem “Minha montagem” salva em Minha conta.” e, se quiser, clicar “Ver em Minha conta” (/conta, lista “Minhas montagens”)"
+      ],
+      "cliques": 7,
+      "camposDigitados": 4,
+      "telas": 2,
+      "composicaoTempo": {
+        "leituras": 4,
+        "cliques": 7,
+        "camposDigitados": 4,
+        "rolagens": 2,
+        "cargas": 6
+      },
+      "variantes": [
+        "Pessoa já logada: 4 cliques (“Montar meu PC”, “Copiar link”, “Salvar montagem”, e opcionalmente “Ver em Minha conta”) e 0 campos digitados.",
+        "Só compartilhar (sem salvar): 2 cliques (“Montar meu PC”, “Copiar link”) e 0 campos; funciona sem login.",
+        "Se a pessoa já tivesse chegado por um link ?b=, o “Entre para salvar a montagem” voltaria para a mesma montagem (SaveBuildButton.tsx:49-63)."
+      ],
+      "atritos": [
+        "Ao entrar para salvar, a montagem se perde: a URL não guarda o resultado, então a pessoa precisa montar de novo e perde uso, resolução, slider e filtro de lojas (SaveBuildButton.tsx:49-63; BuilderForm.tsx:117-130,159-166).",
+        "Pelo mesmo motivo, copiar o endereço da barra do navegador compartilha um formulário vazio; só o botão “Copiar link” gera o código ?b= (BuildResultView.tsx:30-36).",
+        "“Copiar link” funciona sem login, confirma com “Link copiado” (e aviso para leitor de tela) e tem plano B com campo para copiar à mão (BuildResultView.tsx:38-81). Ponto positivo.",
+        "O link do amigo monta sozinho e avisa o que mudou desde o envio (“Montagem compartilhada, com os preços de hoje”), com link inválido tratado (BuilderForm.tsx:70-84,243-256; e2e montar.spec.ts:127-155). Ponto positivo.",
+        "Criar conta zera os campos e promete “Você já pode entrar.” (pode exigir confirmação de e-mail) (auth/actions.ts:64-65).",
+        "O texto de /entrar fala só em alertas, não em salvar montagens (entrar/page.tsx:41-43).",
+        "Em modo de demonstração, “Entre para salvar a montagem” leva a um login “ainda não configurado” (SaveBuildButton.tsx:25-36; w2-montar-desktop.png e w2-entrar.png).",
+        "Com Supabase configurado, o bloco “Salvar montagem” aparece desabilitado até o navegador descobrir se há login e depois pode trocar para o link “Entre para salvar a montagem” (deslocamento de layout) (SaveBuildButton.tsx:26-36,102,107-111)."
+      ],
+      "tempoEstimadoSeg": 90
+    }
+  ],
+  "acessibilidade": {
+    "observacao": "Auditoria por leitura de código, contraste calculado a partir dos tokens de src/app/globals.css (fórmula WCAG) e capturas de tela. Não houve leitor de tela, teclado real, zoom nem axe/Lighthouse; tests/e2e não tem verificação de acessibilidade automatizada. “nao_avaliado” = não dá para concluir sem execução.",
+    "resumo": {
+      "atende": 13,
+      "parcial": 4,
+      "nao_atende": 1,
+      "nao_avaliado": 2
+    },
+    "criterios": [
+      {
+        "wcag": "1.1.1 Conteúdo não textual",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Ícones lucide são decorativos (aria-hidden) ao lado de texto; os dois gráficos têm role=img com aria-label e alternativa em tabela (PriceHistoryChart.tsx:35,83-123; PerformanceChart.tsx:68; PerformancePanel.tsx:120-150). Não há imagens de produto (image_url nulo, PRODUCT.md). Ressalva em 4.1.2 sobre o gráfico de barras."
+      },
+      {
+        "wcag": "1.3.1 Informações e relações",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Rótulos com htmlFor (Field.tsx:19-51), dicas/erros ligados por aria-describedby, tabelas com caption e scope (PerformancePanel.tsx:124-148,155-170; PaymentPlanner.tsx:152-163), grupos com role=radiogroup/group e aria-labelledby, seções com aria-labelledby em /conta. Ressalva: /busca salta de h1 para h3 nos cartões (busca/page.tsx:32-52; ProductCard.tsx:31)."
+      },
+      {
+        "wcag": "1.4.1 Uso de cor",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Estados usam ícone + texto (Callout.tsx; selos “Confiável / Não verificada / Bloqueada”; “Indisponível”); o gráfico de desempenho tem legenda e tabela, e o tom “parecido” (#8b8e99) também aparece como texto “· parecido” na tabela e no tooltip (PerformancePanel.tsx:141; PerformanceChart.tsx:99)."
+      },
+      {
+        "wcag": "1.4.3 Contraste (mínimo)",
+        "nivel": "AA",
+        "status": "atende",
+        "evidencia": "Calculado: texto principal #f2efe6 em base 16,7:1; ink-muted em surface 8,3:1 e em surface-2 7,6:1; ink-faint em surface 5,5:1, em surface-2 5,1:1 e em surface-3 4,5:1 (o piso, no limite); brand-ink em brand 9,8:1; good/warn/bad sobre seus fundos suaves 7,8 / 8,0 / 6,3:1; placeholder (ink-faint) em surface-2 5,1:1."
+      },
+      {
+        "wcag": "1.4.4 Redimensionar texto",
+        "nivel": "AA",
+        "status": "nao_avaliado",
+        "evidencia": "Tailwind usa rem e não há alturas fixas em texto, mas não testei zoom de 200% nem fonte maior do sistema; o cabeçalho sticky de 2 linhas no celular (~109 px) pode ocupar muito da tela com zoom."
+      },
+      {
+        "wcag": "1.4.10 Reflow",
+        "nivel": "AA",
+        "status": "atende",
+        "evidencia": "Layouts em grid/coluna única no celular; o e2e “não tem rolagem horizontal no celular” cobre /montar (tests/e2e/montar.spec.ts:66). As outras páginas foram avaliadas só por leitura do CSS (grids responsivos); a tabela de FPS e a de pagamento usam colunas ocultas no celular (hidden sm:table-cell)."
+      },
+      {
+        "wcag": "1.4.11 Contraste não textual",
+        "nivel": "AA",
+        "status": "nao_atende",
+        "evidencia": "Calculado: a borda dos campos de texto (#3a3f4d) tem 1,6:1 sobre o preenchimento (#1c1f26) e 1,7:1 sobre o cartão; o preenchimento sobre o cartão, 1,1:1; o trilho do slider fora do preenchimento, 1,7:1; o interruptor desligado, 1,2:1 (trilho) a 1,7:1 (borda), mas o polegar tem 12,8:1. Passam: anel/contorno de foco brand (9,6:1), barras dos gráficos (ênfase 9,6:1, parecido 5,5:1, contexto 3,2:1), ícones. Falha estrita nos campos de texto, slider e interruptor desligado (src/app/globals.css:16-19; Field.tsx:54-55; Toggle.tsx:41)."
+      },
+      {
+        "wcag": "2.1.1 Teclado",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Controles são <button>, <a>, <input>, <select> e <details> nativos; o controle segmentado tem roving tabindex e setas/Home/End (SegmentedControl.tsx:43-53,61,77); interruptor e abas de pagamento são botões. Gráficos têm tabela equivalente. Não testei com teclado real."
+      },
+      {
+        "wcag": "2.4.1 Pular blocos",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Primeiro item da tabulação é “Pular para o conteúdo” (#conteudo), invisível até receber foco e <main id=conteudo tabIndex=-1> (src/app/layout.tsx:26-36; visível como botão ouro em w2-montar-desktop.png). Ausente na V1."
+      },
+      {
+        "wcag": "2.4.2 Página com título",
+        "nivel": "A",
+        "status": "parcial",
+        "evidencia": "Home, /busca (“Busca: termo”), /peca (nome da peça), /montar, /entrar e /metodologia têm título próprio; /conta não exporta metadata e usa o título padrão do site (conta/page.tsx sem metadata; layout.tsx:12-15). Na V1 só /montar tinha."
+      },
+      {
+        "wcag": "2.4.3 Ordem do foco",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Ordem do DOM = ordem visual (formulário antes do resultado); depois de “Montar meu PC” o foco vai para o resumo do resultado e, em montagem vinda de link, não é movido (BuildResultView.tsx:114-116; BuilderForm.tsx:161-166). Sem modais."
+      },
+      {
+        "wcag": "2.4.4 Finalidade do link (em contexto)",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "“Ver na loja” em /montar inclui o nome da peça só para leitor de tela (BuildSummary.tsx:72-74); em /peca o contexto é o item da lista com o nome da loja. O link do cartão de peça inclui, para leitor de tela, o resumo de confiança (nome longo, mas correto) (ProductCard.tsx:23-26; StoreBadge.tsx:65)."
+      },
+      {
+        "wcag": "2.4.7 Foco visível",
+        "nivel": "AA",
+        "status": "atende",
+        "evidencia": "Contorno global de 2 px brand com 2 px de afastamento em :focus-visible (globals.css:74-77) e anel brand nos campos (Field.tsx:54-55). Os campos da home usam outline-none + focus:ring-brand/30, mas a borda vira brand (5,7:1 sobre a borda normal), então o foco continua visível, só mais fraco (page.tsx:89,103)."
+      },
+      {
+        "wcag": "2.4.11 Foco não obscurecido (mínimo)",
+        "nivel": "AA",
+        "status": "nao_avaliado",
+        "evidencia": "Risco no código: o cabeçalho é sticky (65 px no desktop, ~109 px no celular) e não há scroll-padding-top no html (grep em src: só scroll-mt no <main> e no resumo do resultado). Ao voltar com Shift+Tab, um campo pode ficar sob o cabeçalho. Não testei no navegador."
+      },
+      {
+        "wcag": "2.5.8 Tamanho do alvo (mínimo)",
+        "nivel": "AA",
+        "status": "atende",
+        "evidencia": "Botões sm têm 32 px de altura, md 40 px, lg 48 px (Button.tsx:27-29); interruptor 44×24 px (Toggle.tsx:41); opções segmentadas min-h-8 (32 px); links do rodapé são texto em linha com 16 px de espaço entre eles. Todos ≥ 24 px ou isentos por espaçamento."
+      },
+      {
+        "wcag": "3.1.1 Idioma da página",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "<html lang=\"pt-BR\"> (src/app/layout.tsx:22)."
+      },
+      {
+        "wcag": "3.3.1 Identificação de erro",
+        "nivel": "A",
+        "status": "parcial",
+        "evidencia": "Em /montar o erro vem em texto, ligado ao campo (aria-invalid, aria-describedby, role=alert) (Field.tsx:19-51; MoneyInput em Field.tsx:64-84; PaymentPlanner.tsx:36-42). Gaps: o campo “custar até” do alerta não tem aria-invalid nem erro ligado (PriceAlertButton.tsx:78-85,92-96); /entrar mostra o erro num Callout no topo, não nos campos (entrar/page.tsx:50-54); os campos da home não explicam erros (validação nativa)."
+      },
+      {
+        "wcag": "3.3.2 Rótulos ou instruções",
+        "nivel": "A",
+        "status": "atende",
+        "evidencia": "Todos os campos têm rótulo visível (home, /montar, /entrar, alerta, nome da montagem, número de parcelas); a busca do cabeçalho tem aria-label e ícone, sem rótulo visível (SearchBar.tsx:36-43), o que é convenção aceita. Ressalva de /entrar: a instrução “mínimo 6 caracteres” é só placeholder (entrar/page.tsx:75)."
+      },
+      {
+        "wcag": "4.1.2 Nome, função, valor",
+        "nivel": "A",
+        "status": "parcial",
+        "evidencia": "Bom: interruptor com role=switch + aria-checked, segmentado com role=radio, abas de pagamento com aria-pressed, slider com aria-valuetext, botões com aria-busy. Falha verificada: o BarChart de PerformanceChart.tsx:70 não desliga accessibilityLayer; no Recharts 3.8.1 o padrão é true e o <svg> sai com tabIndex=0 e role=\"application\" (node_modules/recharts/es6/container/RootSurface.js:42-52) dentro de um <div role=img>: elemento focável dentro de imagem e um tabstop sem rótulo próprio. O PriceHistoryChart já resolve isso com accessibilityLayer={false} (PriceHistoryChart.tsx:33-37)."
+      },
+      {
+        "wcag": "4.1.3 Mensagens de status",
+        "nivel": "AA",
+        "status": "parcial",
+        "evidencia": "Callouts têm role=status/alert (Callout.tsx:28); “Link copiado” (BuildResultView.tsx:65), o retorno de “Salvar montagem” e de “Criar alerta” da montagem usam aria-live (SaveBuildButton.tsx:122,175); o esqueleto tem role=status e o resultado recebe foco. Lacuna: o sucesso do alerta de preço nunca é renderizado, nem visualmente nem para leitor de tela (PriceAlertButton.tsx:48-55,92-96)."
+      }
+    ]
+  },
+  "clarezaTextos": [
+    {
+      "tela": "home",
+      "trecho": "Escolha o estilo — Só lojas confiáveis? Mais desempenho ou mais visual? Dois controles, sem jargão.",
+      "problema": "ambíguo",
+      "onde": "src/app/page.tsx:27-29",
+      "sugestao": "Desatualizado: o Montador tem quatro controles. “Escolha o uso e o estilo: para que vai usar, resolução, só lojas confiáveis e desempenho ou visual.”"
+    },
+    {
+      "tela": "home",
+      "trecho": "Um valor que você quer gastar e um teto que não passa. A folga entre os dois só é usada se valer a pena.",
+      "problema": "ok",
+      "onde": "src/app/page.tsx:24",
+      "sugestao": "Manter: explica teto e folga em uma frase. Opcional: exemplo numérico (“ex.: 6 mil, no máximo 7 mil”)."
+    },
+    {
+      "tela": "home",
+      "trecho": "Monte seu PC gamer pelo preço certo, sem cair em golpe.",
+      "problema": "ok",
+      "onde": "src/app/page.tsx:52-54",
+      "sugestao": "Manter: promessa direta, na linguagem do público."
+    },
+    {
+      "tela": "home",
+      "trecho": "O gráfico mostra se a promoção é de verdade ou preço inflado.",
+      "problema": "ambíguo",
+      "onde": "src/app/page.tsx:38",
+      "sugestao": "A tela da peça não entrega esse veredito em texto. Ou escrever o veredito (“menor preço dos últimos 90 dias”) ou ajustar a promessa."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Teto menor que o alvo: vamos considerar o teto igual ao alvo (sem folga).",
+      "problema": "ok",
+      "onde": "src/components/builder/BuilderForm.tsx:185",
+      "sugestao": "Manter: diz o problema e o que o site vai fazer."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Folga de R$ 1.000,00, usada só se destravar uma peça bem melhor.",
+      "problema": "ok",
+      "onde": "src/components/builder/BuilderForm.tsx:187",
+      "sugestao": "Manter: dica dinâmica com o valor calculado."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Lojas oficiais com nota 4,5 ou mais e sem reclamações graves. Desligue para ver ofertas de marketplaces (avisamos se o preço for bom demais).",
+      "problema": "jargão",
+      "onde": "src/components/builder/BuilderForm.tsx:218",
+      "sugestao": "“Só lojas oficiais, com nota 4,5 ou mais. Desligue para ver também lojas de terceiros, que costumam ser mais baratas e mais arriscadas (avisamos se o preço parecer bom demais).”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Em cada categoria, escolhemos a melhor peça que cabe e combina com as outras (socket, memória, fonte, gabinete).",
+      "problema": "jargão",
+      "onde": "src/components/builder/BuilderForm.tsx:314",
+      "sugestao": "“… que combina com as outras (encaixe do processador, tipo de memória, potência da fonte, tamanho do gabinete).”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Usou a folga",
+      "problema": "ambíguo",
+      "onde": "src/components/builder/BuildResultView.tsx:25",
+      "sugestao": "Selo em tom neutro com o valor: “Usou R$ 799 da folga (acima do alvo, dentro do teto)”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Alvo R$ 6.000,00 · Teto R$ 7.000,00 · Sobra R$ 200,70",
+      "problema": "ambíguo",
+      "onde": "src/components/builder/BuildResultView.tsx:134",
+      "sugestao": "“Sobra” de quê? É o que falta para o teto (7.000 − 6.799,30). “Ainda cabem R$ 200,70 até o teto.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "ou R$ 7.615,23 parcelado",
+      "problema": "ambíguo",
+      "onde": "src/components/builder/BuildResultView.tsx:141",
+      "sugestao": "Sem número de parcelas nem base: “ou R$ 7.615,23 a prazo (preço parcelado das lojas)”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Subimos a placa de vídeo: NVIDIA GeForce RTX 4060 8GB → AMD Radeon RX 7700 XT 12GB, por mais R$ 1.100,00 (+42% de desempenho).",
+      "problema": "ok",
+      "onde": "src/services/builder/auto-build.ts:537-545; w2-montar-desktop.png",
+      "sugestao": "Manter: troca, custo e ganho em uma frase."
+    },
+    {
+      "tela": "montar",
+      "trecho": "No total, as trocas usaram R$ 799,30 da folga (acima do alvo, dentro do teto); o resto veio do que sobrou dentro do alvo.",
+      "problema": "longo",
+      "onde": "src/services/builder/auto-build.ts:635; w2-montar-desktop.png",
+      "sugestao": "Mistura três números (1.100, 799,30 e a sobra). “A troca custou R$ 1.100: R$ 300,70 vieram do que sobrou do alvo e R$ 799,30 da folga.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Comparado com computadores de referência. Estimativa: o resultado real varia com jogo, drivers e configurações.",
+      "problema": "jargão",
+      "onde": "src/components/builder/PerformancePanel.tsx:68",
+      "sugestao": "“… varia com o jogo, os ajustes gráficos e as atualizações da placa de vídeo.” A honestidade do aviso é boa; só “drivers” não é do vocabulário leigo."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Índice GarimpoPC 127",
+      "problema": "jargão",
+      "onde": "src/components/builder/PerformancePanel.tsx:73-74",
+      "sugestao": "Número sem escala. “Nota GarimpoPC: 127 (100 = RTX 4060 + Ryzen 5 7600; quanto maior, melhor)”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "FPS médio estimado — Jogos AAA médios (GTA V, Elden Ring, Forza Horizon 5)",
+      "problema": "jargão",
+      "onde": "src/components/builder/PerformancePanel.tsx:154,175-176",
+      "sugestao": "Os exemplos de jogos ajudam. Acrescentar “FPS = quadros por segundo; acima de 60, o jogo roda fluido” e trocar “AAA” por “jogos grandes”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Com FSR, os FPS podem subir bastante em 1440p. As estimativas não contam esse ganho.",
+      "problema": "jargão",
+      "onde": "src/services/builder/performance.ts:210-227; w2-montar-desktop.png",
+      "sugestao": "“Com a tecnologia FSR (que ajuda o jogo a rodar mais leve), o jogo pode ficar mais fluido em Quad HD; a estimativa não conta esse ganho.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "16 GB de memória: jogos pesados podem engasgar; 32 GB dá folga. Já descontamos 8% dos FPS de jogos AAA pesados.",
+      "problema": "ambíguo",
+      "onde": "src/services/builder/performance.ts (notaDeMemoria); w2-montar-desktop.png",
+      "sugestao": "“Folga” já significa a folga do orçamento na mesma tela. “32 GB deixa o PC mais tranquilo.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Misturar",
+      "problema": "ambíguo",
+      "onde": "src/components/builder/PaymentPlanner.tsx:88",
+      "sugestao": "“Pix + parcelado”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Vai para o Pix, começando pelas peças que mais encarecem no cartão.",
+      "problema": "ok",
+      "onde": "src/components/builder/PaymentPlanner.tsx:260",
+      "sugestao": "Manter: explica a regra do plano misto em uma linha."
+    },
+    {
+      "tela": "montar",
+      "trecho": "A prazo é o preço parcelado que a loja anuncia (maior que o Pix). Juros acima dele aparecem como acréscimo.",
+      "problema": "longo",
+      "onde": "src/components/builder/PaymentPlanner.tsx:195",
+      "sugestao": "Três nomes para o mesmo conceito (“A prazo”, “Parcelado”, “No cartão”). Padronizar em “Parcelado” e dizer: “Parcelado custa um pouco mais que o Pix; se a loja cobrar juros além disso, mostramos como acréscimo.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Você economiza R$ 815,93 em relação a 6x no cartão, o parcelado mais barato.",
+      "problema": "ok",
+      "onde": "src/components/builder/PaymentPlanner.tsx:96-100; w2-montar-desktop.png",
+      "sugestao": "Manter: benefício em reais e a base da comparação."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Orçamento insuficiente: a montagem mais barata compatível custa R$ 4.699,30. Suba o teto ou desative “Só lojas confiáveis”.",
+      "problema": "ok",
+      "onde": "src/services/builder/auto-build.ts:589-593; docs/diagramas/jornada-usuario.md",
+      "sugestao": "Manter: problema + valor + saída. Acrescentar botões de ação."
+    },
+    {
+      "tela": "montar",
+      "trecho": "Não encontramos uma combinação compatível de peças no catálogo atual.",
+      "problema": "ambíguo",
+      "onde": "src/services/builder/auto-build.ts:587",
+      "sugestao": "Sem saída. “… Tente aumentar o teto ou desligar ‘Só lojas confiáveis’.”"
+    },
+    {
+      "tela": "montar",
+      "trecho": "Baixar lista (CSV)",
+      "problema": "jargão",
+      "onde": "src/components/builder/BuildResultView.tsx:149",
+      "sugestao": "“Baixar lista de compras (planilha)”."
+    },
+    {
+      "tela": "montar",
+      "trecho": "O banco não tem a tabela part_specs preenchida, então nenhuma peça entra na montagem. Rode npm run collect:specs (ver docs/COLETA-SPECS.md).",
+      "problema": "jargão",
+      "onde": "src/app/montar/page.tsx:57-62",
+      "sugestao": "Texto de operador exposto ao público. “Estamos atualizando as especificações das peças. Volte em instantes.” e deixar o comando só no log/README."
+    },
+    {
+      "tela": "montar",
+      "trecho": "O banco de dados não tem peças. Rode os scripts da pasta supabase/ (ver README).",
+      "problema": "jargão",
+      "onde": "src/app/montar/page.tsx:64-67",
+      "sugestao": "“O catálogo está vazio no momento. Volte em instantes.”"
+    },
+    {
+      "tela": "peca",
+      "trecho": "27% abaixo da mediana das lojas confiáveis (R$ 1.914,90): confira se a loja existe mesmo antes de pagar",
+      "problema": "jargão",
+      "onde": "src/services/builder/suspicious.ts:42; w2-peca.png",
+      "sugestao": "“27% mais barato que o preço típico das lojas confiáveis (R$ 1.914,90). Preço assim aparece em golpes: confira se a loja existe antes de pagar.”"
+    },
+    {
+      "tela": "peca",
+      "trecho": "Reclame Aqui baixo (4,9)",
+      "problema": "ambíguo",
+      "onde": "src/services/builder/trust.ts:71; w2-peca.png",
+      "sugestao": "Escala de 0 a 10 não dita. “Reclame Aqui: 4,9 de 10 (o mínimo para confiável é 6)”."
+    },
+    {
+      "tela": "peca",
+      "trecho": "Loja bloqueada por denúncias — Não recomendamos comprar aqui: por isso não mostramos o botão da loja e ela não entra no melhor preço.",
+      "problema": "ok",
+      "onde": "src/app/peca/[slug]/page.tsx:158-160",
+      "sugestao": "Manter: diz o problema e a consequência."
+    },
+    {
+      "tela": "peca",
+      "trecho": "Avise-me quando NVIDIA GeForce RTX 4060 8GB custar até:",
+      "problema": "ok",
+      "onde": "src/components/PriceAlertButton.tsx:70-72",
+      "sugestao": "Manter. Acrescentar o canal: “… avisamos por e-mail.”"
+    },
+    {
+      "tela": "entrar",
+      "trecho": "Crie uma conta para receber alertas quando o preço de uma peça cair.",
+      "problema": "ambíguo",
+      "onde": "src/app/entrar/page.tsx:41-43",
+      "sugestao": "Desatualizado: a conta também salva montagens, e o canal do alerta não é dito. “Crie uma conta para salvar suas montagens e receber um e-mail quando o preço cair.”"
+    },
+    {
+      "tela": "entrar",
+      "trecho": "Conta criada! Você já pode entrar.",
+      "problema": "ambíguo",
+      "onde": "src/app/auth/actions.ts:65",
+      "sugestao": "Pode ser falso com confirmação de e-mail. “Conta criada! Se pedirmos confirmação, o link foi para o seu e-mail; depois é só entrar.”"
+    },
+    {
+      "tela": "entrar",
+      "trecho": "O login ainda não está configurado (banco de dados ausente).",
+      "problema": "jargão",
+      "onde": "src/app/entrar/page.tsx:45-49; w2-entrar.png",
+      "sugestao": "“O login não está disponível nesta versão de demonstração.”"
+    },
+    {
+      "tela": "conta",
+      "trecho": "Você ainda não salvou nenhuma montagem. Monte um PC e clique em “Salvar montagem”.",
+      "problema": "ok",
+      "onde": "src/app/conta/page.tsx:147-153",
+      "sugestao": "Manter: estado vazio que ensina o próximo passo, com link."
+    },
+    {
+      "tela": "conta",
+      "trecho": "Avisar quando a montagem custar até  + botão “Criar alerta” (também quando o alerta já existe)",
+      "problema": "ambíguo",
+      "onde": "src/components/builder/SaveBuildButton.tsx:164-172; src/app/account/actions.ts:193-195",
+      "sugestao": "Quando já existe alerta a ação o atualiza: rótulo “Atualizar alerta”."
+    },
+    {
+      "tela": "metodologia",
+      "trecho": "Achamos as duas referências que “cercam” o seu índice e fazemos uma média ponderada pela distância (interpolação linear).",
+      "problema": "jargão",
+      "onde": "docs/METODOLOGIA-DESEMPENHO.md §3",
+      "sugestao": "“Pegamos os dois PCs de referência mais próximos do seu (um abaixo e um acima) e calculamos um valor no meio do caminho.”"
+    },
+    {
+      "tela": "metodologia",
+      "trecho": "O campo `measuredAt` no código guarda esse mês de referência; apesar do nome, não é data de medição.",
+      "problema": "jargão",
+      "onde": "docs/METODOLOGIA-DESEMPENHO.md §2",
+      "sugestao": "Texto de desenvolvedor na página pública. Remover (e a seção “7. Onde isso está no código”)."
+    },
+    {
+      "tela": "metodologia",
+      "trecho": "Isto é uma estimativa, não um teste: a GarimpoPC não mediu nenhum FPS.",
+      "problema": "ok",
+      "onde": "docs/METODOLOGIA-DESEMPENHO.md (abertura); w2-metodologia.png",
+      "sugestao": "Manter: honesto, direto e na voz da marca."
+    },
+    {
+      "tela": "busca",
+      "trecho": "Nenhuma peça encontrada para “…”. Tente outro termo (ex.: “RTX”, “Ryzen”, “SSD”) ou veja todas as peças.",
+      "problema": "ok",
+      "onde": "src/app/busca/page.tsx:54-63",
+      "sugestao": "Manter; tornar os exemplos clicáveis."
+    }
+  ],
+  "comparativoV1V2": [
+    {
+      "aspecto": "Avisos de preço suspeito",
+      "v1": "Ausente: marketplace 3,8★ aparece como “Menor preço” na peça e como preço do cartão na home, sem aviso",
+      "v2": "“Preço bom demais?” por oferta, no herói da peça, nos cartões e nas peças do Montador; fica fora do “Melhor preço”",
+      "impacto": "alto",
+      "evidencia": "peca-desktop.png e home-desktop.png (V1) × w2-peca.png (V2); src/services/builder/suspicious.ts; src/lib/format.ts:34-52"
+    },
+    {
+      "aspecto": "Rótulo de confiança da loja",
+      "v1": "Pela nota: “Razoável” / “Muito confiável” (um marketplace não oficial podia sair “Razoável”)",
+      "v2": "“Confiável / Não verificada / Bloqueada” por régua única (oficial + nota + Reclame Aqui) e motivos visíveis por loja (“Por que confiável”)",
+      "impacto": "alto",
+      "evidencia": "peca-desktop.png × w2-peca.png; src/components/StoreBadge.tsx; trust.ts:48-82"
+    },
+    {
+      "aspecto": "Loja bloqueada",
+      "v1": "Sem conceito de bloqueio na tela da peça (nenhuma referência a blocked)",
+      "v2": "Selo “Bloqueada”, aviso “Loja bloqueada por denúncias”, sem botão “Ver na loja” e fora do melhor preço",
+      "impacto": "alto",
+      "evidencia": "git show 0a8b6a5:src/app/peca/[slug]/page.tsx (sem 'blocked') × src/app/peca/[slug]/page.tsx:149-166"
+    },
+    {
+      "aspecto": "Entradas do Montador",
+      "v1": "Orçamento, teto, “Só lojas confiáveis” e slider",
+      "v2": "Mais “Para que você vai usar?” (Jogos/Trabalho/Criação) e “Resolução do monitor”, validação por campo e leitura de “6.000”/“6000,50”",
+      "impacto": "médio",
+      "evidencia": "montar-desktop.png × w2-montar-desktop.png; BuilderForm.tsx:176-229; src/lib/money.ts"
+    },
+    {
+      "aspecto": "Estados do resultado do Montador",
+      "v1": "Resultado a 60% de opacidade e aria-live durante o cálculo",
+      "v2": "Esqueleto de 7 linhas, aria-busy, foco movido para o resumo e erro com motivo e saída",
+      "impacto": "médio",
+      "evidencia": "git show 0a8b6a5:src/components/builder/BuilderForm.tsx (sem Skeleton) × BuilderForm.tsx:242,276-301; BuildResultView.tsx:114-116"
+    },
+    {
+      "aspecto": "Explicação da montagem (“Como chegamos aqui”)",
+      "v1": "Uma nota (“Usou R$ 849,30 da folga para subir placa de vídeo…”)",
+      "v2": "Nota por troca com custo e ganho percentual, total da folga usada, peças ignoradas por falta de especificação",
+      "impacto": "médio",
+      "evidencia": "montar-desktop.png × w2-montar-desktop.png; auto-build.ts:537-545,609-653"
+    },
+    {
+      "aspecto": "Desempenho esperado",
+      "v1": "7 PCs de referência ilustrativos, gráfico e FPS em 2 resoluções, sem fonte nem data",
+      "v2": "12 PCs de referência, “PCs parecidos com o seu”, tabela equivalente, FPS com a resolução escolhida em destaque, aviso de memória/upscaling, fontes e mês e link de metodologia",
+      "impacto": "alto",
+      "evidencia": "montar-desktop.png × w2-montar-desktop.png; PerformancePanel.tsx:66-218"
+    },
+    {
+      "aspecto": "Página de metodologia",
+      "v1": "Ausente",
+      "v2": "/metodologia com fontes, margem de erro, mês de referência e limites (ainda com trechos de desenvolvedor e sem link no cabeçalho/rodapé)",
+      "impacto": "médio",
+      "evidencia": "w2-metodologia.png; src/app/metodologia/page.tsx"
+    },
+    {
+      "aspecto": "Pagamento",
+      "v1": "Pix × Parcelado (10x fixo por loja) e “você economiza”",
+      "v2": "Faixas de parcelas, acréscimo por loja (“sem acréscimo até 12x”), economia sobre o parcelado mais barato e aba Misturar (Pix + cartão com “Cabe por mês”)",
+      "impacto": "alto",
+      "evidencia": "montar-desktop.png × w2-montar-desktop.png; PaymentPlanner.tsx:78-306"
+    },
+    {
+      "aspecto": "Salvar e compartilhar a montagem",
+      "v1": "Ausente",
+      "v2": "“Copiar link” (?b=), “Baixar lista (CSV)”, “Salvar montagem”, “Minhas montagens” e alerta da montagem inteira em /conta (a montagem se perde ao entrar para salvar)",
+      "impacto": "alto",
+      "evidencia": "montar-desktop.png × w2-montar-desktop.png; BuildResultView.tsx:144-151; conta/page.tsx:138-227"
+    },
+    {
+      "aspecto": "Retorno depois do login",
+      "v1": "Sempre vai para /conta",
+      "v2": "?next= devolve à peça ou ao Montador (só caminhos internos)",
+      "impacto": "médio",
+      "evidencia": "git show 0a8b6a5:src/app/auth/actions.ts (redirect('/conta')) × src/app/auth/actions.ts:20-29,49"
+    },
+    {
+      "aspecto": "Alertas em /conta",
+      "v1": "Lista de alertas ativos com “Remover”",
+      "v2": "“avisado em DD/MM”, “Reativar”, rótulo do “Remover” com o nome da peça, alertas de montagem e erros por código",
+      "impacto": "médio",
+      "evidencia": "src/app/conta/page.tsx:37-41,55-76,191-214,264-288 (V1: git show 0a8b6a5:src/app/conta/page.tsx)"
+    },
+    {
+      "aspecto": "Gráficos acessíveis",
+      "v1": "Gráficos sem resumo em texto nem tabela alternativa",
+      "v2": "role=img com resumo e tabela “Ver como tabela”/<details> (o BarChart ainda tem um tabstop extra)",
+      "impacto": "médio",
+      "evidencia": "git show 0a8b6a5:src/components/PriceHistoryChart.tsx (sem role/details) × PriceHistoryChart.tsx:35,83-123; PerformanceChart.tsx:68-70"
+    },
+    {
+      "aspecto": "Navegação por teclado e leitor de tela",
+      "v1": "Sem “Pular para o conteúdo” e sem aria-current no menu",
+      "v2": "Skip link, <main id=conteudo>, aria-current=page no menu, foco movido ao resultado",
+      "impacto": "médio",
+      "evidencia": "git show 0a8b6a5:src/app/layout.tsx (sem 'Pular') × src/app/layout.tsx:26-36; src/components/NavLinks.tsx:29"
+    },
+    {
+      "aspecto": "Título por página",
+      "v1": "Só /montar tinha título próprio",
+      "v2": "Todas, exceto /conta",
+      "impacto": "baixo",
+      "evidencia": "git show 0a8b6a5 (contagem de 'metadata' por página) × grep de metadata em src/app"
+    },
+    {
+      "aspecto": "Página inicial",
+      "v1": "Hero + cartão de orçamento + passos + mais procuradas",
+      "v2": "Praticamente igual; a cópia “Dois controles” ficou desatualizada",
+      "impacto": "baixo",
+      "evidencia": "home-desktop.png (V1) × w2-home-mobile.png (V2); src/app/page.tsx:27-29"
+    },
+    {
+      "aspecto": "Confirmação do alerta de preço",
+      "v1": "Mensagem de sucesso nunca aparece (formulário fecha)",
+      "v2": "Igual: defeito herdado e não corrigido",
+      "impacto": "alto",
+      "evidencia": "git show 0a8b6a5:src/components/PriceAlertButton.tsx (setAberto(false) no sucesso) × PriceAlertButton.tsx:48-65"
+    }
+  ],
+  "resumo": {
+    "mediaGeral": 2.64,
+    "melhorTela": "Início (/), 2.8; empate com Minha conta (/conta), desempatado pela nota 4 em correspondência com o mundo real",
+    "piorTela": "Entrar / Criar conta (/entrar), 2.4",
+    "mediaPorHeuristica": {
+      "visibilidade_status": 2.43,
+      "correspondencia_mundo_real": 2.57,
+      "controle_liberdade": 2.43,
+      "consistencia_padroes": 3,
+      "prevencao_erros": 2.71,
+      "reconhecimento_vs_lembranca": 2.86,
+      "flexibilidade_eficiencia": 2.43,
+      "estetica_minimalismo": 2.86,
+      "recuperacao_erros": 2.71,
+      "ajuda_documentacao": 2.43
+    },
+    "problemasPorSeveridade": {
+      "1": 19,
+      "2": 22,
+      "3": 3,
+      "4": 0
+    },
+    "top5Problemas": [
+      {
+        "tela": "montar",
+        "severidade": 3,
+        "descricao": "Salvar a montagem exige entrar e a montagem se perde: a URL não guarda o resultado, então depois do login a pessoa monta de novo e perde uso, resolução, slider e filtro (o mesmo acontece ao atualizar a página).",
+        "evidencia": "src/components/builder/SaveBuildButton.tsx:49-63; src/components/builder/BuilderForm.tsx:117-130,159-166"
+      },
+      {
+        "tela": "peca",
+        "severidade": 3,
+        "descricao": "O alerta de preço é salvo sem nenhuma confirmação: o formulário fecha, a mensagem de sucesso nunca é exibida e dá para criar alertas duplicados (defeito herdado da V1).",
+        "evidencia": "src/components/PriceAlertButton.tsx:48-65,92-96; src/app/account/actions.ts:45-55"
+      },
+      {
+        "tela": "entrar",
+        "severidade": 3,
+        "descricao": "Não há recuperação de senha; erros não mapeados (como e-mail não confirmado) caem em “Não foi possível concluir. Tente novamente.”.",
+        "evidencia": "src/app/entrar/page.tsx:61-85; src/app/auth/actions.ts:77-83"
+      },
+      {
+        "tela": "peca",
+        "severidade": 2,
+        "descricao": "“É promoção de verdade?” só tem o gráfico como resposta (sem veredito em texto) e o histórico agrega ofertas de lojas bloqueadas, não confiáveis e suspeitas.",
+        "evidencia": "src/app/peca/[slug]/page.tsx:174-179; src/services/products.ts:251-280; w2-peca.png"
+      },
+      {
+        "tela": "montar",
+        "severidade": 2,
+        "descricao": "“Como pagar”, onde fica a aba “Misturar”, é o último bloco de uma página de 4.000 a 6.500 px, sem atalho; quem só quer saber o que pagar no Pix e o que parcelar rola tudo.",
+        "evidencia": "src/components/builder/BuildResultView.tsx:171-173; w2-montar-desktop.png; w2-montar-mobile.png"
+      }
+    ],
+    "top5Fortes": [
+      "Anti-golpe visível: régua única de confiança com motivos por loja, “Preço bom demais?” por oferta, loja bloqueada sem botão e melhor preço que ignora oferta suspeita (peca/page.tsx:104-172; ProductCard.tsx:36-48; BuildSummary.tsx:47-50,82-86).",
+      "Estados do Montador exemplares: vazio que ensina, esqueleto de carregamento, erro com motivo e saída, e foco levado ao resumo (BuilderForm.tsx:242,258-325; BuildResultView.tsx:114-116).",
+      "Estimativa de desempenho honesta e rastreável: rotulada como estimativa, com PCs parecidos, tabela equivalente ao gráfico, fonte, mês e página de metodologia (PerformancePanel.tsx:66-218; w2-metodologia.png).",
+      "Pagamento à brasileira com decisão pronta: Pix × Parcelado × Misturar, acréscimo por loja e veredito “Cabe no seu orçamento” (PaymentPlanner.tsx:78-306; mixed-plan.ts:136-160).",
+      "Base de acessibilidade sólida: skip link, foco no resultado, aria-current, radiogroup/switch nativos, gráficos com tabela, contraste de texto ≥ 4,5:1 e prefers-reduced-motion (layout.tsx:26-36; Toggle.tsx; SegmentedControl.tsx; globals.css:74-77,171-181)."
+    ]
+  }
+}
