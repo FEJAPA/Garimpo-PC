@@ -34,6 +34,8 @@ de lojas confiáveis, mostra o desempenho esperado e como pagar (Pix ou parcelad
    de comparáveis, FPS estimado por tipo de jogo e o plano de pagamento por loja.
 
 Especificação completa: `docs/superpowers/specs/2026-11-04-montador-de-pc-design.md`.
+Diagramas (jornada, mapa de telas, algoritmo do Montador, pagamento, arquitetura e fluxo de dados):
+[docs/diagramas/README.md](docs/diagramas/README.md).
 Os índices de desempenho e os PCs de referência da V1 são **ilustrativos** (ver `TODO(V2-…)` no código).
 
 ## Tecnologias
