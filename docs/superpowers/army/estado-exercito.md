@@ -50,6 +50,23 @@ Correções-Desempenho (sonnet/xhigh), Correções-Confiança-A11y (sonnet/xhigh
 Fundação feita pelo Comandante: BuildContext, SavedBuild, InstallmentPlan.schedule, PaymentSummary.bestInstallment,
 BuildSuccess.upgrades/ignored em builder-types.ts; src/lib/chart-colors.ts; regra de dados ilustrativos no AGENTS.md.
 
+## Portão 2 + Revisão Fable (CONCLUÍDOS 2026-11-04 ~18:10 UTC)
+- Tranquilo: APROVADA COM CORREÇÕES (portao2-tranquilo.md, 11 itens T-1..T-11).
+- Rigoroso: APROVADA COM CORREÇÕES (portao2-rigoroso.md, S-01..S-25; 0 violações de invariantes em 432 + 3.420 montagens; build/e2e PASS).
+- Revisor Fable (xhigh): sem bloqueador; 2 altos, 6 médios, 15 baixos (revisao-fable.md, F-01..F-23).
+- Porcos-Trufeiros 2 e Avaliador de Usabilidade: em andamento (entram na revisão final / página de usabilidade).
+
+## Rodada final de correções (Opus xhigh) — iniciada 2026-11-04 ~18:15 UTC
+| Grupo | Arquivos (dono único) | Itens |
+|---|---|---|
+| G1 Dinheiro | lib/money, payments, mixed-plan, installment-tables, seed-payments, PaymentPlanner, lib/share, BuildSummary | S-01/F-14/T-3, S-03/T-1, S-04, S-04b, S-05, S-06, F-11, F-12, F-13, T-5 |
+| G2 Algoritmo+form | auto-build, compatibility, scoring, BuilderForm, BuildResultView, montar/page, app/page, ui/Field | F-01, F-02, F-04, S-02, S-09, S-10/F-17, S-25, S-08/F-03/T-2, T-4, T-6, F-18, F-10b, S-20, F-19b |
+| G3 Desempenho+peça | references, PerformanceChart, PerformancePanel, METODOLOGIA, metodologia/page, peca/[slug] | S-07/F-07/T-9, F-05, S-12/F-15/T-10, S-24/T-7, S-13 |
+| G4 Conta/confiança/catálogo | products, trust, StoreBadge, ProductCard, entrar, auth/actions, conta, SaveBuildButton, account/actions, check-alerts, email, schema-auth, schema-builder, schema | S-17, S-14, S-21, S-22, S-15/F-10, S-11/T-8, F-23, F-20, S-18, F-16 |
+| G6 Docs | docs/diagramas, spec, plano, README, PENDENCIAS-POS-V2 | S-19/F-06, S-23/F-08, F-09 |
+| G7 E2E+CI | tests/e2e, next.config | S-16/F-19a/T-11, F-22 (HSTS) |
+Adiados para a V3: F-21 (catálogo como prop), F-22 (CSP com nonce), SEG-06, DAD-01.
+
 ## Flags abertas
 - R-14 (e2e para filtro desligado, preço suspeito, faixas do parcelado): depois de F e B.
 - A4 (categoria cooler): fora da V2 desta sessão.

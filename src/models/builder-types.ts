@@ -123,6 +123,11 @@ export type StorePayment = {
   installmentCount: number;
   /** Tabela de juros da loja, quando conhecida (V2, pacote E). */
   interestTable?: InstallmentRate[];
+  /**
+   * Menor número de parcelas anunciado pelas ofertas desta loja (rodada final, S-03): até ele
+   * vale o preço a prazo da oferta; a tabela de juros só decide acima disso.
+   */
+  offersInstallmentCount?: number;
 };
 
 export type PaymentSummary = {
