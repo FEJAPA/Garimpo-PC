@@ -49,6 +49,7 @@ de lojas confiáveis, mostra o desempenho esperado e como pagar (Pix, parcelado 
    No parcelado, vale o preço a prazo que a loja anuncia, e juros só aparecem acima disso.
 
 Especificação completa: `docs/superpowers/specs/2026-11-04-montador-de-pc-design.md`.
+Como o agent army foi usado (papéis por modelo, ciclo e prompts reutilizáveis): [docs/PLAYBOOK-AGENT-ARMY.md](docs/PLAYBOOK-AGENT-ARMY.md).
 Diagramas (jornada, mapa de telas, algoritmo do Montador, pagamento, arquitetura e fluxo de dados):
 [docs/diagramas/README.md](docs/diagramas/README.md).
 Os índices de desempenho e os PCs de referência são **estimativas** (nada foi medido pela
